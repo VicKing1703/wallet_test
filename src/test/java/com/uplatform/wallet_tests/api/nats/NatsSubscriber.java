@@ -25,6 +25,8 @@ import java.time.ZonedDateTime;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 
 @Slf4j
@@ -77,6 +79,17 @@ class NatsSubscriber {
         return future;
     }
 
+    <T> CompletableFuture<NatsMessage<T>> findUniqueMessageAsync(String subject,
+                                                                 Class<T> messageType,
+                                                                 BiPredicate<T, String> filter) {
+        CompletableFuture<NatsMessage<T>> future = new CompletableFuture<>();
+        String logPrefix = String.format("NATS SEARCH UNIQUE [%s -> %s]", this.streamName, subject);
+
+        retryUntilUniqueSubscribed(subject, messageType, filter, future, logPrefix);
+
+        return future;
+    }
+
     private <T> Dispatcher startSubscription(String subject,
                                              Class<T> messageType,
                                              BiPredicate<T, String> filter,
@@ -96,6 +109,27 @@ class NatsSubscriber {
         return dispatcher;
     }
 
+    private <T> Dispatcher startUniqueSubscription(String subject,
+                                                   Class<T> messageType,
+                                                   BiPredicate<T, String> filter,
+                                                   CompletableFuture<NatsMessage<T>> future,
+                                                   String logPrefix) throws IOException, JetStreamApiException {
+        Dispatcher dispatcher = nc.createDispatcher();
+        JavaType javaType = objectMapper.getTypeFactory().constructType(messageType);
+        final Dispatcher dispatcherRef = dispatcher;
+        final Subscription[] subHolder = new Subscription[1];
+        final AtomicReference<NatsMessage<T>> resultRef = new AtomicReference<>();
+        final AtomicBoolean duplicateFound = new AtomicBoolean(false);
+
+        MessageHandler handler = msg ->
+                handleIncomingMessageUnique(msg, javaType, filter, resultRef, duplicateFound, future, dispatcherRef, subHolder, logPrefix);
+
+        subHolder[0] = createSubscription(subject, dispatcherRef, handler);
+
+        awaitUniqueMessageFuture(resultRef, duplicateFound, future, dispatcherRef, subHolder[0], logPrefix);
+        return dispatcher;
+    }
+
     private <T> void retryUntilSubscribed(String subject,
                                           Class<T> messageType,
                                           BiPredicate<T, String> filter,
@@ -105,6 +139,54 @@ class NatsSubscriber {
             Dispatcher dispatcher = null;
             try {
                 dispatcher = startSubscription(subject, messageType, filter, future, logPrefix);
+                return;
+            } catch (JetStreamApiException | IOException e) {
+                if (dispatcher != null) {
+                    try {
+                        nc.closeDispatcher(dispatcher);
+                    } catch (Exception closeEx) {
+                        log.warn("{} | Failed to close dispatcher after error: {}", logPrefix, closeEx.getMessage());
+                    }
+                }
+
+                log.warn("{} | Attempt {}/{} to create NATS subscription failed: {}",
+                        logPrefix, attempt, this.subscriptionRetryCount, e.getMessage());
+
+                if (attempt == this.subscriptionRetryCount) {
+                    log.error("{} | All {} subscription attempts failed for subject '{}'. Giving up.",
+                            logPrefix, this.subscriptionRetryCount, subject, e);
+                    future.completeExceptionally(
+                            new RuntimeException(
+                                    "NATS Subscription failed for " + subject +
+                                            " after " + this.subscriptionRetryCount + " attempts", e));
+                    return;
+                }
+
+                try {
+                    TimeUnit.MILLISECONDS.sleep(this.subscriptionRetryDelayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    log.error("{} | Subscription retry delay was interrupted.", logPrefix, ie);
+                    future.completeExceptionally(
+                            new RuntimeException("Subscription retry interrupted for " + subject, ie));
+                    return;
+                }
+            }
+        }
+
+        future.completeExceptionally(
+                new IllegalStateException("Exited subscription retry loop unexpectedly for " + subject));
+    }
+
+    private <T> void retryUntilUniqueSubscribed(String subject,
+                                                Class<T> messageType,
+                                                BiPredicate<T, String> filter,
+                                                CompletableFuture<NatsMessage<T>> future,
+                                                String logPrefix) {
+        for (int attempt = 1; attempt <= this.subscriptionRetryCount; attempt++) {
+            Dispatcher dispatcher = null;
+            try {
+                dispatcher = startUniqueSubscription(subject, messageType, filter, future, logPrefix);
                 return;
             } catch (JetStreamApiException | IOException e) {
                 if (dispatcher != null) {
@@ -214,6 +296,68 @@ class NatsSubscriber {
         }
     }
 
+    private <T> void handleIncomingMessageUnique(Message msg,
+                                                 JavaType javaType,
+                                                 BiPredicate<T, String> filter,
+                                                 AtomicReference<NatsMessage<T>> resultRef,
+                                                 AtomicBoolean duplicateFound,
+                                                 CompletableFuture<NatsMessage<T>> future,
+                                                 Dispatcher dispatcher,
+                                                 Subscription[] subHolder,
+                                                 String logPrefix) {
+        long msgSeq = -1L;
+        String msgType = null;
+        OffsetDateTime timestamp = null;
+
+        try {
+            if (msg.isJetStream()) {
+                NatsJetStreamMetaData meta = msg.metaData();
+                if (meta != null) {
+                    msgSeq = meta.streamSequence();
+                    ZonedDateTime ts = meta.timestamp();
+                    if (ts != null) {
+                        timestamp = ts.toOffsetDateTime();
+                    }
+                } else {
+                    log.warn("{} | Received JetStream message without metadata object!", logPrefix);
+                }
+            } else {
+                log.warn("{} | Received non-JetStream message", logPrefix);
+                return;
+            }
+
+            msgType = msg.getHeaders() != null ? msg.getHeaders().getFirst("type") : null;
+
+            T payload;
+            try {
+                payload = objectMapper.readValue(msg.getData(), javaType);
+            } catch (JsonProcessingException e) {
+                log.warn("{} | Failed JSON unmarshal seq={}: {}. Nacking msg.", logPrefix, msgSeq, e.getMessage());
+                safeNack(msg);
+                return;
+            }
+
+            if (filter.test(payload, msgType)) {
+                safeAck(msg);
+                NatsMessage<T> result = NatsMessage.<T>builder()
+                        .payload(payload).subject(msg.getSubject()).type(msgType)
+                        .sequence(msgSeq).timestamp(timestamp).build();
+                if (resultRef.get() == null) {
+                    attachmentHelper.addNatsAttachment("NATS Message Found", result);
+                    resultRef.set(result);
+                } else {
+                    duplicateFound.set(true);
+                    attachmentHelper.addNatsAttachment("NATS Duplicate Message", result);
+                    future.completeExceptionally(new IllegalStateException("More than one message matched filter"));
+                    unsubscribeSafely(dispatcher, subHolder[0], logPrefix + " after duplicate");
+                }
+            }
+        } catch (Exception e) {
+            log.error("{} | Error processing NATS msg (seq≈{}, type≈{}): {}", logPrefix, msgSeq, msgType, e.getMessage(), e);
+            safeNack(msg);
+        }
+    }
+
     private <T> void awaitMessageFuture(CompletableFuture<NatsMessage<T>> future,
                                         Dispatcher dispatcher,
                                         Subscription subscription,
@@ -225,6 +369,27 @@ class NatsSubscriber {
             }
             else if (ex != null) {
                 log.error("{} with Exception: {}", completionLogPrefix, ex.getMessage(), ex);
+            }
+            unsubscribeSafely(dispatcher, subscription, logPrefix + " on completion");
+        });
+    }
+
+    private <T> void awaitUniqueMessageFuture(AtomicReference<NatsMessage<T>> resultRef,
+                                              AtomicBoolean duplicateFound,
+                                              CompletableFuture<NatsMessage<T>> future,
+                                              Dispatcher dispatcher,
+                                              Subscription subscription,
+                                              String logPrefix) {
+        CompletableFuture.delayedExecutor(searchTimeout.toMillis(), TimeUnit.MILLISECONDS).execute(() -> {
+            if (duplicateFound.get()) {
+                future.completeExceptionally(new IllegalStateException("More than one message matched filter"));
+            } else {
+                NatsMessage<T> result = resultRef.get();
+                if (result != null) {
+                    future.complete(result);
+                } else {
+                    future.completeExceptionally(new TimeoutException("No matching message found"));
+                }
             }
             unsubscribeSafely(dispatcher, subscription, logPrefix + " on completion");
         });

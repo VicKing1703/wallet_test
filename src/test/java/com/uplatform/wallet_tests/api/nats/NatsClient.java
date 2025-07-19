@@ -7,7 +7,9 @@ import com.uplatform.wallet_tests.config.NatsConfig;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
+import org.opentest4j.AssertionFailedError;
 
 import com.uplatform.wallet_tests.api.nats.NatsSubscriber;
 import com.uplatform.wallet_tests.api.nats.NatsAttachmentHelper;
@@ -23,6 +25,7 @@ public class NatsClient {
     private final NatsSubscriber subscriber;
     private final String streamPrefix;
     private final String natsBaseName;
+    private final Duration searchTimeout;
 
     @Autowired
     public NatsClient(ObjectMapper objectMapper,
@@ -35,12 +38,14 @@ public class NatsClient {
         this.natsBaseName = natsConfig.getStreamName();
         String streamName = this.streamPrefix + this.natsBaseName;
 
+        this.searchTimeout = Duration.ofSeconds(natsConfig.getSearchTimeoutSeconds());
+
         this.subscriber = new NatsSubscriber(
                 connectionManager.getConnection(),
                 connectionManager.getJetStream(),
                 objectMapper,
                 attachmentHelper,
-                Duration.ofSeconds(natsConfig.getSearchTimeoutSeconds()),
+                searchTimeout,
                 Duration.ofSeconds(natsConfig.getSubscriptionAckWaitSeconds()),
                 Duration.ofSeconds(natsConfig.getSubscriptionInactiveThresholdSeconds()),
                 streamName,
@@ -61,6 +66,38 @@ public class NatsClient {
                                                                   Class<T> messageType,
                                                                   BiPredicate<T, String> filter) {
         return subscriber.findMessageAsync(subject, messageType, filter);
+    }
+
+    public <T> NatsMessage<T> expectMessage(String subject,
+                                            Class<T> messageType,
+                                            BiPredicate<T, String> filter) {
+        try {
+            return findMessageAsync(subject, messageType, filter)
+                    .get(searchTimeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            throw new AssertionFailedError(
+                    String.format("NATS message of %s not received", messageType.getSimpleName()),
+                    e);
+        }
+    }
+
+    public <T> CompletableFuture<NatsMessage<T>> findUniqueMessageAsync(String subject,
+                                                                         Class<T> messageType,
+                                                                         BiPredicate<T, String> filter) {
+        return subscriber.findUniqueMessageAsync(subject, messageType, filter);
+    }
+
+    public <T> NatsMessage<T> expectUniqueMessage(String subject,
+                                                  Class<T> messageType,
+                                                  BiPredicate<T, String> filter) {
+        try {
+            return findUniqueMessageAsync(subject, messageType, filter)
+                    .get(searchTimeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            throw new AssertionFailedError(
+                    String.format("Unique NATS message of %s not received", messageType.getSimpleName()),
+                    e);
+        }
     }
 
 }
