@@ -14,7 +14,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.Deque;
 
 @Slf4j
 @Component
@@ -31,7 +31,7 @@ public class MessageFinder {
     }
 
     public <T> Optional<T> searchAndDeserialize(
-            ConcurrentLinkedDeque<ConsumerRecord<String, String>> buffer,
+            Deque<ConsumerRecord<String, String>> buffer,
             Map<String, String> filterCriteria,
             Class<T> targetClass,
             String topicName
@@ -56,7 +56,7 @@ public class MessageFinder {
     }
 
     public int countMatchingMessages(
-            ConcurrentLinkedDeque<ConsumerRecord<String, String>> buffer,
+            Deque<ConsumerRecord<String, String>> buffer,
             Map<String, String> filterCriteria
     ) {
         if (buffer == null || buffer.isEmpty()) {
