@@ -14,9 +14,12 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Deque;
+import com.uplatform.wallet_tests.api.kafka.consumer.MessageFinder.FindResult;
+import java.util.List;
 import java.util.concurrent.Callable;
 import static org.awaitility.Awaitility.await;
 import org.awaitility.core.ConditionTimeoutException;
+import org.opentest4j.AssertionFailedError;
 
 @Component
 @Slf4j
@@ -111,6 +114,68 @@ public class KafkaBackgroundConsumer {
                     timeout, fullTopicName, targetClass.getSimpleName(), filterCriteria);
             allureReporter.addMessagesNotFoundAttachment(fullTopicName, filterCriteria, targetClass, "(inferred from Type)");
             return Optional.empty();
+        }
+    }
+
+    public <T> FindResult<T> findAndCountMessages(
+            Map<String, String> filterCriteria,
+            Duration timeout,
+            Class<T> targetClass
+    ) {
+        Optional<String> topicSuffixOpt = topicMappingRegistry.getTopicSuffixFor(targetClass);
+        if (topicSuffixOpt.isEmpty()) {
+            log.error("Cannot find message: No topic suffix configured for class {}.", targetClass.getName());
+            attachmentService.attachText(
+                    AttachmentType.KAFKA,
+                    "Search Error - No Topic Mapping",
+                    String.format("No topic suffix mapping for %s.", targetClass.getSimpleName()));
+            return new FindResult<>(Optional.empty(), List.of(), 0);
+        }
+
+        String topicSuffix = topicSuffixOpt.get();
+        String fullTopicName = topicPrefix + topicSuffix;
+
+        if (!messageBuffer.isTopicConfigured(fullTopicName)) {
+            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}.",
+                    fullTopicName, targetClass.getName(), messageBuffer.getConfiguredTopics());
+            allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type, but not listened)", targetClass, filterCriteria);
+            attachmentService.attachText(
+                    AttachmentType.KAFKA,
+                    "Search Error - Topic Not Listened",
+                    String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s",
+                            fullTopicName, targetClass.getSimpleName(), messageBuffer.getConfiguredTopics()));
+            return new FindResult<>(Optional.empty(), List.of(), 0);
+        }
+
+        allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type)", targetClass, filterCriteria);
+
+        Callable<FindResult<T>> searchCallable = () -> {
+            Deque<ConsumerRecord<String, String>> buffer = messageBuffer.getBufferForTopic(fullTopicName);
+            return messageFinder.findAndCount(buffer, filterCriteria, targetClass, fullTopicName);
+        };
+
+        try {
+            FindResult<T> result = await()
+                    .alias("search for message in " + fullTopicName)
+                    .atMost(timeout)
+                    .pollInterval(findMessageSleepInterval)
+                    .until(searchCallable, r -> r.getFirstMatch().isPresent());
+            return result;
+        } catch (ConditionTimeoutException e) {
+            log.warn("Timeout after {} waiting for message. Topic: '{}', Target Type: '{}', Criteria: {}",
+                    timeout, fullTopicName, targetClass.getSimpleName(), filterCriteria);
+            allureReporter.addMessagesNotFoundAttachment(fullTopicName, filterCriteria, targetClass, "(inferred from Type)");
+            try {
+                return searchCallable.call();
+            } catch (Exception ex) {
+                log.warn("Error evaluating final result after timeout: {}", ex.getMessage());
+                return new FindResult<>(Optional.empty(), List.of(), 0);
+            }
+        } catch (AssertionFailedError afe) {
+            throw afe;
+        } catch (Exception ex) {
+            log.error("Unexpected error during findAndCountMessages: {}", ex.getMessage(), ex);
+            return new FindResult<>(Optional.empty(), List.of(), 0);
         }
     }
 
