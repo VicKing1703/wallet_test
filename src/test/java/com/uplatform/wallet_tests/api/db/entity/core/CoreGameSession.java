@@ -22,13 +22,13 @@ public class CoreGameSession {
     private Integer walletId;
 
     @Column(name = "game_id")
-    private int gameId;
+    private Integer gameId;
 
     @Column(name = "player_uuid")
     private String playerUuid;
 
     @Column(name = "mode_id")
-    private short modeId;
+    private Short modeId;
 
     @Column(name = "player_ip")
     private String playerIp;

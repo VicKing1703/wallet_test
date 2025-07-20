@@ -21,18 +21,18 @@ import javax.sql.DataSource;
         entityManagerFactoryRef = "coreEntityManagerFactory",
         transactionManagerRef = "coreTransactionManager"
 )
-public class CoreDbConfig {
+public class CoreDbConfig extends BaseDbConfig {
 
     @Bean
     @ConfigurationProperties("spring.datasource.core")
     public DataSourceProperties coreDataSourceProperties() {
-        return new DataSourceProperties();
+        return createDataSourceProperties();
     }
 
     @Bean
     @Primary
     public DataSource coreDataSource(@Qualifier("coreDataSourceProperties") DataSourceProperties properties) {
-        return properties.initializeDataSourceBuilder().build();
+        return createDataSource(properties);
     }
 
     @Bean
@@ -40,17 +40,14 @@ public class CoreDbConfig {
     public LocalContainerEntityManagerFactoryBean coreEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("coreDataSource") DataSource dataSource) {
-        return builder
-                .dataSource(dataSource)
-                .packages("com.uplatform.wallet_tests.api.db.entity.core")
-                .persistenceUnit("core")
-                .build();
+        return createEntityManagerFactory(builder, dataSource,
+                "com.uplatform.wallet_tests.api.db.entity.core", "core");
     }
 
     @Bean
     @Primary
     public PlatformTransactionManager coreTransactionManager(
             @Qualifier("coreEntityManagerFactory") LocalContainerEntityManagerFactoryBean entityManagerFactory) {
-        return new JpaTransactionManager(entityManagerFactory.getObject());
+        return createTransactionManager(entityManagerFactory);
     }
 }

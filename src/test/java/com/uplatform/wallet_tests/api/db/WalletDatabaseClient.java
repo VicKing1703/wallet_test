@@ -1,6 +1,5 @@
 package com.uplatform.wallet_tests.api.db;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.db.entity.wallet.*;
 import com.uplatform.wallet_tests.api.db.repository.wallet.*;
@@ -21,7 +20,6 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
     private final WalletGameSessionRepository walletGameSessionRepository;
     private final WalletRepository walletRepository;
     private final BettingProjectionIframeHistoryRepository iframeHistoryRepository;
-    private final ObjectMapper objectMapper;
 
     public WalletDatabaseClient(AllureAttachmentService attachmentService,
                                 GamblingProjectionTransactionHistoryRepository transactionRepository,
@@ -30,13 +28,12 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
                                 WalletRepository walletRepository,
                                 BettingProjectionIframeHistoryRepository iframeHistoryRepository,
                                 ObjectMapper objectMapper) {
-        super(attachmentService);
+        super(attachmentService, objectMapper);
         this.transactionRepository = transactionRepository;
         this.playerThresholdWinRepository = playerThresholdWinRepository;
         this.walletGameSessionRepository = walletGameSessionRepository;
         this.walletRepository = walletRepository;
         this.iframeHistoryRepository = iframeHistoryRepository;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
@@ -45,7 +42,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String attachmentNamePrefix = String.format("Wallet Transaction Record [UUID: %s]", uuid);
         Supplier<Optional<GamblingProjectionTransactionHistory>> querySupplier = () ->
                 transactionRepository.findById(uuid);
-        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +51,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String attachmentNamePrefix = String.format("Player Threshold Win [Player: %s]", playerUuid);
         Supplier<Optional<PlayerThresholdWin>> querySupplier = () ->
                 Optional.ofNullable(playerThresholdWinRepository.findByPlayerUuid(playerUuid));
-        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -63,7 +60,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String attachmentNamePrefix = String.format("Wallet Game Session [PlayerUUID: %s]", playerUuid);
         Supplier<Optional<WalletGameSession>> querySupplier = () ->
                 Optional.ofNullable(walletGameSessionRepository.findByPlayerUuid(playerUuid));
-        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -72,7 +69,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String attachmentPrefix = String.format("Wallet Record [UUID: %s]", walletUuid);
         Supplier<Optional<Wallet>> querySupplier = () ->
                 Optional.ofNullable(walletRepository.findByUuid(walletUuid));
-        return awaitAndGetOrFail(description, attachmentPrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentPrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -83,26 +80,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         Supplier<Optional<BettingProjectionIframeHistory>> querySupplier = () ->
                 iframeHistoryRepository.findFirstByUuidOrderBySeqDesc(uuid);
 
-        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
-    @Override
-    protected String createJsonAttachment(Object object) {
-        if (object == null) {
-            return "null";
-        }
-        try {
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(object);
-        } catch (JsonProcessingException e) {
-            log.warn("Failed to serialize object to JSON for Allure attachment: {}", e.getMessage());
-            return createSerializationErrorAttachmentContent(object, e);
-        }
-    }
-
-    private String createSerializationErrorAttachmentContent(Object object, JsonProcessingException e) {
-        return String.format("Status: Failed to serialize object to JSON\nType: %s\nError: %s\n\nData (toString()):\n%s",
-                object.getClass().getName(),
-                e.getMessage(),
-                object);
-    }
 }

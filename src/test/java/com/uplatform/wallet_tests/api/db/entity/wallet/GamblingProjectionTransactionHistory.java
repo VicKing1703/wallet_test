@@ -59,7 +59,7 @@ public class GamblingProjectionTransactionHistory {
     private String betUuid;
 
     @Column(name = "provider_round_closed")
-    private boolean providerRoundClosed;
+    private Boolean providerRoundClosed;
 
     @Override
     public boolean equals(Object o) {

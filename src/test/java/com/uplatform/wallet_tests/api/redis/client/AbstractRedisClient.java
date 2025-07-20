@@ -41,6 +41,15 @@ public abstract class AbstractRedisClient<T> {
     private void checkConnection() {
         if (redisTemplate.getConnectionFactory() != null) {
             try (RedisConnection conn = redisTemplate.getConnectionFactory().getConnection()) {
+                String host = null;
+                Integer port = null;
+                Integer db = null;
+                if (redisTemplate.getConnectionFactory() instanceof org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory lcf) {
+                    host = lcf.getHostName();
+                    port = lcf.getPort();
+                    db = lcf.getDatabase();
+                }
+                log.info("Redis instance [{}] address: {}:{} db={}", instanceName, host, port, db);
                 String pong = conn.ping();
                 log.info("Redis connection check successful for instance [{}]: PING -> {}", instanceName, pong);
             } catch (Exception e) {

@@ -1,6 +1,5 @@
 package com.uplatform.wallet_tests.api.db;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGame;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGameSession;
@@ -24,7 +23,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
     private final CoreGameRepository coreGameRepository;
     private final CoreWalletRepository coreWalletRepository;
     private final CoreGameProviderRepository coreGameProviderRepository;
-    private final ObjectMapper objectMapper;
+    
 
     public CoreDatabaseClient(AllureAttachmentService attachmentService,
                               CoreGameSessionRepository coreGameSessionRepository,
@@ -32,12 +31,11 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
                               CoreWalletRepository coreWalletRepository,
                               CoreGameProviderRepository coreGameProviderRepository,
                               ObjectMapper objectMapper) {
-        super(attachmentService);
+        super(attachmentService, objectMapper);
         this.coreGameSessionRepository = coreGameSessionRepository;
         this.coreGameRepository = coreGameRepository;
         this.coreWalletRepository = coreWalletRepository;
         this.coreGameProviderRepository = coreGameProviderRepository;
-        this.objectMapper = objectMapper;
     }
 
     public CoreGameSession findLatestGameSessionByPlayerUuidOrFail(String playerUuid) {
@@ -45,7 +43,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
         String attachmentNamePrefix = String.format("Core Game Session [PlayerUUID: %s]", playerUuid);
         Supplier<Optional<CoreGameSession>> querySupplier = () ->
                 Optional.ofNullable(coreGameSessionRepository.findByPlayerUuidOrderByStartedAtDesc(playerUuid));
-        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     public CoreGame findGameByIdOrFail(int gameId) {
@@ -54,7 +52,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
 
         Supplier<Optional<CoreGame>> querySupplier = () ->
                 coreGameRepository.findById(gameId);
-        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     public CoreWallet findWalletByIdOrFail(int walletId) {
@@ -63,7 +61,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
 
         Supplier<Optional<CoreWallet>> querySupplier = () ->
                 coreWalletRepository.findById(walletId);
-        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     public GameProvider findGameProviderByIdOrFail(int providerId) {
@@ -73,25 +71,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
         Supplier<Optional<GameProvider>> querySupplier = () ->
                 coreGameProviderRepository.findById(providerId);
 
-        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
-    @Override
-    protected String createJsonAttachment(Object object) {
-        if (object == null) {
-            return "Result: null";
-        }
-        try {
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(object);
-        } catch (JsonProcessingException e) {
-            return createSerializationErrorAttachmentContent(object, e);
-        }
-    }
-
-    private String createSerializationErrorAttachmentContent(Object object, JsonProcessingException e) {
-        return String.format("Status: Failed to serialize object to JSON\nType: %s\nError: %s\n\nData (toString()):\n%s",
-                object.getClass().getName(),
-                e.getMessage(),
-                object);
-    }
 }

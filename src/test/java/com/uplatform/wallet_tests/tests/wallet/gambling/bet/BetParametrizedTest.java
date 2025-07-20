@@ -246,7 +246,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(0, amountParam.negate().compareTo(transaction.getAmount()), "db.gpth.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.gpth.created_at"),
                     () -> assertEquals(ctx.betEvent.getSequence(), transaction.getSeqnumber(), "db.gpth.seqnumber"),
-                    () -> assertEquals(payload.isProviderRoundClosed(), transaction.isProviderRoundClosed(), "db.gpth.provider_round_closed"),
+                    () -> assertEquals(payload.isProviderRoundClosed(), transaction.getProviderRoundClosed(), "db.gpth.provider_round_closed"),
                     () -> assertEquals(payload.getBetUuid(), transaction.getBetUuid(), "db.gpth.bet_uuid")
             );
         });

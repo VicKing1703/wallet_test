@@ -496,8 +496,9 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
     private final WalletRepository walletRepository;
 
     public WalletDatabaseClient(AllureAttachmentService attachmentService,
-                                WalletRepository walletRepository) {
-        super(attachmentService);
+                                WalletRepository walletRepository,
+                                ObjectMapper objectMapper) {
+        super(attachmentService, objectMapper);
         this.walletRepository = walletRepository;
     }
 

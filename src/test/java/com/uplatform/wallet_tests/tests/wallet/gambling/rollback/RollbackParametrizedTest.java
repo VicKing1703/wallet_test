@@ -282,7 +282,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(0, ctx.rollbackAmount.compareTo(transaction.getAmount()), "db.transaction.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.transaction.created_at"),
                     () -> assertEquals(ctx.rollbackEvent.getSequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
-                    () -> assertEquals(ctx.rollbackEvent.getPayload().isProviderRoundClosed(), transaction.isProviderRoundClosed(), "db.transaction.provider_round_closed")
+                    () -> assertEquals(ctx.rollbackEvent.getPayload().isProviderRoundClosed(), transaction.getProviderRoundClosed(), "db.transaction.provider_round_closed")
             );
         });
 
