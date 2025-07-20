@@ -45,8 +45,8 @@
       "aggregate": {
       "maxGamblingCount": 50,
       "maxIframeCount": 500,
-      "retryAttempts": 10,
-      "retryDelayMs": 200
+      "retryAttempts": 20,
+      "retryDelayMs": 500
     },
     "instances": {
       "player": {

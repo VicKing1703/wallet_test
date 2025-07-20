@@ -20,33 +20,30 @@ import javax.sql.DataSource;
         entityManagerFactoryRef = "walletEntityManagerFactory",
         transactionManagerRef = "walletTransactionManager"
 )
-public class WalletDbConfig {
+public class WalletDbConfig extends BaseDbConfig {
 
     @Bean
     @ConfigurationProperties("spring.datasource.wallet")
     public DataSourceProperties walletDataSourceProperties() {
-        return new DataSourceProperties();
+        return createDataSourceProperties();
     }
 
     @Bean
     public DataSource walletDataSource(@Qualifier("walletDataSourceProperties") DataSourceProperties properties) {
-        return properties.initializeDataSourceBuilder().build();
+        return createDataSource(properties);
     }
 
     @Bean
     public LocalContainerEntityManagerFactoryBean walletEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("walletDataSource") DataSource dataSource) {
-        return builder
-                .dataSource(dataSource)
-                .packages("com.uplatform.wallet_tests.api.db.entity.wallet")
-                .persistenceUnit("wallet")
-                .build();
+        return createEntityManagerFactory(builder, dataSource,
+                "com.uplatform.wallet_tests.api.db.entity.wallet", "wallet");
     }
 
     @Bean
     public PlatformTransactionManager walletTransactionManager(
             @Qualifier("walletEntityManagerFactory") LocalContainerEntityManagerFactoryBean entityManagerFactory) {
-        return new JpaTransactionManager(entityManagerFactory.getObject());
+        return createTransactionManager(entityManagerFactory);
     }
 }

@@ -4,6 +4,7 @@ import com.uplatform.wallet_tests.api.redis.client.PlayerRedisClient;
 import com.uplatform.wallet_tests.api.redis.client.RedisRetryHelper;
 import com.uplatform.wallet_tests.api.redis.client.WalletRedisClient;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
@@ -21,6 +22,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import java.time.Duration;
 
 @Configuration
+@Slf4j
 public class RedisConfig {
 
     @Bean("playerRedisProperties")
@@ -116,6 +118,8 @@ public class RedisConfig {
     private RedisTemplate<String, String> createRedisInfrastructure(String instanceName, RedisProperties properties) {
         LettucePoolingClientConfiguration poolingConfig = createPoolingConfig(properties);
         LettuceConnectionFactory connectionFactory = createConnectionFactory(properties, poolingConfig);
+        connectionFactory.afterPropertiesSet();
+        log.info("Creating RedisTemplate for instance [{}] at {}:{} db={}", instanceName, properties.getHost(), properties.getPort(), properties.getDatabase());
         return createStringRedisTemplate(connectionFactory);
     }
 }

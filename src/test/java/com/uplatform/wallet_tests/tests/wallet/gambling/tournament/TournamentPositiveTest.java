@@ -144,7 +144,7 @@ class TournamentPositiveTest extends BaseTest {
                     () -> assertEquals(0, ctx.tournamentEvent.getPayload().getAmount().compareTo(transaction.getAmount()), "db.transaction.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.transaction.created_at"),
                     () -> assertEquals(ctx.tournamentEvent.getSequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
-                    () -> assertEquals(ctx.tournamentEvent.getPayload().isProviderRoundClosed(), transaction.isProviderRoundClosed(), "db.transaction.provider_round_closed")
+                    () -> assertEquals(ctx.tournamentEvent.getPayload().isProviderRoundClosed(), transaction.getProviderRoundClosed(), "db.transaction.provider_round_closed")
             );
         });
 

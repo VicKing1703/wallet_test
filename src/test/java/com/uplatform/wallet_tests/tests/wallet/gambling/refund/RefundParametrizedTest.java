@@ -280,7 +280,7 @@ class RefundParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(0, ctx.refundAmount.compareTo(transaction.getAmount()), "db.transaction.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.transaction.created_at"),
                     () -> assertEquals(ctx.refundEvent.getSequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
-                    () -> assertEquals(ctx.refundEvent.getPayload().isProviderRoundClosed(), transaction.isProviderRoundClosed(), "db.transaction.provider_round_closed")
+                    () -> assertEquals(ctx.refundEvent.getPayload().isProviderRoundClosed(), transaction.getProviderRoundClosed(), "db.transaction.provider_round_closed")
             );
         });
 

@@ -1,6 +1,8 @@
 package com.uplatform.wallet_tests.api.db;
 
 import jakarta.annotation.PostConstruct;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.awaitility.core.ConditionFactory;
 import org.awaitility.core.ConditionTimeoutException;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,9 +18,12 @@ import static org.awaitility.Awaitility.await;
 public abstract class AbstractDatabaseClient {
 
     protected final AllureAttachmentService attachmentService;
+    private final ObjectMapper objectMapper;
 
-    protected AbstractDatabaseClient(AllureAttachmentService attachmentService) {
+    protected AbstractDatabaseClient(AllureAttachmentService attachmentService,
+                                     ObjectMapper objectMapper) {
         this.attachmentService = attachmentService;
+        this.objectMapper = objectMapper;
     }
 
     @Value("${app.db.retry-timeout-seconds}")
@@ -78,6 +83,28 @@ public abstract class AbstractDatabaseClient {
         }
     }
 
-    protected abstract String createJsonAttachment(Object object);
+    @SafeVarargs
+    protected final <T> T awaitAndGetJsonOrFail(String description,
+                                               String attachmentNamePrefix,
+                                               Supplier<Optional<T>> querySupplier,
+                                               Class<? extends Throwable>... ignoredExceptionsDuringAwait) {
+        T result = awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier, ignoredExceptionsDuringAwait);
+        attachmentService.attachJson(attachmentNamePrefix + " - Found", result);
+        return result;
+    }
+
+    protected String createJsonAttachment(Object object) {
+        if (object == null) {
+            return "null";
+        }
+        try {
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(object);
+        } catch (JsonProcessingException e) {
+            return String.format("Status: Failed to serialize object to JSON\nType:%s\nError: %s\n\nData (toString()):\n%s",
+                    object.getClass().getName(),
+                    e.getMessage(),
+                    object);
+        }
+    }
 }
 
