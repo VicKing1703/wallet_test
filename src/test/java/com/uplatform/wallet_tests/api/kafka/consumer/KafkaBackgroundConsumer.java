@@ -3,6 +3,7 @@ package com.uplatform.wallet_tests.api.kafka.consumer;
 import com.uplatform.wallet_tests.api.kafka.config.KafkaTopicMappingRegistry;
 import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +70,9 @@ public class KafkaBackgroundConsumer {
         Optional<String> topicSuffixOpt = topicMappingRegistry.getTopicSuffixFor(targetClass);
         if (topicSuffixOpt.isEmpty()) {
             log.error("Cannot find message: No topic suffix configured for class {}.", targetClass.getName());
-            attachmentService.attachText("Search Error - No Topic Mapping",
+            attachmentService.attachText(
+                    AttachmentType.KAFKA,
+                    "Search Error - No Topic Mapping",
                     String.format("No topic suffix mapping for %s.", targetClass.getSimpleName()));
             return Optional.empty();
         }
@@ -81,7 +84,9 @@ public class KafkaBackgroundConsumer {
             log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}.",
                     fullTopicName, targetClass.getName(), messageBuffer.getConfiguredTopics());
             allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type, but not listened)", targetClass, filterCriteria);
-            attachmentService.attachText("Search Error - Topic Not Listened",
+            attachmentService.attachText(
+                    AttachmentType.KAFKA,
+                    "Search Error - Topic Not Listened",
                     String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s",
                             fullTopicName, targetClass.getSimpleName(), messageBuffer.getConfiguredTopics()));
             return Optional.empty();

@@ -3,6 +3,7 @@ package com.uplatform.wallet_tests.api.kafka.consumer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -41,7 +42,7 @@ public class KafkaAllureReporter {
                 targetClass.getSimpleName(),
                 filterCriteriaString
         );
-        attachmentService.attachText("Search Info", searchInfoContent);
+        attachmentService.attachText(AttachmentType.KAFKA, "Search Info", searchInfoContent);
     }
 
     public void addFoundMessageAttachment(ConsumerRecord<String, String> record) {
@@ -72,7 +73,7 @@ public class KafkaAllureReporter {
                 timestampStr,
                 formattedPayload
         );
-        attachmentService.attachText("Found Kafka Message", attachmentContent);
+        attachmentService.attachText(AttachmentType.KAFKA, "Found Message", attachmentContent);
     }
 
     public <T> void addMessagesNotFoundAttachment(
@@ -94,7 +95,7 @@ public class KafkaAllureReporter {
                 targetClassName,
                 filterCriteriaString
         );
-        attachmentService.attachText("Kafka Message Not Found", content);
+        attachmentService.attachText(AttachmentType.KAFKA, "Message Not Found", content);
     }
 
     public <T> void addDeserializationErrorAttachment(ConsumerRecord<String, String> record, Class<T> targetClass, JsonProcessingException e) {
@@ -126,6 +127,7 @@ public class KafkaAllureReporter {
                 originalPayload);
 
         attachmentService.attachText(
+                AttachmentType.KAFKA,
                 String.format("Deserialization Error (Offset %d)", record.offset()),
                 errorAttachmentContent);
     }

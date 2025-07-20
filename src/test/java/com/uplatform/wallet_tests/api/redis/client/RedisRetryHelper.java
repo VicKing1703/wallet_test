@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import com.uplatform.wallet_tests.api.redis.client.CheckResult;
 
 @Slf4j
@@ -77,8 +78,10 @@ public class RedisRetryHelper {
         T lastDeserializedValue = null;
         boolean interrupted = false;
 
+        int attemptsMade = 0;
         for (int i = 0; i < retryAttempts; i++) {
             final int attemptNum = i + 1;
+            attemptsMade = attemptNum;
             if (i > 0) {
                 try {
                     TimeUnit.MILLISECONDS.sleep(retryDelayMs);
@@ -96,7 +99,6 @@ public class RedisRetryHelper {
                 if (rawValueOpt.isEmpty()) {
                     lastErrorMsg = "Key not found or value is empty";
                     log.warn("[{}] Attempt {}: Key '{}' not found or empty.", instance, attemptNum, key);
-                    attachmentService.attachText(String.format("Attempt %d: Status", attemptNum), "Key not found or empty");
                 } else {
                     String rawValue = rawValueOpt.get();
                     lastRawValue = rawValue;
@@ -108,30 +110,27 @@ public class RedisRetryHelper {
                             CheckResult checkResult = runCheck(checkFunc, deserializedValue, rawValue);
                             if (!checkResult.isSuccess()) {
                                 log.warn("[{}] Attempt {}: Check result: success=false, message='{}'", instance, attemptNum, checkResult.getMessage());
+                                lastErrorMsg = "Check failed: " + checkResult.getMessage();
                             }
-                            attachmentService.attachText(String.format("Attempt %d: Check Result", attemptNum), checkResult.getMessage());
 
                             if (checkResult.isSuccess()) {
                                 result = Optional.of(deserializedValue);
-                                attachValue("Redis Value Found & Validated (attempt " + attemptNum + ")", instance, key, deserializedValue, rawValue, checkResult.getMessage());
+                                attachValue(String.format("Redis Value Found & Validated (%d/%d)", attemptNum, retryAttempts),
+                                        instance, key, deserializedValue, rawValue, checkResult.getMessage());
                                 break;
-                            } else {
-                                lastErrorMsg = "Check failed: " + checkResult.getMessage();
                             }
                         } else {
                             result = Optional.of(deserializedValue);
-                            attachValue("Redis Value Found (attempt " + attemptNum + ")", instance, key, deserializedValue, rawValue, "Check not required");
+                            attachValue(String.format("Redis Value Found (%d/%d)", attemptNum, retryAttempts),
+                                    instance, key, deserializedValue, rawValue, "Check not required");
                             break;
                         }
                     } catch (JsonProcessingException e) {
                         lastErrorMsg = "Failed to deserialize JSON: " + e.getMessage();
                         log.error("[{}] Attempt {}: Failed to deserialize JSON to type {}. Error: {}", instance, attemptNum, typeName, e.getMessage());
-                        attachmentService.attachText(String.format("Attempt %d: Deserialization Error", attemptNum), e.getMessage());
-                        attachmentService.attachText(String.format("Attempt %d: Raw Value (Failed)", attemptNum), rawValue);
                     } catch (Exception e) {
                         lastErrorMsg = "Unexpected error during value processing: " + e.getMessage();
                         log.error("[{}] Attempt {}: Unexpected error processing key '{}'. Error: {}", instance, attemptNum, key, e.getMessage(), e);
-                        attachmentService.attachText(String.format("Attempt %d: Unexpected Processing Error", attemptNum), e.getMessage());
                         interrupted = true;
                         break;
                     }
@@ -139,7 +138,6 @@ public class RedisRetryHelper {
             } catch (Exception e) {
                 lastErrorMsg = "Unexpected error during attempt: " + e.getMessage();
                 log.error("[{}] Unexpected error occurred during attempt {}: {}", instance, attemptNum, e.getMessage(), e);
-                attachmentService.attachText(String.format("Attempt %d: Unexpected Error", attemptNum), e.getMessage());
                 interrupted = true;
                 break;
             }
@@ -150,8 +148,10 @@ public class RedisRetryHelper {
         } else {
             log.error("Failed to find expected value for key '{}' in Redis instance [{}] after {} attempts. Last error: {}", key, instance, retryAttempts, lastErrorMsg);
             if (!interrupted) {
-                attachmentService.attachText("Final State (Failure)", createAttachmentContent(instance, key, lastDeserializedValue, lastRawValue,
-                        "Failure after all attempts. Last error: " + lastErrorMsg));
+                attachmentService.attachText(AttachmentType.REDIS,
+                        String.format("Final State (Failure %d/%d)", attemptsMade, retryAttempts),
+                        createAttachmentContent(instance, key, lastDeserializedValue, lastRawValue,
+                                "Failure after all attempts. Last error: " + lastErrorMsg));
             }
         }
         return result;
@@ -162,7 +162,8 @@ public class RedisRetryHelper {
     }
 
     private <T> void attachValue(String title, String instance, String key, T value, String rawValue, String status) {
-        attachmentService.attachText(title, createAttachmentContent(instance, key, value, rawValue, status));
+        attachmentService.attachText(AttachmentType.REDIS, title,
+                createAttachmentContent(instance, key, value, rawValue, status));
     }
 
     public <T> String createAttachmentContent(String instance, String key, T deserializedValue, String rawValue, String statusMessage) {
