@@ -13,6 +13,7 @@ import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import static org.awaitility.Awaitility.await;
 
 public abstract class AbstractDatabaseClient {
@@ -69,15 +70,15 @@ public abstract class AbstractDatabaseClient {
             Optional<T> optionalResult = condition.until(queryCallable, Optional::isPresent);
 
             T result = optionalResult.get();
-            attachmentService.attachText(attachmentNamePrefix + " - Found", createJsonAttachment(result));
+            attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - Found", createJsonAttachment(result));
             return result;
 
         } catch (ConditionTimeoutException e) {
-            attachmentService.attachText(attachmentNamePrefix + " - NOT Found (Timeout)",
+            attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - NOT Found (Timeout)",
                     "Timeout after " + retryTimeoutDuration + ": " + e.getMessage());
             throw e;
         } catch (Exception e) {
-            attachmentService.attachText(attachmentNamePrefix + " - Error",
+            attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - Error",
                     "Error type: " + e.getClass().getName() + "\nMessage: " + e.getMessage());
             throw new RuntimeException("Unexpected error during DB await for '" + description + "'", e);
         }
@@ -89,7 +90,7 @@ public abstract class AbstractDatabaseClient {
                                                Supplier<Optional<T>> querySupplier,
                                                Class<? extends Throwable>... ignoredExceptionsDuringAwait) {
         T result = awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier, ignoredExceptionsDuringAwait);
-        attachmentService.attachJson(attachmentNamePrefix + " - Found", result);
+        attachmentService.attachJson(AttachmentType.DB, attachmentNamePrefix + " - Found", result);
         return result;
     }
 

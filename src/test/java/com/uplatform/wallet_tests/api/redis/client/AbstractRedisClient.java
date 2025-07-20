@@ -12,6 +12,7 @@ import java.util.StringJoiner;
 import java.util.function.BiFunction;
 
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 @Slf4j
@@ -77,7 +78,7 @@ public abstract class AbstractRedisClient<T> {
         if (key == null) {
             String errorMsg = String.format("[%s] Cannot get value: key is null.", instanceName);
             log.error(errorMsg);
-            attachmentService.attachText("Redis Error", errorMsg);
+            attachmentService.attachText(AttachmentType.REDIS, "Error", errorMsg);
             throw new RedisClientException(errorMsg);
         }
         Optional<T> result = retryHelper.waitForValue(
@@ -98,7 +99,7 @@ public abstract class AbstractRedisClient<T> {
         if (key == null) {
             String errorMsg = String.format("[%s] Cannot check value: key is null.", instanceName);
             log.error(errorMsg);
-            attachmentService.attachText("Redis Error", errorMsg);
+            attachmentService.attachText(AttachmentType.REDIS, "Error", errorMsg);
             throw new RedisClientException(errorMsg);
         }
         Optional<T> result = retryHelper.waitForValue(

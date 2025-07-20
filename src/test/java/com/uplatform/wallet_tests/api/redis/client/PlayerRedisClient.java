@@ -4,6 +4,7 @@ import com.uplatform.wallet_tests.api.redis.exception.RedisClientException;
 import com.uplatform.wallet_tests.api.redis.model.WalletData;
 import com.uplatform.wallet_tests.api.redis.model.WalletFilterCriteria;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -63,13 +64,16 @@ public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletDat
                 criteriaDesc, playerId)));
 
         log.info("<<< Found wallet {} matching criteria {} for player {} >>>", wallet.getWalletUUID(), criteriaDesc, playerId);
-        attachmentService.attachText("Found Player Wallet", retryHelper.createAttachmentContent(
-                instanceName,
-                playerId + " [Criteria: " + criteriaDesc + "]",
-                wallet,
-                null,
-                "Wallet found matching criteria"
-        ));
+        attachmentService.attachText(
+                AttachmentType.REDIS,
+                "Found Player Wallet",
+                retryHelper.createAttachmentContent(
+                        instanceName,
+                        playerId + " [Criteria: " + criteriaDesc + "]",
+                        wallet,
+                        null,
+                        "Wallet found matching criteria"
+                ));
         return wallet;
     }
 }

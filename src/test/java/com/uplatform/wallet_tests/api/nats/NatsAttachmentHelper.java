@@ -3,6 +3,7 @@ package com.uplatform.wallet_tests.api.nats;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,7 @@ public class NatsAttachmentHelper {
             sb.append("Payload (toString()):\n").append(natsMsg.getPayload().toString());
         }
         try {
-            attachmentService.attachText(name, sb.toString());
+            attachmentService.attachText(AttachmentType.NATS, name, sb.toString());
         } catch (Exception e) {
             log.error("Failed to add Allure attachment '{}': {}", name, e.getMessage());
         }

@@ -7,6 +7,7 @@ import feign.Request;
 import feign.Response;
 import feign.Util;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -35,10 +36,10 @@ public class AllureFeignLogger extends Logger {
         try {
             if (logLevel.ordinal() >= Level.HEADERS.ordinal()) {
                 StringBuilder requestDetails = formatRequest(request, logLevel, true);
-                attachmentService.attachText("Http Request", requestDetails.toString());
+                attachmentService.attachText(AttachmentType.HTTP, "Request", requestDetails.toString());
             }
         } catch (Exception e) {
-            attachmentService.attachText("Http Request Attachment Error", e.toString());
+            attachmentService.attachText(AttachmentType.HTTP, "Request Attachment Error", e.toString());
         }
     }
 
@@ -120,12 +121,12 @@ public class AllureFeignLogger extends Logger {
                 }
 
                 StringBuilder responseDetails = formatResponse(processedResponse, elapsedTime, bodyData, logLevel, false);
-                attachmentService.attachText("Http Response", responseDetails.toString());
+                attachmentService.attachText(AttachmentType.HTTP, "Response", responseDetails.toString());
             }
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
-            attachmentService.attachText("Http Response Processing Error", e.toString());
+            attachmentService.attachText(AttachmentType.HTTP, "Response Processing Error", e.toString());
             if (response.body() != null) try { response.body().close(); } catch (IOException ignored) {}
             throw new IOException("Unhandled exception during response processing: " + e.getMessage(), e);
         }
