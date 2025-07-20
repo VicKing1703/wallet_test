@@ -10,11 +10,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.opentest4j.AssertionFailedError;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Deque;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -72,6 +75,74 @@ public class MessageFinder {
             }
         }
         return count;
+    }
+
+    public static class FindResult<T> {
+        private final Optional<T> firstMatch;
+        private final List<T> allMatches;
+        private final int count;
+
+        public FindResult(Optional<T> firstMatch, List<T> allMatches, int count) {
+            this.firstMatch = firstMatch;
+            this.allMatches = allMatches;
+            this.count = count;
+        }
+
+        public Optional<T> getFirstMatch() {
+            return firstMatch;
+        }
+
+        public List<T> getAllMatches() {
+            return allMatches;
+        }
+
+        public int getCount() {
+            return count;
+        }
+    }
+
+    public <T> FindResult<T> findAndCount(
+            Deque<ConsumerRecord<String, String>> buffer,
+            Map<String, String> filterCriteria,
+            Class<T> targetClass,
+            String topicName
+    ) {
+        if (buffer == null || buffer.isEmpty()) {
+            return new FindResult<>(Optional.empty(), List.of(), 0);
+        }
+
+        List<T> matches = new ArrayList<>();
+        Iterator<ConsumerRecord<String, String>> iterator = buffer.descendingIterator();
+        ConsumerRecord<String, String> firstRecord = null;
+
+        while (iterator.hasNext()) {
+            ConsumerRecord<String, String> record = iterator.next();
+            if (matchesFilter(record.value(), filterCriteria)) {
+                Optional<T> deserialized = tryDeserialize(record, targetClass);
+                if (deserialized.isPresent()) {
+                    matches.add(deserialized.get());
+                    if (firstRecord == null) {
+                        firstRecord = record;
+                    }
+                } else {
+                    throw new AssertionFailedError(
+                            String.format(
+                                    "Found Kafka message matching filter at offset %d in topic '%s' but failed to deserialize into %s.",
+                                    record.offset(),
+                                    record.topic(),
+                                    targetClass.getSimpleName()
+                            )
+                    );
+                }
+            }
+        }
+
+        if (firstRecord != null) {
+            allureReporter.addFoundMessageAttachment(firstRecord);
+        }
+
+        Optional<T> firstMatch = matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
+        return new FindResult<>(firstMatch, matches, matches.size());
     }
 
     private <T> Optional<T> tryDeserialize(ConsumerRecord<String, String> record, Class<T> targetClass) {

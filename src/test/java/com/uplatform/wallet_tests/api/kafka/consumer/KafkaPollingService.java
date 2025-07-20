@@ -8,7 +8,6 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.ConsumerAwareRebalanceListener;
@@ -34,7 +33,7 @@ public class KafkaPollingService {
     private List<String> subscribedTopics = Collections.emptyList();
 
     public KafkaPollingService(
-            @Lazy MessageBuffer messageBuffer,
+            MessageBuffer messageBuffer,
             EnvironmentConfigurationProvider configProvider
     ) {
         this.messageBuffer = messageBuffer;

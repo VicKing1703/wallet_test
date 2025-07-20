@@ -7,6 +7,7 @@ import org.opentest4j.AssertionFailedError;
 import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.uplatform.wallet_tests.api.kafka.consumer.MessageFinder;
 
 public abstract class AbstractKafkaClient {
 
@@ -47,8 +48,29 @@ public abstract class AbstractKafkaClient {
             Map<String, String> filter,
             Class<T> messageClass
     ) {
-        T message = expectMessage(filter, messageClass);
-        int count = kafkaBackgroundConsumer.countMessages(filter, messageClass);
+        Duration timeout = this.defaultFindTimeout;
+        String typeDescription = messageClass.getSimpleName();
+        String searchDetails = buildSearchDetails(filter);
+
+        MessageFinder.FindResult<T> result = kafkaBackgroundConsumer.findAndCountMessages(filter, timeout, messageClass);
+
+        result.getFirstMatch().orElseThrow(() -> new AssertionFailedError(
+                String.format(
+                        "Kafka message %s %s not found within %s. Filter: %s",
+                        typeDescription,
+                        searchDetails,
+                        timeout,
+                        filter
+                ),
+                filter,
+                String.format("Message '%s' not received", typeDescription)
+        ));
+
+        return verifyUnique(result, filter, messageClass);
+    }
+
+    protected <T> T verifyUnique(MessageFinder.FindResult<T> result, Map<String, String> filter, Class<T> messageClass) {
+        int count = result.getCount();
         if (count != 1) {
             String typeDescription = messageClass.getSimpleName();
             String searchDetails = buildSearchDetails(filter);
@@ -64,7 +86,7 @@ public abstract class AbstractKafkaClient {
                     String.format("Message '%s' is not unique", typeDescription)
             );
         }
-        return message;
+        return result.getFirstMatch().get();
     }
 
     protected String buildSearchDetails(Map<String, String> filter) {
