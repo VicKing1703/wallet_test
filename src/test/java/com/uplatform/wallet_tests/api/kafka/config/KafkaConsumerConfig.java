@@ -4,6 +4,7 @@ import com.uplatform.wallet_tests.api.kafka.dto.GameSessionStartMessage;
 import com.uplatform.wallet_tests.api.kafka.dto.LimitMessage;
 import com.uplatform.wallet_tests.api.kafka.dto.PlayerAccountMessage;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
+import com.uplatform.wallet_tests.api.kafka.dto.PaymentTransactionMessage;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ public class KafkaConsumerConfig {
         mappings.put(WalletProjectionMessage.class, "wallet.v8.projectionSource");
         mappings.put(GameSessionStartMessage.class, "core.gambling.v1.GameSessionStart");
         mappings.put(LimitMessage.class, "limits.v2");
+        mappings.put(PaymentTransactionMessage.class, "payment.v1.transaction");
 
         return new SimpleKafkaTopicMappingRegistry(mappings);
     }

@@ -17,6 +17,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
 
     private final GamblingProjectionTransactionHistoryRepository transactionRepository;
     private final PlayerThresholdWinRepository playerThresholdWinRepository;
+    private final PlayerThresholdDepositRepository playerThresholdDepositRepository;
     private final WalletGameSessionRepository walletGameSessionRepository;
     private final WalletRepository walletRepository;
     private final BettingProjectionIframeHistoryRepository iframeHistoryRepository;
@@ -24,6 +25,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
     public WalletDatabaseClient(AllureAttachmentService attachmentService,
                                 GamblingProjectionTransactionHistoryRepository transactionRepository,
                                 PlayerThresholdWinRepository playerThresholdWinRepository,
+                                PlayerThresholdDepositRepository playerThresholdDepositRepository,
                                 WalletGameSessionRepository walletGameSessionRepository,
                                 WalletRepository walletRepository,
                                 BettingProjectionIframeHistoryRepository iframeHistoryRepository,
@@ -31,6 +33,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         super(attachmentService, objectMapper);
         this.transactionRepository = transactionRepository;
         this.playerThresholdWinRepository = playerThresholdWinRepository;
+        this.playerThresholdDepositRepository = playerThresholdDepositRepository;
         this.walletGameSessionRepository = walletGameSessionRepository;
         this.walletRepository = walletRepository;
         this.iframeHistoryRepository = iframeHistoryRepository;
@@ -51,6 +54,15 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String attachmentNamePrefix = String.format("Player Threshold Win [Player: %s]", playerUuid);
         Supplier<Optional<PlayerThresholdWin>> querySupplier = () ->
                 Optional.ofNullable(playerThresholdWinRepository.findByPlayerUuid(playerUuid));
+        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+    }
+
+    @Transactional(readOnly = true)
+    public PlayerThresholdDeposit findDepositThresholdByPlayerUuidOrFail(String playerUuid) {
+        String description = String.format("player threshold deposit record for player '%s'", playerUuid);
+        String attachmentNamePrefix = String.format("Player Threshold Deposit [Player: %s]", playerUuid);
+        Supplier<Optional<PlayerThresholdDeposit>> querySupplier = () ->
+                Optional.ofNullable(playerThresholdDepositRepository.findByPlayerUuid(playerUuid));
         return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
     }
 

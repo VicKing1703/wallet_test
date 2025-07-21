@@ -21,6 +21,7 @@ public enum NatsEventType {
     RECALCULATED_FROM_IFRAME("recalculated_from_iframe"),
     BLOCK_AMOUNT_STARTED("block_amount_started"),
     BLOCK_AMOUNT_REVOKED("block_amount_revoked"),
+    DEPOSITED_MONEY("deposited_money"),
 
     UNKNOWN("unknown");
 
