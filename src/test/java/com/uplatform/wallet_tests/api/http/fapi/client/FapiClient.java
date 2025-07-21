@@ -20,6 +20,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.identity.VerificationStatus;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactResponse;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactTypedRequest;
+import com.uplatform.wallet_tests.api.http.fapi.dto.payment.DepositRequestBody;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -120,6 +121,12 @@ public interface FapiClient {
     @GetMapping("/_front_api/api/v1/player/verification/status")
     ResponseEntity<List<VerificationStatus>> getVerificationStatus(
             @RequestHeader("Authorization") String authorizationHeader
+    );
+
+    @PostMapping("/_front_api/api/v2/payment/deposit")
+    ResponseEntity<Void> deposit(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestBody DepositRequestBody request
     );
 }
 

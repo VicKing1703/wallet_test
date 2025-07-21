@@ -13,6 +13,7 @@ import com.uplatform.wallet_tests.api.nats.NatsClient;
 import com.uplatform.wallet_tests.api.kafka.client.WalletProjectionKafkaClient;
 import com.uplatform.wallet_tests.api.kafka.client.GameSessionKafkaClient;
 import com.uplatform.wallet_tests.api.kafka.client.LimitKafkaClient;
+import com.uplatform.wallet_tests.api.kafka.client.PaymentKafkaClient;
 import com.uplatform.wallet_tests.api.db.WalletDatabaseClient;
 import com.uplatform.wallet_tests.api.db.CoreDatabaseClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,4 +71,7 @@ public abstract class BaseTest {
 
     @Autowired
     protected CoreDatabaseClient coreDatabaseClient;
+
+    @Autowired
+    protected PaymentKafkaClient paymentKafkaClient;
 }
