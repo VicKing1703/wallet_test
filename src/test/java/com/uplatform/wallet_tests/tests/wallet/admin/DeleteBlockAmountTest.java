@@ -33,15 +33,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("CAP")
 @Feature("BlockAmount")
 @Suite("Позитивные сценарии: DeleteBlockAmount")
-@Tag("Wallet") @Tag("CAP")
+@Tag("") @Tag("")
 class DeleteBlockAmountTest extends BaseTest {
 
     private String platformNodeId;
-
-    @BeforeAll
-    void setupGlobalTestContext() {
-        this.platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-    }
 
     @Test
     @DisplayName("Проверка удаления блокировки средств с кошелька игрока")
