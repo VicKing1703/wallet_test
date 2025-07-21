@@ -7,6 +7,7 @@ public enum NatsLimitType {
     SINGLE_BET("single-bet"),
     CASINO_LOSS("casino-loss"),
     TURNOVER_FUNDS("turnover-of-funds"),
+    DEPOSIT("deposit"),
     UNKNOWN(null);
 
     private final String value;

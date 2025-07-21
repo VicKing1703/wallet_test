@@ -12,6 +12,8 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.player_restrictions.PlayerRe
 import com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss.SetCasinoLossLimitRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.SetSingleBetLimitRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitRequest;
+import com.uplatform.wallet_tests.api.http.fapi.dto.deposit.SetDepositLimitRequest;
+import com.uplatform.wallet_tests.api.http.fapi.dto.deposit.DepositLimit;
 import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.SingleBetLimit;
 import com.uplatform.wallet_tests.api.http.fapi.dto.check.TokenCheckRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.check.TokenCheckResponse;
@@ -88,6 +90,12 @@ public interface FapiClient {
             @RequestBody SetTurnoverLimitRequest request
     );
 
+    @PostMapping("/_front_api/api/v1/player/recalculated-limits/deposit")
+    ResponseEntity<Void> setDepositLimit(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestBody SetDepositLimitRequest request
+    );
+
     @PostMapping("/_front_api/api/v1/player/restrictions")
     ResponseEntity<PlayerRestrictionResponse> getPlayerRestrictions(
             @RequestHeader("Authorization") String authorizationHeader,
@@ -106,6 +114,11 @@ public interface FapiClient {
 
     @GetMapping("/_front_api/api/v1/player/recalculated-limits/turnover-of-funds")
     ResponseEntity<List<TurnoverLimit>> getTurnoverLimits(
+            @RequestHeader("Authorization") String authorizationHeader
+    );
+
+    @GetMapping("/_front_api/api/v1/player/recalculated-limits/deposit")
+    ResponseEntity<List<DepositLimit>> getDepositLimits(
             @RequestHeader("Authorization") String authorizationHeader
     );
 
