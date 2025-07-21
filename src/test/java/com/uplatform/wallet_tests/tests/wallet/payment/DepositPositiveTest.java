@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Payment")
 @Feature("Deposit")
 @Suite("Позитивные сценарии: Deposit")
-@Tag("Wallet")
+@Tag("Wallet3")
 class DepositPositiveTest extends BaseTest {
 
     @Test
@@ -79,11 +79,13 @@ class DepositPositiveTest extends BaseTest {
 
         step("Default Step: Полная регистрация игрока с KYC", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayerWithKyc();
+
             assertNotNull(ctx.registeredPlayer, "default_step.registration_with_kyc");
         });
 
         step("FAPI: Выполнение депозита", () -> {
-            var amount = generateBigDecimalAmount(new BigDecimal("15"));
+            var amount = generateBigDecimalAmount(new BigDecimal("250"));
+
             ctx.depositRequest = DepositRequestBody.builder()
                     .amount(amount.toPlainString())
                     .paymentMethodId(PaymentMethodId.FAKE)
@@ -107,7 +109,9 @@ class DepositPositiveTest extends BaseTest {
             var paymentMessage = paymentKafkaClient.expectTransactionMessage(
                     ctx.registeredPlayer.getWalletData().getPlayerUUID(),
                     nodeId);
+
             ctx.transactionId = paymentMessage.getTransaction().getTransactionId();
+
             assertNotNull(ctx.transactionId, "kafka.transaction.id");
         });
 
@@ -125,6 +129,7 @@ class DepositPositiveTest extends BaseTest {
                     filter).get();
 
             var actualPayload = ctx.depositEvent.getPayload();
+
             assertAll("Проверка основных полей NATS payload",
                     () -> assertEquals(ctx.transactionId, actualPayload.getUuid(), "nats.payload.uuid"),
                     () -> assertEquals(ctx.depositRequest.getCurrency(), actualPayload.getCurrencyCode(), "nats.payload.currency_code"),
@@ -138,6 +143,7 @@ class DepositPositiveTest extends BaseTest {
         step("DB Wallet: Проверка записи порога депозита", () -> {
             var threshold = walletDatabaseClient.findDepositThresholdByPlayerUuidOrFail(
                     ctx.registeredPlayer.getWalletData().getPlayerUUID());
+
             assertAll("Проверка полей player_threshold_deposit",
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().getPlayerUUID(), threshold.getPlayerUuid(), "db.ptd.player_uuid"),
                     () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(threshold.getAmount()), "db.ptd.amount"),
@@ -148,6 +154,7 @@ class DepositPositiveTest extends BaseTest {
         step("Kafka: Проверка поступления сообщения deposited_money в топик wallet.v8.projectionSource", () -> {
             var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
                     ctx.depositEvent.getSequence());
+
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.depositEvent), "kafka.payload");
         });
 
@@ -168,7 +175,7 @@ class DepositPositiveTest extends BaseTest {
                     () -> assertEquals(nodeId, deposit.getNodeUUID(), "redis.wallet.deposit.node_uuid"),
                     () -> assertEquals("", deposit.getBonusID(), "redis.wallet.deposit.bonus_id"),
                     () -> assertEquals(ctx.depositRequest.getCurrency(), deposit.getCurrencyCode(), "redis.wallet.deposit.currency_code"),
-                    () -> assertEquals(0, deposit.getWageringAmount().compareTo(deposit.getAmount()), "redis.wallet.deposit.wagering_amount")
+                    () -> assertEquals(0, deposit.getWageringAmount().compareTo(BigDecimal.ZERO), "redis.wallet.deposit.wagering_amount")
             );
         });
     }
