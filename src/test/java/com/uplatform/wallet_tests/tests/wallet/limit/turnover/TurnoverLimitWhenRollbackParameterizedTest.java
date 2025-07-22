@@ -1,5 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.turnover;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitRequest;
@@ -18,16 +18,20 @@ import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.function.BiPredicate;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
  * Интеграционный тест, проверяющий изменение лимита на оборот средств в агрегате игрока
@@ -61,16 +65,25 @@ import static org.junit.jupiter.api.Assertions.*;
 @Feature("TurnoverLimit")
 @Suite("Позитивные сценарии: TurnoverLimit")
 @Tag("Gambling") @Tag("Wallet") @Tag("Limits")
-class TurnoverLimitWhenRollbackTest extends BaseTest {
+class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
     private static final BigDecimal limitAmountBase = generateBigDecimalAmount(initialAdjustmentAmount);
     private static final BigDecimal betAmount = generateBigDecimalAmount(limitAmountBase);
     private static final BigDecimal rollbackAmount = betAmount;
 
-    @Test
+    static Stream<Arguments> periodProvider() {
+        return Stream.of(
+                arguments(NatsLimitIntervalType.DAILY),
+                arguments(NatsLimitIntervalType.WEEKLY),
+                arguments(NatsLimitIntervalType.MONTHLY)
+        );
+    }
+
+    @ParameterizedTest(name = "период = {0}")
+    @MethodSource("periodProvider")
     @DisplayName("Изменение остатка TurnoverLimit при получении полного роллбэка на ставку в казино")
-    void testTurnoverLimitChangeOnFullRollback() {
+    void testTurnoverLimitChangeOnFullRollback(NatsLimitIntervalType periodType) {
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
 
         final class TestContext {
@@ -107,7 +120,7 @@ class TurnoverLimitWhenRollbackTest extends BaseTest {
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .type(NatsLimitIntervalType.DAILY)
+                    .type(periodType)
                     .amount(limitAmountBase.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
@@ -127,7 +140,7 @@ class TurnoverLimitWhenRollbackTest extends BaseTest {
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
                                 payload.getLimits().stream().anyMatch(l ->
                                         NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
-                                                NatsLimitIntervalType.DAILY.getValue().equals(l.getIntervalType())
+                                                periodType.getValue().equals(l.getIntervalType())
                                 );
 
                 ctx.limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
@@ -226,7 +239,7 @@ class TurnoverLimitWhenRollbackTest extends BaseTest {
                     () -> {
                         var turnoverLimitOpt = aggregate.getLimits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
-                                        NatsLimitIntervalType.DAILY.getValue().equals(l.getIntervalType()))
+                                        periodType.getValue().equals(l.getIntervalType()))
                                 .findFirst();
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit_present");
                         var turnoverLimit = turnoverLimitOpt.get();

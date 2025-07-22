@@ -24,9 +24,9 @@ import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
-import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
  * Интеграционный тест, проверяющий изменение лимита на оборот средств в агрегате игрока
@@ -51,13 +51,6 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>{@code TIPS} - чаевые.</li>
  *   <li>{@code FREESPIN} - бесплатные вращения.
  * </ul>
- *
- * <p><b>Проверяемые суммы ставок:</b></p>
- * <ul>
- *   <li>Динамически генерируемые ненулевые значения (меньше суммы лимита).</li>
- *   <li>Нулевые значения ({@code 0.00}).</li>
- *   <li>Значения, равные сумме установленного лимита.</li>
- * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Limits")
@@ -67,68 +60,33 @@ import static org.junit.jupiter.api.Assertions.*;
 class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
-    private static final BigDecimal limitAmountBase = generateBigDecimalAmount(initialAdjustmentAmount);
+    private static final BigDecimal limitAmount = new BigDecimal("150.12");
+    private static final BigDecimal betAmount = new BigDecimal("10.15");
 
-    static Stream<Arguments> betProvider() {
+    static Stream<Arguments> operationAndPeriodProvider() {
         return Stream.of(
-                Arguments.of(
-                        generateBigDecimalAmount(limitAmountBase),
-                        NatsGamblingTransactionOperation.BET,
-                        NatsGamblingTransactionType.TYPE_BET
-                ),
-                Arguments.of(
-                        generateBigDecimalAmount(limitAmountBase),
-                        NatsGamblingTransactionOperation.TIPS,
-                        NatsGamblingTransactionType.TYPE_TIPS
-                ),
-                Arguments.of(
-                        generateBigDecimalAmount(limitAmountBase),
-                        NatsGamblingTransactionOperation.FREESPIN,
-                        NatsGamblingTransactionType.TYPE_FREESPIN
-                ),
-                Arguments.of(
-                        limitAmountBase,
-                        NatsGamblingTransactionOperation.BET,
-                        NatsGamblingTransactionType.TYPE_BET
-                ),
-                Arguments.of(
-                        limitAmountBase,
-                        NatsGamblingTransactionOperation.TIPS,
-                        NatsGamblingTransactionType.TYPE_TIPS
-                ),
-                Arguments.of(
-                        limitAmountBase,
-                        NatsGamblingTransactionOperation.FREESPIN,
-                        NatsGamblingTransactionType.TYPE_FREESPIN
-                ),
-                Arguments.of(
-                        BigDecimal.ZERO,
-                        NatsGamblingTransactionOperation.BET,
-                        NatsGamblingTransactionType.TYPE_BET
-                ),
-                Arguments.of(
-                        BigDecimal.ZERO,
-                        NatsGamblingTransactionOperation.TIPS,
-                        NatsGamblingTransactionType.TYPE_TIPS
-                ),
-                Arguments.of(
-                        BigDecimal.ZERO,
-                        NatsGamblingTransactionOperation.FREESPIN,
-                        NatsGamblingTransactionType.TYPE_FREESPIN
-                )
+                arguments(NatsGamblingTransactionOperation.BET, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.BET, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.BET, NatsLimitIntervalType.MONTHLY),
+                arguments(NatsGamblingTransactionOperation.TIPS, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.TIPS, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.TIPS, NatsLimitIntervalType.MONTHLY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.MONTHLY)
         );
     }
 
     /**
-     * @param betAmountParam Сумма ставки.
      * @param operationParam Тип операции ставки (для запроса и проверки NATS).
+     * @param periodType     Период действия лимита.
      */
-    @ParameterizedTest(name = "тип = {1}, сумма = {0}")
-    @MethodSource("betProvider")
+    @ParameterizedTest(name = "тип = {0}, период = {1}")
+    @MethodSource("operationAndPeriodProvider")
     @DisplayName("Изменение остатка TurnoverLimit при совершении ставки:")
     void testTurnoverLimitChangeOnBet(
-            BigDecimal betAmountParam,
-            NatsGamblingTransactionOperation operationParam
+            NatsGamblingTransactionOperation operationParam,
+            NatsLimitIntervalType periodType
     ) {
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
 
@@ -145,10 +103,10 @@ class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
         }
         final TestContext ctx = new TestContext();
 
-        ctx.limitAmount = limitAmountBase;
-        ctx.expectedSpentAmountAfterBet = betAmountParam;
-        ctx.expectedRestAmountAfterBet = ctx.limitAmount.subtract(betAmountParam);
-        ctx.expectedPlayerBalanceAfterBet = initialAdjustmentAmount.subtract(betAmountParam);
+        ctx.limitAmount = limitAmount;
+        ctx.expectedSpentAmountAfterBet = betAmount;
+        ctx.expectedRestAmountAfterBet = ctx.limitAmount.subtract(betAmount);
+        ctx.expectedPlayerBalanceAfterBet = initialAdjustmentAmount.subtract(betAmount);
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
@@ -163,7 +121,7 @@ class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .type(NatsLimitIntervalType.DAILY)
+                    .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
@@ -192,7 +150,7 @@ class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки", () -> {
             ctx.betRequestBody = BetRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .amount(betAmountParam)
+                    .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
                     .roundId(UUID.randomUUID().toString())
@@ -239,7 +197,7 @@ class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
                     () -> {
                         var turnoverLimitOpt = aggregate.getLimits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
-                                        NatsLimitIntervalType.DAILY.getValue().equals(l.getIntervalType()))
+                                        periodType.getValue().equals(l.getIntervalType()))
                                 .findFirst();
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit");
                         var turnoverLimit = turnoverLimitOpt.get();

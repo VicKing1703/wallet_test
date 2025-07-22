@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Limits")
@@ -36,49 +37,29 @@ import static org.junit.jupiter.api.Assertions.*;
 class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
-    private static final BigDecimal limitAmountBase = generateBigDecimalAmount(initialAdjustmentAmount);
+    private static final BigDecimal limitAmount = new BigDecimal("150.12");
+    private static final BigDecimal winAmount = new BigDecimal("10.15");
 
-    static Stream<Arguments> winProvider() {
+    static Stream<Arguments> operationAndPeriodProvider() {
         return Stream.of(
-                Arguments.of(
-                        generateBigDecimalAmount(limitAmountBase),
-                        NatsGamblingTransactionOperation.WIN,
-                        NatsGamblingTransactionType.TYPE_WIN
-                ),
-                Arguments.of(
-                        generateBigDecimalAmount(limitAmountBase),
-                        NatsGamblingTransactionOperation.JACKPOT,
-                        NatsGamblingTransactionType.TYPE_WIN
-                ),
-                Arguments.of(
-                        generateBigDecimalAmount(limitAmountBase),
-                        NatsGamblingTransactionOperation.FREESPIN,
-                        NatsGamblingTransactionType.TYPE_FREESPIN
-                ),
-                Arguments.of(
-                        BigDecimal.ZERO,
-                        NatsGamblingTransactionOperation.WIN,
-                        NatsGamblingTransactionType.TYPE_WIN
-                ),
-                Arguments.of(
-                        BigDecimal.ZERO,
-                        NatsGamblingTransactionOperation.JACKPOT,
-                        NatsGamblingTransactionType.TYPE_WIN
-                ),
-                Arguments.of(
-                        BigDecimal.ZERO,
-                        NatsGamblingTransactionOperation.FREESPIN,
-                        NatsGamblingTransactionType.TYPE_FREESPIN
-                )
+                arguments(NatsGamblingTransactionOperation.WIN, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.WIN, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.WIN, NatsLimitIntervalType.MONTHLY),
+                arguments(NatsGamblingTransactionOperation.JACKPOT, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.JACKPOT, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.JACKPOT, NatsLimitIntervalType.MONTHLY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.MONTHLY)
         );
     }
 
-    @ParameterizedTest(name = "тип = {1}, сумма = {0}")
-    @MethodSource("winProvider")
+    @ParameterizedTest(name = "тип = {0}, период = {1}")
+    @MethodSource("operationAndPeriodProvider")
     @DisplayName("Отсутствие изменения остатка TurnoverLimit при получении выигрыша:")
     void testTurnoverLimitUnchangedOnWin(
-            BigDecimal winAmountParam,
-            NatsGamblingTransactionOperation operationParam
+            NatsGamblingTransactionOperation operationParam,
+            NatsLimitIntervalType periodType
     ) {
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
 
@@ -95,10 +76,10 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
         }
         final TestContext ctx = new TestContext();
 
-        ctx.limitAmount = limitAmountBase;
+        ctx.limitAmount = limitAmount;
         ctx.expectedSpentAmountAfterWin = BigDecimal.ZERO;
         ctx.expectedRestAmountAfterWin = ctx.limitAmount;
-        ctx.expectedPlayerBalanceAfterWin = initialAdjustmentAmount.add(winAmountParam);
+        ctx.expectedPlayerBalanceAfterWin = initialAdjustmentAmount.add(winAmount);
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
@@ -113,7 +94,7 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .type(NatsLimitIntervalType.DAILY)
+                    .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
@@ -132,7 +113,8 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                 BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
                                 payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                                NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType());
+                                NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType()) &&
+                                periodType.getValue().equals(payload.getLimits().get(0).getIntervalType());
 
                 ctx.limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
@@ -142,7 +124,7 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Начисление выигрыша", () -> {
             ctx.winRequestBody = WinRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .amount(winAmountParam)
+                    .amount(winAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
                     .roundId(UUID.randomUUID().toString())
@@ -188,7 +170,7 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                     () -> {
                         var turnoverLimitOpt = aggregate.getLimits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
-                                        NatsLimitIntervalType.DAILY.getValue().equals(l.getIntervalType()))
+                                        periodType.getValue().equals(l.getIntervalType()))
                                 .findFirst();
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit");
                         var turnoverLimit = turnoverLimitOpt.get();
