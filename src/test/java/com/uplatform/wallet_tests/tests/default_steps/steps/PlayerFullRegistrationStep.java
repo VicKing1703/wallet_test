@@ -195,8 +195,8 @@ public class PlayerFullRegistrationStep {
             var request = IdentityVerificationRequest.builder()
                     .number(get(NUMBER, 9))
                     .type("4")
-                    .issuedDate(String.format("%.3f", issuedMillis / 1000.0))
-                    .expiryDate(String.format("%.3f", expiryMillis / 1000.0))
+                    .issuedDate(String.valueOf(issuedMillis / 1000))
+                    .expiryDate(String.valueOf(expiryMillis / 1000))
                     .build();
             ctx.identityRequest = request;
             var response = publicClient.createIdentityVerification(
