@@ -67,7 +67,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 @Feature("TurnoverLimit")
 @Suite("Позитивные сценарии: TurnoverLimit")
 @Tag("Limits") @Tag("Wallet") @Tag("TurnoverLimit")
-public class TurnoverLimitCreateParametrizedTest extends BaseParameterizedTest {
+public class TurnoverLimitCreateParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
     private static final BigDecimal limitAmountBase = generateBigDecimalAmount(initialAdjustmentAmount);

@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Limits")
 @Feature("TurnoverLimit")
 @Suite("Позитивные сценарии: TurnoverLimit")
-@Tag("Gambling") @Tag("Wallet") @Tag("Limits") @Tag("Tournament")
+@Tag("Gambling") @Tag("Wallet") @Tag("Limits")
 class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
 
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
