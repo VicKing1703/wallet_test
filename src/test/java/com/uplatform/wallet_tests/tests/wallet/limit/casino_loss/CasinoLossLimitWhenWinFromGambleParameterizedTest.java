@@ -30,6 +30,35 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+/**
+ * Проверка уменьшения остатка лимита CasinoLoss при выигрыше в казино.
+ *
+ * <p>Тест создает лимит на проигрыш для разных периодов, затем выполняет
+ * выигрыш одним из типов операции и убеждается, что значения {@code rest} и
+ * {@code spent} лимита корректно обновились.</p>
+ *
+ * <p><b>Сценарий теста:</b></p>
+ * <ol>
+ *   <li><b>Регистрация игрока:</b> создание нового игрока.</li>
+ *   <li><b>Создание игровой сессии:</b> через DefaultTestSteps.</li>
+ *   <li><b>Установка лимита:</b> Public API {@code /profile/limit/casino-loss}.</li>
+ *   <li><b>Проверка NATS:</b> событие {@code limit_changed_v2}.</li>
+ *   <li><b>Основное действие:</b> получение выигрыша через Manager API.</li>
+ *   <li><b>Проверка NATS:</b> событие {@code won_from_gamble}.</li>
+ *   <li><b>Проверка Redis:</b> агрегат кошелька обновлен.</li>
+ * </ol>
+ *
+ * <p><b>Проверяемые компоненты и сущности:</b></p>
+ * <ul>
+ *   <li>Public API: установка лимита.</li>
+ *   <li>Manager API: получение выигрыша.</li>
+ *   <li>NATS: события limit_changed_v2 и won_from_gamble.</li>
+ *   <li>Redis: агрегат кошелька.</li>
+ * </ul>
+ *
+ * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
+ */
+
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Limits")
 @Feature("CasinoLossLimit")
@@ -37,19 +66,26 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 @Tag("Gambling") @Tag("Wallet") @Tag("Limits")
 class CasinoLossLimitWhenWinFromGambleParameterizedTest extends BaseParameterizedTest {
 
-    static Stream<Arguments> blockedBetProvider() {
+    static Stream<Arguments> operationAndPeriodProvider() {
         return Stream.of(
-                arguments(NatsGamblingTransactionOperation.WIN),
-                arguments(NatsGamblingTransactionOperation.JACKPOT),
-                arguments(NatsGamblingTransactionOperation.FREESPIN)
+                arguments(NatsGamblingTransactionOperation.WIN, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.WIN, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.WIN, NatsLimitIntervalType.MONTHLY),
+                arguments(NatsGamblingTransactionOperation.JACKPOT, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.JACKPOT, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.JACKPOT, NatsLimitIntervalType.MONTHLY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.DAILY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.WEEKLY),
+                arguments(NatsGamblingTransactionOperation.FREESPIN, NatsLimitIntervalType.MONTHLY)
         );
     }
 
-    @ParameterizedTest(name = "тип = {0}")
-    @MethodSource("blockedBetProvider")
+    @ParameterizedTest(name = "тип = {0}, период = {1}")
+    @MethodSource("operationAndPeriodProvider")
     @DisplayName("Изменение остатка CasinoLossLimit при получении выигрыша в казино:")
     void shouldRejectBetWhenGamblingDisabled(
-            NatsGamblingTransactionOperation type
+            NatsGamblingTransactionOperation type,
+            NatsLimitIntervalType periodType
     ) {
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
 
@@ -83,7 +119,7 @@ class CasinoLossLimitWhenWinFromGambleParameterizedTest extends BaseParameterize
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .type(NatsLimitIntervalType.DAILY)
+                    .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
