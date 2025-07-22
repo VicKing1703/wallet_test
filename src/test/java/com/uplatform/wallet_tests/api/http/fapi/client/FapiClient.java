@@ -23,6 +23,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContact
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactResponse;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactTypedRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.DepositRequestBody;
+import com.uplatform.wallet_tests.api.http.fapi.dto.payment.WithdrawalRequestBody;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -140,6 +141,12 @@ public interface FapiClient {
     ResponseEntity<Void> deposit(
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestBody DepositRequestBody request
+    );
+
+    @PostMapping("/_front_api/api/v3/payment/withdrawal")
+    ResponseEntity<Void> withdrawal(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestBody WithdrawalRequestBody request
     );
 }
 
