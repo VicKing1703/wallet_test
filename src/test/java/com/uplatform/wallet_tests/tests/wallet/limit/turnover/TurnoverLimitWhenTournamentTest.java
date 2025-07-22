@@ -26,7 +26,6 @@ import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
-import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -34,9 +33,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * Интеграционный тест, проверяющий, что лимит на оборот средств в агрегате игрока
  * НЕ изменяется при получении турнирных выигрышей в гемблинге.
  *
- * <p>Тест охватывает различные суммы турнирных выигрышей, включая ненулевые и нулевые.
- * Каждая итерация параметризованного теста выполняется с полностью изолированным состоянием,
- * включая создание нового игрока, игровой сессии и установку лимита на оборот.</p>
+ * <p>Тест выполняется для разных периодов действия лимита. В каждом запуске
+ * создается новый игрок, игровая сессия и устанавливается лимит на оборот.</p>
  *
  * <p><b>Проверяемые уровни приложения:</b></p>
  * <ul>
@@ -51,11 +49,6 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>Кэш: Проверка отсутствия изменений в данных лимита оборота и обновление баланса игрока в агрегате кошелька в Redis (ключ {@code wallet:<wallet_uuid>}).</li>
  * </ul>
  *
- * <p><b>Проверяемые суммы турнирных выигрышей:</b></p>
- * <ul>
- *   <li>Динамически генерируемые ненулевые значения.</li>
- *   <li>Нулевые значения ({@code 0.00}).</li>
- * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Limits")
@@ -65,23 +58,25 @@ import static org.junit.jupiter.api.Assertions.*;
 class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
 
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
-    private static final BigDecimal limitAmountBase = generateBigDecimalAmount(initialAdjustmentAmount);
+    private static final BigDecimal limitAmount = new BigDecimal("150.12");
+    private static final BigDecimal tournamentAmount = new BigDecimal("10.15");
 
-    static Stream<Arguments> tournamentAmountProvider() {
+    static Stream<Arguments> periodProvider() {
         return Stream.of(
-                Arguments.of(generateBigDecimalAmount(limitAmountBase)),
-                Arguments.of(BigDecimal.ZERO)
+                Arguments.of(NatsLimitIntervalType.DAILY),
+                Arguments.of(NatsLimitIntervalType.WEEKLY),
+                Arguments.of(NatsLimitIntervalType.MONTHLY)
         );
     }
 
     /**
-     * @param tournamentAmountParam Сумма турнирного выигрыша.
+     * @param periodType Период действия лимита.
      */
-    @ParameterizedTest(name = "сумма выигрыша = {0}")
-    @MethodSource("tournamentAmountProvider")
-    @DisplayName("Отсутствие изменения остатка TurnoverLimit при получении турнирного выигрыша:")
+    @ParameterizedTest(name = "период = {0}")
+    @MethodSource("periodProvider")
+    @DisplayName("Отсутствие изменения остатка TurnoverLimit при получении турнирного выигрыша")
     void testTurnoverLimitUnchangedOnTournamentWin(
-            BigDecimal tournamentAmountParam
+            NatsLimitIntervalType periodType
     ) {
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
 
@@ -98,10 +93,10 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
         }
         final TestContext ctx = new TestContext();
 
-        ctx.limitAmount = limitAmountBase;
+        ctx.limitAmount = limitAmount;
         ctx.expectedSpentAmountAfterTournament = BigDecimal.ZERO;
         ctx.expectedRestAmountAfterTournament = ctx.limitAmount;
-        ctx.expectedPlayerBalanceAfterTournament = initialAdjustmentAmount.add(tournamentAmountParam);
+        ctx.expectedPlayerBalanceAfterTournament = initialAdjustmentAmount.add(tournamentAmount);
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
@@ -116,7 +111,7 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .type(NatsLimitIntervalType.DAILY)
+                    .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
@@ -144,7 +139,7 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
         step("Manager API: Начисление турнирного выигрыша", () -> {
             ctx.tournamentRequestBody = TournamentRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .amount(tournamentAmountParam)
+                    .amount(tournamentAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .roundId(UUID.randomUUID().toString())
                     .build();
@@ -188,7 +183,7 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
                     () -> {
                         var turnoverLimitOpt = aggregate.getLimits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
-                                        NatsLimitIntervalType.DAILY.getValue().equals(l.getIntervalType()))
+                                        periodType.getValue().equals(l.getIntervalType()))
                                 .findFirst();
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit");
                         var turnoverLimit = turnoverLimitOpt.get();
