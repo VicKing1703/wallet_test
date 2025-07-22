@@ -10,7 +10,8 @@ import java.util.Arrays;
 @Getter
 @RequiredArgsConstructor
 public enum PaymentMethodId {
-    FAKE(1001);
+    FAKE(1001),
+    MOCK(3819);
 
     private final int value;
 
