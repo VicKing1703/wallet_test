@@ -14,7 +14,6 @@ import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBlockAmountStatus;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -36,18 +35,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Wallet") @Tag("CAP")
 class DeleteBlockAmountTest extends BaseTest {
 
-    private String platformNodeId;
-
-    @BeforeAll
-    void setupGlobalTestContext() {
-        this.platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-    }
-
     @Test
     @DisplayName("Проверка удаления блокировки средств с кошелька игрока")
     void shouldDeleteBlockAmountAndVerifyResponse() {
         final BigDecimal adjustmentAmount = new BigDecimal("150.00");
         final BigDecimal blockAmount = new BigDecimal("50.00");
+        final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

@@ -67,6 +67,7 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
     private BetRequestBody initialBetRequest;
+    private BigDecimal balanceAfterBet;
 
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("1000.00");
     private static final BigDecimal baseBetAmount = new BigDecimal("10.00");
@@ -112,7 +113,11 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
                     utils.createSignature(ApiEndpoints.BET, initialBetRequest),
                     initialBetRequest);
 
-            assertEquals(HttpStatus.OK, response.getStatusCode(), "default_step.base_bet_status_code");
+            assertAll("default_step.base_bet_response",
+                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "default_step.base_bet_status_code"),
+                    () -> assertNotNull(response.getBody(), "default_step.base_bet_response_body_not_null")
+            );
+            this.balanceAfterBet = response.getBody().getBalance();
         });
     }
 
@@ -121,8 +126,7 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
     @DisplayName("Идемпотентная обработка дублей выигрышей при одновременной отправке")
     void testConcurrentDuplicateWinsHandledIdempotently(NatsGamblingTransactionOperation operationParam, BigDecimal winAmountParam) throws InterruptedException {
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
-        BigDecimal balanceAfterBet = initialAdjustmentAmount.subtract(baseBetAmount);
-        BigDecimal expectedBalanceAfterSuccessfulWin = balanceAfterBet.add(winAmountParam);
+        BigDecimal expectedBalanceAfterSuccessfulWin = this.balanceAfterBet.add(winAmountParam);
 
         step(String.format("Manager API: Одновременная отправка дублирующихся выигрышей (тип: %s, сумма: %s)", operationParam, winAmountParam), () -> {
 
