@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Limits")
 @Feature("DepositLimit")
 @Suite("Позитивные сценарии: DepositLimit")
-@Tag("Limits") @Tag("Wallet3")
+@Tag("Limits") @Tag("Wallet") @Tag("Payment")
 public class DepositLimitCreateTest extends BaseParameterizedTest {
 
     private static final BigDecimal limitAmount = new BigDecimal("100.15");

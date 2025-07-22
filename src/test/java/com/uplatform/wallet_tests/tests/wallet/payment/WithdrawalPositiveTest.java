@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Payment")
 @Feature("Withdrawal")
 @Suite("Позитивные сценарии: Withdrawal")
-@Tag("Wallet3")
+@Tag("Wallet") @Tag("Payment")
 class WithdrawalPositiveTest extends BaseTest {
 
     @Test

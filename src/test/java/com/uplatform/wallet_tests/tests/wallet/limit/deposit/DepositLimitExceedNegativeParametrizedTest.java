@@ -60,7 +60,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 @Epic("Limits")
 @Feature("DepositLimit")
 @Suite("Негативные сценарии: DepositLimit")
-@Tag("Limits") @Tag("Wallet3")
+@Tag("Limits") @Tag("Wallet") @Tag("Payment")
 public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal limitAmount = new BigDecimal("100.15");

@@ -1,10 +1,10 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.casino_loss;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss.SetCasinoLossLimitRequest;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
-import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RollbackRequestBody;
+import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
@@ -17,7 +17,10 @@ import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import java.util.stream.Stream;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -26,38 +29,76 @@ import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+/**
+ * Проверка уменьшения остатка лимита CasinoLoss при рефанде в казино.
+ *
+ * <p>Тест создает лимит на проигрыш для разных периодов, совершает ставку и
+ * затем рефанд. Проверяется, что значения {@code rest} и {@code spent} лимита
+ * изменились корректно.</p>
+ *
+ * <p><b>Сценарий теста:</b></p>
+ * <ol>
+ *   <li><b>Регистрация игрока:</b> создание нового игрока.</li>
+ *   <li><b>Создание игровой сессии:</b> через DefaultTestSteps.</li>
+ *   <li><b>Установка лимита:</b> Public API {@code /profile/limit/casino-loss}.</li>
+ *   <li><b>Проверка NATS:</b> событие {@code limit_changed_v2}.</li>
+ *   <li><b>Основное действие:</b> ставка и рефанд через Manager API.</li>
+ *   <li><b>Проверка NATS:</b> событие {@code refunded_from_gamble}.</li>
+ *   <li><b>Проверка Redis:</b> агрегат кошелька обновлен.</li>
+ * </ol>
+ *
+ * <p><b>Проверяемые компоненты и сущности:</b></p>
+ * <ul>
+ *   <li>Public API: установка лимита.</li>
+ *   <li>Manager API: ставка и рефанд.</li>
+ *   <li>NATS: события limit_changed_v2 и refunded_from_gamble.</li>
+ *   <li>Redis: агрегат кошелька.</li>
+ * </ul>
+ *
+ * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Limits")
 @Feature("CasinoLossLimit")
 @Suite("Позитивные сценарии: CasinoLossLimit")
 @Tag("Gambling") @Tag("Wallet") @Tag("Limits")
-class CasinoLossLimitWhenRollbackFromGambleTest extends BaseTest {
+class CasinoLossLimitWhenRefundFromGambleParametrizedTest extends BaseParameterizedTest {
 
-    @Test
-    @DisplayName("Изменение остатка CasinoLossLimit при получении роллбэка в казино")
-    void test() {
+    static Stream<Arguments> periodProvider() {
+        return Stream.of(
+                arguments(NatsLimitIntervalType.DAILY),
+                arguments(NatsLimitIntervalType.WEEKLY),
+                arguments(NatsLimitIntervalType.MONTHLY)
+        );
+    }
+
+    @ParameterizedTest(name = "период = {0}")
+    @MethodSource("periodProvider")
+    @DisplayName("Изменение остатка CasinoLossLimit при получении рефанда в казино")
+    void test(NatsLimitIntervalType periodType) {
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             GameLaunchData gameLaunchData;
             BetRequestBody betRequestBody;
-            RollbackRequestBody rollbackRequestBody;
-            NatsMessage<NatsGamblingEventPayload> rollbackEvent;
+            RefundRequestBody refundRequestBody;
+            NatsMessage<NatsGamblingEventPayload> refundEvent;
             BigDecimal limitAmount;
             BigDecimal betAmount;
-            BigDecimal rollbackAmount;
-            BigDecimal expectedRestAmountAfterRollback;
-            BigDecimal expectedSpentAmountAfterRollback;
+            BigDecimal refundAmount;
+            BigDecimal expectedRestAmountAfterRefund;
+            BigDecimal expectedSpentAmountAfterRefund;
         }
         final TestContext ctx = new TestContext();
 
         ctx.limitAmount =  new BigDecimal("150.12");
         ctx.betAmount = new BigDecimal("10.15");
-        ctx.rollbackAmount = ctx.betAmount;
-        ctx.expectedSpentAmountAfterRollback = BigDecimal.ZERO;
-        ctx.expectedRestAmountAfterRollback = ctx.limitAmount;
+        ctx.refundAmount = ctx.betAmount;
+        ctx.expectedSpentAmountAfterRefund = BigDecimal.ZERO;
+        ctx.expectedRestAmountAfterRefund = ctx.limitAmount;
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(new BigDecimal("2000.00"));
@@ -72,7 +113,7 @@ class CasinoLossLimitWhenRollbackFromGambleTest extends BaseTest {
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .type(NatsLimitIntervalType.DAILY)
+                    .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
@@ -93,8 +134,8 @@ class CasinoLossLimitWhenRollbackFromGambleTest extends BaseTest {
 
                 var limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
 
-                assertNotNull(limitCreateEvent, "nats.limit_changed_v2_event");
-        });
+                assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
+            });
         });
 
         step("Manager API: Совершение ставки", () -> {
@@ -115,53 +156,50 @@ class CasinoLossLimitWhenRollbackFromGambleTest extends BaseTest {
             assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.bet.status_code");
         });
 
-        step("Manager API: Получение роллбэка", () -> {
-            ctx.rollbackRequestBody = RollbackRequestBody.builder()
+        step("Manager API: Получение рефанда", () -> {
+            ctx.refundRequestBody = RefundRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
-                    .amount(ctx.rollbackAmount)
+                    .amount(ctx.refundAmount)
                     .transactionId(UUID.randomUUID().toString())
-                    .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
+                    .betTransactionId(ctx.betRequestBody.getTransactionId())
                     .roundId(ctx.betRequestBody.getRoundId())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .roundClosed(true)
                     .build();
 
-            var response = managerClient.rollback(
+            var response = managerClient.refund(
                     casinoId,
-                    utils.createSignature(ApiEndpoints.ROLLBACK, ctx.rollbackRequestBody),
-                    ctx.rollbackRequestBody);
+                    utils.createSignature(ApiEndpoints.REFUND, ctx.refundRequestBody),
+                    ctx.refundRequestBody);
 
-            assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.rollback.status_code");
+            assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.refund.status_code");
 
-            step("Sub-step NATS: Проверка поступления события rollbacked_from_gamble", () -> {
+            step("Sub-step NATS: Проверка поступления события refunded_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
                         ctx.registeredPlayer.getWalletData().getPlayerUUID(),
                         ctx.registeredPlayer.getWalletData().getWalletUUID());
 
                 BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.rollbackRequestBody.getTransactionId().equals(payload.getUuid());
+                        NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
+                                ctx.refundRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.rollbackEvent = natsClient.findMessageAsync(
+                ctx.refundEvent = natsClient.findMessageAsync(
                         subject,
                         NatsGamblingEventPayload.class,
                         filter).get();
 
-                assertNotNull(ctx.rollbackEvent, "nats.rollbacked_from_gamble_event");
+                assertNotNull(ctx.refundEvent, "nats.event.refunded_from_gamble");
             });
         });
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
                     ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.rollbackEvent.getSequence());
+                    (int) ctx.refundEvent.getSequence());
 
             assertAll(
-                    () -> assertEquals(0, ctx.expectedRestAmountAfterRollback.compareTo(aggregate.getLimits().get(0).getRest()), "redis.limit.rest"),
-                    () -> assertEquals(0, ctx.expectedSpentAmountAfterRollback.compareTo(aggregate.getLimits().get(0).getSpent()), "redis.limit.spent"),
-                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.getLimits().get(0).getAmount()), "redis.limit.amount")
+                    () -> assertEquals(0, ctx.expectedRestAmountAfterRefund.compareTo(aggregate.getLimits().get(0).getRest()), "redis.wallet.limit.rest"),
+                    () -> assertEquals(0, ctx.expectedSpentAmountAfterRefund.compareTo(aggregate.getLimits().get(0).getSpent()), "redis.wallet.limit.spent"),
+                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.getLimits().get(0).getAmount()), "redis.wallet.limit.amount")
             );
         });
     }

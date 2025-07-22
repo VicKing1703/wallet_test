@@ -1,5 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.casino_loss;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss.SetCasinoLossLimitRequest;
@@ -16,7 +16,10 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import java.util.stream.Stream;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -25,32 +28,43 @@ import java.util.function.BiPredicate;
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Limits")
 @Feature("CasinoLossLimit")
 @Suite("Позитивные сценарии: CasinoLossLimit")
 @Tag("Betting") @Tag("Wallet") @Tag("Limits")
-class CasinoLossLimitWhenBetFromIframeTest extends BaseTest {
+class CasinoLossWhenRefundFromIframeParametrizedTest extends BaseParameterizedTest {
 
-    @Test
-    @DisplayName("Изменение остатка CasinoLossLimit при совершении ставки в iframe")
-    void shouldRejectBetWhenGamblingDisabled() {
+    static Stream<Arguments> periodProvider() {
+        return Stream.of(
+                arguments(NatsLimitIntervalType.DAILY),
+                arguments(NatsLimitIntervalType.WEEKLY),
+                arguments(NatsLimitIntervalType.MONTHLY)
+        );
+    }
+
+    @ParameterizedTest(name = "период = {0}")
+    @MethodSource("periodProvider")
+    @DisplayName("Изменение остатка CasinoLossLimit при получении рефанда от iframe")
+    void shouldRejectBetWhenGamblingDisabled(NatsLimitIntervalType periodType) {
         final BigDecimal adjustmentAmount = new BigDecimal("150.00");
         final BigDecimal limitAmount = new BigDecimal("150.12");
         final BigDecimal betAmount = new BigDecimal("10.15");
+        final BigDecimal refundCoefficient = new BigDecimal("1.00");
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             MakePaymentData betInputData;
             MakePaymentRequest betRequestBody;
-            NatsMessage<NatsBettingEventPayload> betEvent;
+            NatsMessage<NatsBettingEventPayload> refundEvent;
             BigDecimal expectedRest;
             BigDecimal expectedSpent;
         }
         final TestContext ctx = new TestContext();
 
-        ctx.expectedSpent = betAmount;
+        ctx.expectedSpent = BigDecimal.ZERO;
         ctx.expectedRest = limitAmount.subtract(ctx.expectedSpent);
 
         step("Default Step: Регистрация нового пользователя", () -> {
@@ -61,7 +75,7 @@ class CasinoLossLimitWhenBetFromIframeTest extends BaseTest {
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .type(NatsLimitIntervalType.DAILY)
+                    .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
@@ -100,29 +114,38 @@ class CasinoLossLimitWhenBetFromIframeTest extends BaseTest {
             var response = managerClient.makePayment(ctx.betRequestBody);
 
             assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code");
+        });
 
-            step("Sub-step NATS: Проверка поступления события betted_from_iframe", () -> {
+        step("Manager API: Получение рефанда", () -> {
+            ctx.betRequestBody.setType(NatsBettingTransactionOperation.REFUND);
+            ctx.betRequestBody.setTotalCoef(refundCoefficient.toString());
+
+            var response = managerClient.makePayment(ctx.betRequestBody);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code");
+
+            step("NATS: Проверка поступления события refunded_from_iframe", () -> {
                 var subject = natsClient.buildWalletSubject(
                         ctx.registeredPlayer.getWalletData().getPlayerUUID(),
                         ctx.registeredPlayer.getWalletData().getWalletUUID());
 
                 BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
+                        NatsEventType.REFUNDED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                                 ctx.betRequestBody.getBetId() == payload.getBetId();
 
-                ctx.betEvent = natsClient.findMessageAsync(
+                ctx.refundEvent = natsClient.findMessageAsync(
                         subject,
                         NatsBettingEventPayload.class,
                         filter).get();
 
-                assertNotNull(ctx.betEvent, "nats.event.betted_from_iframe");
+                assertNotNull(ctx.refundEvent, "nats.event.refunded_from_iframe");
             });
         });
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
                     ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.betEvent.getSequence());
+                    (int) ctx.refundEvent.getSequence());
 
             var limit = aggregate.getLimits().get(0);
             assertAll(
