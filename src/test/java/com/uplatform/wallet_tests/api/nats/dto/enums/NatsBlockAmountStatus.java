@@ -1,12 +1,19 @@
 package com.uplatform.wallet_tests.api.nats.dto.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 @Getter
 @RequiredArgsConstructor
 public enum NatsBlockAmountStatus {
+    STARTED(1),
     CREATED(2),
     REVOKED(3),
     UNKNOWN(0);
@@ -18,12 +25,13 @@ public enum NatsBlockAmountStatus {
         return value;
     }
 
+    private static final Map<Integer, NatsBlockAmountStatus> valueMap =
+            Arrays.stream(values())
+                    .collect(Collectors.toMap(NatsBlockAmountStatus::getValue, Function.identity()));
+
+    @JsonCreator
     public static NatsBlockAmountStatus fromValue(int value) {
-        for (NatsBlockAmountStatus status : NatsBlockAmountStatus.values()) {
-            if (status.value == value) {
-                return status;
-            }
-        }
-        return UNKNOWN;
+        NatsBlockAmountStatus result = valueMap.get(value);
+        return result == null ? UNKNOWN : result;
     }
 }

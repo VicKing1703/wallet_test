@@ -11,6 +11,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.payment.WithdrawalRequestBod
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.PaymentMethodId;
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.WithdrawalRedirect;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.uplatform.wallet_tests.api.nats.dto.NatsBlockAmountEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.Epic;
@@ -24,7 +25,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.Collections;
-import java.util.Map;
 import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
@@ -77,7 +77,7 @@ class WithdrawalPositiveTest extends BaseTest {
             RegisteredPlayerData registeredPlayer;
             WithdrawalRequestBody withdrawalRequest;
             String transactionId;
-            NatsMessage<Map> blockEvent;
+            NatsMessage<NatsBlockAmountEventPayload> blockEvent;
         }
         final TestData ctx = new TestData();
 
@@ -141,24 +141,24 @@ class WithdrawalPositiveTest extends BaseTest {
                     ctx.registeredPlayer.getWalletData().getPlayerUUID(),
                     ctx.registeredPlayer.getWalletData().getWalletUUID());
 
-            BiPredicate<Map, String> filter = (payload, typeHeader) ->
+            BiPredicate<NatsBlockAmountEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue().equals(typeHeader)
-                            && ctx.transactionId.equals(payload.get("uuid"));
+                            && ctx.transactionId.equals(payload.getUuid());
 
             ctx.blockEvent = natsClient.findMessageAsync(
                     subject,
-                    Map.class,
+                    NatsBlockAmountEventPayload.class,
                     filter).get();
 
             var payload = ctx.blockEvent.getPayload();
             assertAll("Проверка основных полей NATS payload",
-                    () -> assertEquals(ctx.transactionId, payload.get("uuid"), "nats.payload.uuid"),
-                    () -> assertEquals("-" + withdrawalAmount.toPlainString(), payload.get("amount"), "nats.payload.amount"),
-                    () -> assertEquals("", payload.get("reason"), "nats.payload.reason"),
-                    () -> assertEquals("00000000-0000-0000-0000-000000000000", payload.get("user_uuid"), "nats.payload.user_uuid"),
-                    () -> assertEquals("", payload.get("user_name"), "nats.payload.user_name"),
-                    () -> assertNotNull(payload.get("created_at"), "nats.payload.created_at"),
-                    () -> assertNotNull(payload.get("expired_at"), "nats.payload.expired_at")
+                    () -> assertEquals(ctx.transactionId, payload.getUuid(), "nats.payload.uuid"),
+                    () -> assertEquals(0, withdrawalAmount.negate().compareTo(payload.getAmount()), "nats.payload.amount"),
+                    () -> assertEquals("", payload.getReason(), "nats.payload.reason"),
+                    () -> assertEquals("00000000-0000-0000-0000-000000000000", payload.getUserUuid(), "nats.payload.user_uuid"),
+                    () -> assertEquals("", payload.getUserName(), "nats.payload.user_name"),
+                    () -> assertNotNull(payload.getCreatedAt(), "nats.payload.created_at"),
+                    () -> assertNotNull(payload.getExpiredAt(), "nats.payload.expired_at")
             );
         });
 
