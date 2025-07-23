@@ -11,6 +11,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.player_restrictions.PlayerRe
 import com.uplatform.wallet_tests.api.http.fapi.dto.player_restrictions.PlayerRestrictionsRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss.SetCasinoLossLimitRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.SetSingleBetLimitRequest;
+import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.UpdateSingleBetLimitRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.deposit.SetDepositLimitRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.deposit.DepositLimit;
@@ -18,6 +19,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.SingleBetLimit;
 import com.uplatform.wallet_tests.api.http.fapi.dto.check.TokenCheckRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.check.TokenCheckResponse;
 import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.TurnoverLimit;
+import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.UpdateTurnoverLimitRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.identity.VerificationStatus;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactResponse;
@@ -30,6 +32,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -106,6 +109,20 @@ public interface FapiClient {
     @GetMapping("/_front_api/api/v1/player/single-limits/single-bet")
     ResponseEntity<List<SingleBetLimit>> getSingleBetLimits(
             @RequestHeader("Authorization")  String authorizationHeader
+    );
+
+    @PatchMapping("/_front_api/api/v1/player/single-limits/{limitId}")
+    ResponseEntity<Void> updateSingleLimit(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable("limitId") String limitId,
+            @RequestBody UpdateSingleBetLimitRequest request
+    );
+
+    @PatchMapping("/_front_api/api/v1/player/recalculated-limits/{limitId}")
+    ResponseEntity<Void> updateRecalculatedLimit(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable("limitId") String limitId,
+            @RequestBody UpdateTurnoverLimitRequest request
     );
 
     @GetMapping("/_front_api/api/v1/player/recalculated-limits/casino-loss")
