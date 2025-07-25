@@ -261,7 +261,7 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Public API: Установка лимита на одиночную ставку", () -> {
-            var amount = generateBigDecimalAmount(new BigDecimal("100.00"));
+            var amount = new BigDecimal("100000.00");
             var request = SetSingleBetLimitRequest.builder()
                     .currency(ctx.playerWalletData.getCurrency())
                     .amount(amount.toString())
@@ -273,7 +273,7 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Public API: Установка лимита на оборот средств", () -> {
-            var amount = generateBigDecimalAmount(new BigDecimal("1000.00"));
+            var amount = new BigDecimal("100000.00");
             var request = SetTurnoverLimitRequest.builder()
                     .currency(ctx.playerWalletData.getCurrency())
                     .type(NatsLimitIntervalType.DAILY)
