@@ -44,9 +44,10 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * Тест выполняет регистрацию, запуск игровой сессии, депозит фиксированной суммой
  * и ставку с различными суммами и типами. В событии betted_from_gamble
- * проверяется блок {@code wagered_deposit_info} (при нулевой ставке он
- * отсутствует), а в Redis подтверждается изменение
- * {@code WageringAmount} и статус депозита, а также корректный баланс кошелька.
+ * проверяется блок {@code wagered_deposit_info}: для ставок типа FREESPIN он
+ * отсутствует, а для остальных операций при ставке {@code 0} передается
+ * значение {@code 0}. В Redis подтверждается изменение
+ * {@code WageringAmount} (кроме FREESPIN) и статус депозита, а также корректный баланс кошелька.
  *
  * <p><b>Сценарий теста:</b></p>
  * <ol>
@@ -55,7 +56,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li><b>Депозит:</b> вызов FAPI эндпоинта deposit.</li>
  *   <li><b>Ставка:</b> совершение ставки через Manager API.</li>
  *   <li><b>Проверка NATS:</b> получение deposited_money и betted_from_gamble с блоком wagered_deposit_info.</li>
- *   <li><b>Проверка Redis:</b> депозит содержит обновленный WageringAmount и статус SUCCESS, баланс кошелька корректный.</li>
+ *   <li><b>Проверка Redis:</b> депозит содержит обновленный WageringAmount (кроме FREESPIN) и статус SUCCESS, баланс кошелька корректный.</li>
  * </ol>
  *
  * <p><b>Проверяемые компоненты и сущности:</b></p>
@@ -143,9 +144,14 @@ public class DepositBetRedisIntegrationTest extends BaseParameterizedTest {
             BetRequestBody betRequest;
             NatsMessage<NatsGamblingEventPayload> betEvent;
             BigDecimal expectedBalance;
+            BigDecimal expectedWagerAmount;
         }
         final TestData ctx = new TestData();
         ctx.expectedBalance = depositAmount.subtract(betAmount);
+        ctx.expectedWagerAmount =
+                operationParam == NatsGamblingTransactionOperation.FREESPIN
+                        ? BigDecimal.ZERO
+                        : betAmount;
 
         step("Default Step: Полная регистрация игрока с KYC", () -> {
             ctx.player = defaultTestSteps.registerNewPlayerWithKyc();
@@ -245,14 +251,14 @@ public class DepositBetRedisIntegrationTest extends BaseParameterizedTest {
             );
 
             var wagerInfoList = payload.getWageredDepositInfo();
-            if (betAmount.compareTo(BigDecimal.ZERO) == 0) {
+            if (operationParam == NatsGamblingTransactionOperation.FREESPIN) {
                 assertTrue(wagerInfoList.isEmpty(), "nats.bet.wagered_deposit_info.empty");
             } else {
                 assertFalse(wagerInfoList.isEmpty(), "nats.bet.wagered_deposit_info.not_empty");
                 Map<String, Object> wagerInfo = wagerInfoList.get(0);
                 assertAll("Проверка wagered_deposit_info",
                         () -> assertEquals(ctx.depositEvent.getPayload().getUuid(), wagerInfo.get("deposit_uuid"), "nats.bet.wagered_deposit_info.deposit_uuid"),
-                        () -> assertEquals(0, betAmount.compareTo(new BigDecimal((String) wagerInfo.get("updated_wagered_amount"))), "nats.bet.wagered_deposit_info.updated_wagered_amount")
+                        () -> assertEquals(0, ctx.expectedWagerAmount.compareTo(new BigDecimal((String) wagerInfo.get("updated_wagered_amount"))), "nats.bet.wagered_deposit_info.updated_wagered_amount")
                 );
             }
         });
@@ -274,7 +280,7 @@ public class DepositBetRedisIntegrationTest extends BaseParameterizedTest {
                     () -> assertNotNull(depositData, "redis.wallet.deposit_not_found"),
                     () -> assertEquals(0, depositAmount.compareTo(depositData.getAmount()), "redis.wallet.deposit.amount"),
                     () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.getStatus(), "redis.wallet.deposit.status"),
-                    () -> assertEquals(0, betAmount.compareTo(depositData.getWageringAmount()), "redis.wallet.deposit.wagering_amount"),
+                    () -> assertEquals(0, ctx.expectedWagerAmount.compareTo(depositData.getWageringAmount()), "redis.wallet.deposit.wagering_amount"),
                     () -> assertNotNull(gamblingData, "redis.wallet.gambling_not_found"),
                     () -> assertEquals(0, betAmount.negate().compareTo(gamblingData.getAmount()), "redis.wallet.gambling.amount")
             );
