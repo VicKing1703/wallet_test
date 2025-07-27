@@ -261,6 +261,7 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Public API: Установка лимита на одиночную ставку", () -> {
+            Thread.sleep(2000);
             var amount = new BigDecimal("100000.00");
             var request = SetSingleBetLimitRequest.builder()
                     .currency(ctx.playerWalletData.getCurrency())
@@ -273,6 +274,7 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Public API: Установка лимита на оборот средств", () -> {
+            Thread.sleep(2000);
             var amount = new BigDecimal("100000.00");
             var request = SetTurnoverLimitRequest.builder()
                     .currency(ctx.playerWalletData.getCurrency())
@@ -299,6 +301,7 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
+            Thread.sleep(2000);
             ctx.updatedWalletData = this.walletRedisClient.getWithRetry(
                     ctx.playerWalletData.getWalletUUID());
             assertNotNull(ctx.updatedWalletData, "redis.wallet.full_data_not_found");
