@@ -64,14 +64,14 @@ import static org.junit.jupiter.api.Assertions.*;
 @Severity(SeverityLevel.BLOCKER)
 @Epic("Payment")
 @Feature("Deposit&Tournament")
-@Suite("Позитивные сценарии: Deposit -> Tournament -> Redis")
+@Suite("Позитивные сценарии: Отыгрыш депозита")
 @Tag("Wallet") @Tag("Payment")
-public class DepositTournamentWinRedisIntegrationTest extends BaseTest {
+public class DepositWageringTournamentTest extends BaseTest {
 
     private static final BigDecimal depositAmount = new BigDecimal("150.00");
 
     @Test
-    @DisplayName("Регистрация, депозит и турнирный выигрыш с проверкой Redis")
+    @DisplayName("Отыгрыш депозита: тип транзакции = TYPE_TOURNAMENT")
     void shouldDepositAndTournamentWinAndCheckRedis() throws Exception {
         final String nodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();

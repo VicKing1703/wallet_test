@@ -66,7 +66,7 @@ class DepositPositiveTest extends BaseTest {
 
     @Test
     @DisplayName("Полная регистрация и депозит игрока")
-    void shouldDepositAfterFullRegistration() throws Exception {
+    void shouldDepositAfterFullRegistration() {
         final String nodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
 
         final class TestData {
