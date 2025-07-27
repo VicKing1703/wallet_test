@@ -7,7 +7,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.payment.DepositRequestBody;
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.DepositRedirect;
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.PaymentMethodId;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
-import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
+import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsDepositedMoneyPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
@@ -40,12 +40,11 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Проверяет неизменность wagered_deposit_info после получения выигрыша.
+ * Проверяет возврат ставки и корректировку wagered_deposit_info.
  *
- * Тест выполняет регистрацию, депозит, ставку и выигрыш различных типов.
- * В событии {@code won_from_gamble} блок {@code wagered_deposit_info}
- * отсутствует, а значение {@code WageringAmount} депозита не меняется
- * после выплаты выигрыша. Баланс кошелька соответствует расчету.
+ * <p>Тест выполняет регистрацию, депозит, ставку и возврат ставки.
+ * После рефанда блок {@code wagered_deposit_info} отсутствует,
+ * а значение {@code WageringAmount} депозита возвращается к нулю.</p>
  *
  * <p><b>Сценарий теста:</b></p>
  * <ol>
@@ -53,14 +52,14 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li><b>Создание сессии:</b> старт игровой сессии сразу после регистрации.</li>
  *   <li><b>Депозит:</b> вызов FAPI эндпоинта deposit.</li>
  *   <li><b>Ставка:</b> совершение ставки через Manager API.</li>
- *   <li><b>Выигрыш:</b> получение выигрыша через Manager API.</li>
- *   <li><b>Проверка NATS:</b> deposited_money, betted_from_gamble и won_from_gamble.</li>
- *   <li><b>Проверка Redis:</b> депозит содержит неизмененный WageringAmount и корректный баланс кошелька.</li>
+ *   <li><b>Рефанд:</b> возврат ставки через Manager API.</li>
+ *   <li><b>Проверка NATS:</b> deposited_money, betted_from_gamble и refunded_from_gamble.</li>
+ *   <li><b>Проверка Redis:</b> депозит содержит WageringAmount = 0 и корректный баланс.</li>
  * </ol>
  *
  * <p><b>Проверяемые компоненты и сущности:</b></p>
  * <ul>
- *   <li>REST API: /deposit, /bet и /win</li>
+ *   <li>REST API: /deposit, /bet и /refund</li>
  *   <li>NATS</li>
  *   <li>Redis кошелька</li>
  * </ul>
@@ -69,24 +68,44 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Severity(SeverityLevel.BLOCKER)
 @Epic("Payment")
-@Feature("Deposit&Win")
-@Suite("Позитивные сценарии: Deposit -> Bet -> Win -> Redis")
+@Feature("Deposit&Refund")
+@Suite("Позитивные сценарии: Отыгрыш депозита")
 @Tag("Wallet") @Tag("Payment")
-public class DepositBetWinRedisIntegrationTest extends BaseParameterizedTest {
+public class DepositWageringBetRefundTest extends BaseParameterizedTest {
 
     private static final BigDecimal depositAmount = new BigDecimal("150.00");
 
-    static Stream<Arguments> winParamsProvider() {
+    static Stream<Arguments> betParamsProvider() {
         return Stream.of(
                 Arguments.of(
                         generateBigDecimalAmount(depositAmount),
-                        NatsGamblingTransactionOperation.WIN,
-                        NatsGamblingTransactionType.TYPE_WIN
+                        NatsGamblingTransactionOperation.BET,
+                        NatsGamblingTransactionType.TYPE_BET
                 ),
                 Arguments.of(
                         BigDecimal.ZERO,
-                        NatsGamblingTransactionOperation.WIN,
-                        NatsGamblingTransactionType.TYPE_WIN
+                        NatsGamblingTransactionOperation.BET,
+                        NatsGamblingTransactionType.TYPE_BET
+                ),
+                Arguments.of(
+                        depositAmount,
+                        NatsGamblingTransactionOperation.BET,
+                        NatsGamblingTransactionType.TYPE_BET
+                ),
+                Arguments.of(
+                        generateBigDecimalAmount(depositAmount),
+                        NatsGamblingTransactionOperation.TIPS,
+                        NatsGamblingTransactionType.TYPE_TIPS
+                ),
+                Arguments.of(
+                        BigDecimal.ZERO,
+                        NatsGamblingTransactionOperation.TIPS,
+                        NatsGamblingTransactionType.TYPE_TIPS
+                ),
+                Arguments.of(
+                        depositAmount,
+                        NatsGamblingTransactionOperation.TIPS,
+                        NatsGamblingTransactionType.TYPE_TIPS
                 ),
                 Arguments.of(
                         generateBigDecimalAmount(depositAmount),
@@ -99,23 +118,18 @@ public class DepositBetWinRedisIntegrationTest extends BaseParameterizedTest {
                         NatsGamblingTransactionType.TYPE_FREESPIN
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(depositAmount),
-                        NatsGamblingTransactionOperation.JACKPOT,
-                        NatsGamblingTransactionType.TYPE_JACKPOT
-                ),
-                Arguments.of(
-                        BigDecimal.ZERO,
-                        NatsGamblingTransactionOperation.JACKPOT,
-                        NatsGamblingTransactionType.TYPE_JACKPOT
+                        depositAmount,
+                        NatsGamblingTransactionOperation.FREESPIN,
+                        NatsGamblingTransactionType.TYPE_FREESPIN
                 )
         );
     }
 
-    @ParameterizedTest(name = "тип = {1} и сумма выигрыша = {0}")
-    @MethodSource("winParamsProvider")
-    @DisplayName("Регистрация, депозит, ставка и выигрыш с проверкой Redis")
-    void shouldDepositBetWinAndCheckRedis(
-            BigDecimal winAmountParam,
+    @ParameterizedTest(name = "базовая транзакция = {2}, транзакция = TYPE_REFUND, сумма = {0}")
+    @MethodSource("betParamsProvider")
+    @DisplayName("Отыгрыш депозита:")
+    void shouldDepositBetRefundAndCheckRedis(
+            BigDecimal betAmount,
             NatsGamblingTransactionOperation operationParam,
             NatsGamblingTransactionType transactionTypeParam) throws Exception {
         final String nodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
@@ -128,18 +142,17 @@ public class DepositBetWinRedisIntegrationTest extends BaseParameterizedTest {
             GameLaunchData gameLaunchData;
             BetRequestBody betRequest;
             NatsMessage<NatsGamblingEventPayload> betEvent;
-            WinRequestBody winRequest;
-            NatsMessage<NatsGamblingEventPayload> winEvent;
-            BigDecimal betAmount;
+            RefundRequestBody refundRequest;
+            NatsMessage<NatsGamblingEventPayload> refundEvent;
             BigDecimal expectedBalanceAfterBet;
-            BigDecimal expectedBalanceAfterWin;
-            BigDecimal expectedWagerAmount;
+            BigDecimal expectedBalanceAfterRefund;
+            BigDecimal expectedWagerAmountAfterBet;
         }
         final TestData ctx = new TestData();
-        ctx.betAmount = generateBigDecimalAmount(depositAmount);
-        ctx.expectedBalanceAfterBet = depositAmount.subtract(ctx.betAmount);
-        ctx.expectedBalanceAfterWin = ctx.expectedBalanceAfterBet.add(winAmountParam);
-        ctx.expectedWagerAmount = ctx.betAmount;
+        ctx.expectedBalanceAfterBet = depositAmount.subtract(betAmount);
+        ctx.expectedBalanceAfterRefund = depositAmount;
+        ctx.expectedWagerAmountAfterBet =
+                operationParam == NatsGamblingTransactionOperation.FREESPIN ? BigDecimal.ZERO : betAmount;
 
         step("Default Step: Полная регистрация игрока с KYC", () -> {
             ctx.player = defaultTestSteps.registerNewPlayerWithKyc();
@@ -185,7 +198,7 @@ public class DepositBetWinRedisIntegrationTest extends BaseParameterizedTest {
                     filter).get();
 
             var payload = ctx.depositEvent.getPayload();
-            assertAll("Проверка полей депозита",
+            assertAll(
                     () -> assertEquals(ctx.depositRequest.getCurrency(), payload.getCurrencyCode(), "nats.deposit.currency_code"),
                     () -> assertEquals(0, depositAmount.compareTo(payload.getAmount()), "nats.deposit.amount"),
                     () -> assertEquals(NatsDepositStatus.SUCCESS, payload.getStatus(), "nats.deposit.status"),
@@ -196,9 +209,9 @@ public class DepositBetWinRedisIntegrationTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки", () -> {
             ctx.betRequest = BetRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .amount(ctx.betAmount)
+                    .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
-                    .type(NatsGamblingTransactionOperation.BET)
+                    .type(operationParam)
                     .roundId(UUID.randomUUID().toString())
                     .roundClosed(false)
                     .build();
@@ -208,7 +221,7 @@ public class DepositBetWinRedisIntegrationTest extends BaseParameterizedTest {
                     utils.createSignature(ApiEndpoints.BET, ctx.betRequest),
                     ctx.betRequest);
 
-            assertAll("Проверка ответа ставки",
+            assertAll(
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.bet.status_code"),
                     () -> assertEquals(ctx.betRequest.getTransactionId(), response.getBody().getTransactionId(), "manager_api.bet.body.transactionId")
             );
@@ -229,95 +242,103 @@ public class DepositBetWinRedisIntegrationTest extends BaseParameterizedTest {
                     filter).get();
 
             var payload = ctx.betEvent.getPayload();
-            assertAll("Проверка полей события ставки",
+            assertAll(
                     () -> assertEquals(ctx.betRequest.getTransactionId(), payload.getUuid(), "nats.bet.uuid"),
                     () -> assertEquals(nodeId, payload.getNodeUuid(), "nats.bet.node_uuid"),
-                    () -> assertEquals(0, ctx.betAmount.negate().compareTo(payload.getAmount()), "nats.bet.amount"),
+                    () -> assertEquals(0, betAmount.negate().compareTo(payload.getAmount()), "nats.bet.amount"),
                     () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.getGameSessionUuid(), "nats.bet.game_session_uuid"),
                     () -> assertEquals(NatsGamblingTransactionOperation.BET, payload.getOperation(), "nats.bet.operation"),
-                    () -> assertEquals(NatsGamblingTransactionType.TYPE_BET, payload.getType(), "nats.bet.type")
+                    () -> assertEquals(transactionTypeParam, payload.getType(), "nats.bet.type")
             );
 
             var wagerInfoList = payload.getWageredDepositInfo();
-            assertFalse(wagerInfoList.isEmpty(), "nats.bet.wagered_deposit_info.not_empty");
-            Map<String, Object> wagerInfo = wagerInfoList.get(0);
-            assertAll("Проверка wagered_deposit_info",
-                    () -> assertEquals(ctx.depositEvent.getPayload().getUuid(), wagerInfo.get("deposit_uuid"), "nats.bet.wagered_deposit_info.deposit_uuid"),
-                    () -> assertEquals(0, ctx.expectedWagerAmount.compareTo(new BigDecimal((String) wagerInfo.get("updated_wagered_amount"))), "nats.bet.wagered_deposit_info.updated_wagered_amount")
-            );
+            if (operationParam == NatsGamblingTransactionOperation.FREESPIN) {
+                assertTrue(wagerInfoList.isEmpty(), "nats.bet.wagered_deposit_info.empty");
+            } else {
+                assertFalse(wagerInfoList.isEmpty(), "nats.bet.wagered_deposit_info.not_empty");
+                Map<String, Object> wagerInfo = wagerInfoList.get(0);
+                assertAll(
+                        () -> assertEquals(ctx.depositEvent.getPayload().getUuid(), wagerInfo.get("deposit_uuid"), "nats.bet.wagered_deposit_info.deposit_uuid"),
+                        () -> assertEquals(0, ctx.expectedWagerAmountAfterBet.compareTo(new BigDecimal((String) wagerInfo.get("updated_wagered_amount"))), "nats.bet.wagered_deposit_info.updated_wagered_amount")
+                );
+            }
         });
 
-        step("Manager API: Получение выигрыша", () -> {
-            ctx.winRequest = WinRequestBody.builder()
+        step("Manager API: Выполнение рефанда", () -> {
+            ctx.refundRequest = RefundRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .amount(winAmountParam)
+                    .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
-                    .type(operationParam)
+                    .betTransactionId(ctx.betRequest.getTransactionId())
                     .roundId(ctx.betRequest.getRoundId())
                     .roundClosed(true)
+                    .playerId(ctx.player.getWalletData().getWalletUUID())
+                    .currency(ctx.player.getWalletData().getCurrency())
+                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
                     .build();
 
-            var response = managerClient.win(
+            var response = managerClient.refund(
                     casinoId,
-                    utils.createSignature(ApiEndpoints.WIN, ctx.winRequest),
-                    ctx.winRequest);
+                    utils.createSignature(ApiEndpoints.REFUND, ctx.refundRequest),
+                    ctx.refundRequest);
 
-            assertAll("Проверка ответа выигрыша",
-                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.win.status_code"),
-                    () -> assertEquals(ctx.winRequest.getTransactionId(), response.getBody().getTransactionId(), "manager_api.win.body.transactionId")
+            assertAll(
+                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.refund.status_code"),
+                    () -> assertEquals(ctx.refundRequest.getTransactionId(), response.getBody().getTransactionId(), "manager_api.refund.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().getBalance()), "manager_api.refund.body.balance")
             );
         });
 
-        step("NATS: Проверка события won_from_gamble", () -> {
+        step("NATS: Проверка события refunded_from_gamble", () -> {
             var subject = natsClient.buildWalletSubject(
                     ctx.player.getWalletData().getPlayerUUID(),
                     ctx.player.getWalletData().getWalletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.winRequest.getTransactionId().equals(payload.getUuid());
+                    NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
+                            ctx.refundRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.winEvent = natsClient.findMessageAsync(
+            ctx.refundEvent = natsClient.findMessageAsync(
                     subject,
                     NatsGamblingEventPayload.class,
                     filter).get();
 
-            var payload = ctx.winEvent.getPayload();
-            assertAll("Проверка полей события выигрыша",
-                    () -> assertEquals(ctx.winRequest.getTransactionId(), payload.getUuid(), "nats.win.uuid"),
-                    () -> assertEquals(nodeId, payload.getNodeUuid(), "nats.win.node_uuid"),
-                    () -> assertEquals(0, winAmountParam.compareTo(payload.getAmount()), "nats.win.amount"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.getGameSessionUuid(), "nats.win.game_session_uuid"),
-                    () -> assertEquals(operationParam, payload.getOperation(), "nats.win.operation"),
-                    () -> assertEquals(transactionTypeParam, payload.getType(), "nats.win.type")
+            var payload = ctx.refundEvent.getPayload();
+            assertAll(
+                    () -> assertEquals(ctx.refundRequest.getTransactionId(), payload.getUuid(), "nats.refund.uuid"),
+                    () -> assertEquals(nodeId, payload.getNodeUuid(), "nats.refund.node_uuid"),
+                    () -> assertEquals(0, betAmount.compareTo(payload.getAmount()), "nats.refund.amount"),
+                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.getGameSessionUuid(), "nats.refund.game_session_uuid"),
+                    () -> assertEquals(NatsGamblingTransactionOperation.REFUND, payload.getOperation(), "nats.refund.operation"),
+                    () -> assertEquals(NatsGamblingTransactionType.TYPE_REFUND, payload.getType(), "nats.refund.type")
             );
 
-            assertTrue(payload.getWageredDepositInfo().isEmpty(), "nats.win.wagered_deposit_info.empty");
+            assertTrue(payload.getWageredDepositInfo().isEmpty(), "nats.refund.wagered_deposit_info.empty");
         });
 
-        step("Redis(Wallet): Проверка агрегата кошелька после выигрыша", () -> {
+        step("Redis(Wallet): Проверка агрегата кошелька после рефанда", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
                     ctx.player.getWalletData().getWalletUUID(),
-                    (int) ctx.winEvent.getSequence());
+                    (int) ctx.refundEvent.getSequence());
 
             var depositData = aggregate.getDeposits().stream()
                     .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
                     .findFirst().orElse(null);
 
-            var winData = aggregate.getGambling().get(ctx.winEvent.getPayload().getUuid());
             var betData = aggregate.getGambling().get(ctx.betEvent.getPayload().getUuid());
+            var refundData = aggregate.getGambling().get(ctx.refundEvent.getPayload().getUuid());
 
-            assertAll("Проверка агрегата",
-                    () -> assertEquals((int) ctx.winEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterWin.compareTo(aggregate.getBalance()), "redis.wallet.balance"),
+            assertAll(
+                    () -> assertEquals((int) ctx.refundEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.getBalance()), "redis.wallet.balance"),
                     () -> assertNotNull(depositData, "redis.wallet.deposit_not_found"),
                     () -> assertEquals(0, depositAmount.compareTo(depositData.getAmount()), "redis.wallet.deposit.amount"),
                     () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.getStatus(), "redis.wallet.deposit.status"),
-                    () -> assertEquals(0, ctx.expectedWagerAmount.compareTo(depositData.getWageringAmount()), "redis.wallet.deposit.wagering_amount"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(depositData.getWageringAmount()), "redis.wallet.deposit.wagering_amount"),
                     () -> assertNotNull(betData, "redis.wallet.bet_not_found"),
-                    () -> assertEquals(0, ctx.betAmount.negate().compareTo(betData.getAmount()), "redis.wallet.bet.amount"),
-                    () -> assertNotNull(winData, "redis.wallet.win_not_found"),
-                    () -> assertEquals(0, winAmountParam.compareTo(winData.getAmount()), "redis.wallet.win.amount")
+                    () -> assertEquals(0, betAmount.negate().compareTo(betData.getAmount()), "redis.wallet.bet.amount"),
+                    () -> assertNotNull(refundData, "redis.wallet.refund_not_found"),
+                    () -> assertEquals(0, betAmount.compareTo(refundData.getAmount()), "redis.wallet.refund.amount")
             );
         });
     }

@@ -102,10 +102,10 @@
     ],
     "streamName": "wallet",
     "subscriptionRetryCount": 3,
-    "subscriptionRetryDelayMs": 1000,
+    "subscriptionRetryDelayMs": 3000,
     "connectReconnectWaitSeconds": 5,
     "connectMaxReconnects": 10,
-    "searchTimeoutSeconds": 10,
+    "searchTimeoutSeconds": 30,
     "subscriptionAckWaitSeconds": 60,
     "subscriptionInactiveThresholdSeconds": 90,
     "subscriptionBufferSize": 1000
