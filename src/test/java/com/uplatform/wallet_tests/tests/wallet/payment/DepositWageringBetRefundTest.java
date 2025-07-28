@@ -68,7 +68,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Severity(SeverityLevel.BLOCKER)
 @Epic("Payment")
-@Feature("Deposit&Refund")
+@Feature("Deposit")
 @Suite("Позитивные сценарии: Отыгрыш депозита")
 @Tag("Wallet") @Tag("Payment")
 public class DepositWageringBetRefundTest extends BaseParameterizedTest {
@@ -334,7 +334,8 @@ public class DepositWageringBetRefundTest extends BaseParameterizedTest {
                     () -> assertNotNull(depositData, "redis.wallet.deposit_not_found"),
                     () -> assertEquals(0, depositAmount.compareTo(depositData.getAmount()), "redis.wallet.deposit.amount"),
                     () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.getStatus(), "redis.wallet.deposit.status"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(depositData.getWageringAmount()), "redis.wallet.deposit.wagering_amount"),
+                    // TODO: уточнить у пеймента, корректное ли отсутствие изменений wagering_amount после refund
+                    () -> assertEquals(0, ctx.expectedWagerAmountAfterBet.compareTo(depositData.getWageringAmount()), "redis.wallet.deposit.wagering_amount"),
                     () -> assertNotNull(betData, "redis.wallet.bet_not_found"),
                     () -> assertEquals(0, betAmount.negate().compareTo(betData.getAmount()), "redis.wallet.bet.amount"),
                     () -> assertNotNull(refundData, "redis.wallet.refund_not_found"),

@@ -68,7 +68,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Severity(SeverityLevel.BLOCKER)
 @Epic("Payment")
-@Feature("Deposit&Win")
+@Feature("Deposit")
 @Suite("Позитивные сценарии: Отыгрыш депозита")
 @Tag("Wallet") @Tag("Payment")
 public class DepositWageringBetWinTest extends BaseParameterizedTest {
@@ -79,36 +79,43 @@ public class DepositWageringBetWinTest extends BaseParameterizedTest {
         return Stream.of(
                 Arguments.of(
                         generateBigDecimalAmount(depositAmount),
+                        NatsGamblingTransactionOperation.WIN,
                         NatsGamblingTransactionType.TYPE_WIN
                 ),
                 Arguments.of(
                         BigDecimal.ZERO,
+                        NatsGamblingTransactionOperation.WIN,
                         NatsGamblingTransactionType.TYPE_WIN
                 ),
                 Arguments.of(
                         generateBigDecimalAmount(depositAmount),
+                        NatsGamblingTransactionOperation.FREESPIN,
                         NatsGamblingTransactionType.TYPE_FREESPIN
                 ),
                 Arguments.of(
                         BigDecimal.ZERO,
+                        NatsGamblingTransactionOperation.FREESPIN,
                         NatsGamblingTransactionType.TYPE_FREESPIN
                 ),
                 Arguments.of(
                         generateBigDecimalAmount(depositAmount),
+                        NatsGamblingTransactionOperation.JACKPOT,
                         NatsGamblingTransactionType.TYPE_JACKPOT
                 ),
                 Arguments.of(
                         BigDecimal.ZERO,
+                        NatsGamblingTransactionOperation.JACKPOT,
                         NatsGamblingTransactionType.TYPE_JACKPOT
                 )
         );
     }
 
-    @ParameterizedTest(name = "тип транзакции = {1} и сумма = {0}")
+    @ParameterizedTest(name = "тип транзакции = {2} и сумма = {0}")
     @MethodSource("winParamsProvider")
     @DisplayName("Отыгрыш депозита:")
     void shouldDepositBetWinAndCheckRedis(
             BigDecimal winAmountParam,
+            NatsGamblingTransactionOperation operationParam,
             NatsGamblingTransactionType transactionTypeParam) throws Exception {
         final String nodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
         final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
@@ -244,7 +251,7 @@ public class DepositWageringBetWinTest extends BaseParameterizedTest {
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
-                    .type(NatsGamblingTransactionOperation.WIN)
+                    .type(operationParam)
                     .roundId(ctx.betRequest.getRoundId())
                     .roundClosed(true)
                     .build();

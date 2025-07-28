@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Severity(SeverityLevel.BLOCKER)
 @Epic("Payment")
-@Feature("Deposit&Tournament")
+@Feature("Deposit")
 @Suite("Позитивные сценарии: Отыгрыш депозита")
 @Tag("Wallet") @Tag("Payment")
 public class DepositWageringTournamentTest extends BaseTest {
