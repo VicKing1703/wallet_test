@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.api.http.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import feign.Logger;
 import feign.Request;
 import feign.Response;
@@ -20,11 +21,9 @@ import java.util.*;
 public class AllureFeignLogger extends Logger {
 
     private final AllureAttachmentService attachmentService;
-    private final ObjectMapper objectMapper;
 
-    public AllureFeignLogger(AllureAttachmentService attachmentService, ObjectMapper objectMapper) {
+    public AllureFeignLogger(AllureAttachmentService attachmentService) {
         this.attachmentService = attachmentService;
-        this.objectMapper = objectMapper;
     }
 
     private static final Set<String> IGNORED_REQUEST_HEADERS = new HashSet<>(Arrays.asList(
@@ -174,10 +173,21 @@ public class AllureFeignLogger extends Logger {
             return text;
         }
         try {
-            Object jsonObject = this.objectMapper.readValue(text, Object.class);
-            return this.objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonObject);
+            ObjectMapper mapper = LocalObjectMapperHolder.MAPPER;
+            Object jsonObject = mapper.readValue(text, Object.class);
+            return mapper.writeValueAsString(jsonObject);
         } catch (Exception e) {
             return text;
+        }
+    }
+
+    private static class LocalObjectMapperHolder {
+        static final ObjectMapper MAPPER = createObjectMapper();
+
+        private static ObjectMapper createObjectMapper() {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.enable(SerializationFeature.INDENT_OUTPUT);
+            return mapper;
         }
     }
 }

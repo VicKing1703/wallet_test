@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
@@ -231,10 +232,10 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
                     NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.rollbackRequestBody.getTransactionId().equals(payload.getUuid());
 
-            ctx.rollbackEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.rollbackEvent, "nats.event.rollbacked_from_gamble");
 
@@ -300,8 +301,9 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения о роллбэке в топик wallet.v8.projectionSource", () -> {
-            var message = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.rollbackEvent.getSequence());
+            var message = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.rollbackEvent.getSequence())
+                    .fetch();
 
             assertNotNull(message, "kafka.message");
             assertTrue(utils.areEquivalent(message, ctx.rollbackEvent), "kafka.message.equivalent_to_nats");

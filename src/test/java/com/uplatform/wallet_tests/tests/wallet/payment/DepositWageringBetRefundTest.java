@@ -192,10 +192,10 @@ public class DepositWageringBetRefundTest extends BaseParameterizedTest {
             BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
 
-            ctx.depositEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsDepositedMoneyPayload.class,
-                    filter).get();
+            ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.depositEvent.getPayload();
             assertAll(
@@ -236,10 +236,10 @@ public class DepositWageringBetRefundTest extends BaseParameterizedTest {
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.betRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.betEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.betEvent.getPayload();
             assertAll(
@@ -298,10 +298,10 @@ public class DepositWageringBetRefundTest extends BaseParameterizedTest {
                     NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.refundRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.refundEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.refundEvent.getPayload();
             assertAll(

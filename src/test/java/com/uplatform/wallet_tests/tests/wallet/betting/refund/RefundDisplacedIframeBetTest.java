@@ -128,10 +128,10 @@ class RefundDisplacedIframeBetTest extends BaseTest {
                     NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                             Objects.equals(ctx.lastMadeBetId, payload.getBetId());
 
-            ctx.lastBetNatsEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBettingEventPayload.class,
-                    filter).get();
+            ctx.lastBetNatsEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
             assertNotNull(ctx.lastBetNatsEvent, "nats.betted_from_iframe");
         });
 

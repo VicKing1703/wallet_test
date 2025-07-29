@@ -124,10 +124,10 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
                 return payload.getComment().equals(ctx.adjustmentRequest.getComment());
             };
 
-            ctx.balanceAdjustedEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBalanceAdjustedPayload.class,
-                    filter).get();
+            ctx.balanceAdjustedEvent = natsClient.expect(NatsBalanceAdjustedPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var expectedAdjustment = (direction == DirectionType.DECREASE)
                     ? adjustmentAmount.negate() : adjustmentAmount;
@@ -155,8 +155,9 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения balance_adjusted в топик wallet.v8.projectionSource", () -> {
-            ctx.projectionAdjustEvent = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.balanceAdjustedEvent.getSequence());
+            ctx.projectionAdjustEvent = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.balanceAdjustedEvent.getSequence())
+                    .fetch();
             assertTrue(utils.areEquivalent(ctx.projectionAdjustEvent, ctx.balanceAdjustedEvent), "kafka.payload");
         });
     }

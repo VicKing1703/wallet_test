@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountRequest;
@@ -90,10 +91,10 @@ class BlockAmountTest extends BaseTest {
             BiPredicate<NatsBlockAmountEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue().equals(typeHeader);
 
-            ctx.blockAmountEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBlockAmountEventPayload.class,
-                    filter).get();
+            ctx.blockAmountEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var actualPayload = ctx.blockAmountEvent.getPayload();
             var blockAmountResponse = ctx.blockAmountResponse.getBody();
@@ -111,8 +112,9 @@ class BlockAmountTest extends BaseTest {
         });
         
         step("Kafka: Проверка поступления сообщения block_amount_started в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.blockAmountEvent.getSequence());
+            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.blockAmountEvent.getSequence())
+                    .fetch();
         
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.blockAmountEvent), "kafka.payload");
         });

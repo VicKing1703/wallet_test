@@ -128,10 +128,10 @@ class BetIframeHistoryLimitTest extends BaseTest {
                     NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                             Objects.equals(ctx.lastBetId, payload.getBetId());
 
-            ctx.lastBetEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBettingEventPayload.class,
-                    filter).get();
+            ctx.lastBetEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.lastBetEvent, "nats.betted_from_iframe");
         });

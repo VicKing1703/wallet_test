@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.win;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -132,10 +133,10 @@ class WinFromIframeTest extends BaseTest {
                     NatsEventType.WON_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                             Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
 
-            ctx.winEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBettingEventPayload.class,
-                    filter).get();
+            ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var actualPayload = ctx.winEvent.getPayload();
             var expectedBetInfoList = objectMapper.readValue(
@@ -170,8 +171,9 @@ class WinFromIframeTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения won_from_iframe в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.winEvent.getSequence());
+            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.winEvent.getSequence())
+                    .fetch();
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.winEvent), "kafka.payload");
         });
 

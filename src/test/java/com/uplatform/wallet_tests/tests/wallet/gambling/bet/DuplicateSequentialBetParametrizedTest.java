@@ -124,10 +124,10 @@ class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.firstBetRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.firstBetNatsEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.firstBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.firstBetNatsEvent, "nats.betted_from_gamble");
         });

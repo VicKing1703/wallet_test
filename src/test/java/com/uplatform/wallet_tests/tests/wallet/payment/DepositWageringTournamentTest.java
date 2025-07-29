@@ -128,10 +128,10 @@ public class DepositWageringTournamentTest extends BaseTest {
             BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
 
-            ctx.depositEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsDepositedMoneyPayload.class,
-                    filter).get();
+            ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.depositEvent.getPayload();
             assertAll("Проверка полей депозита",
@@ -174,10 +174,10 @@ public class DepositWageringTournamentTest extends BaseTest {
                     NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.tournamentRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.tournamentEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.tournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.tournamentEvent.getPayload();
             assertAll("Проверка полей события турнира",

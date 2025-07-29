@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
@@ -151,10 +152,10 @@ class DeleteBlockAmountTest extends BaseTest {
             BiPredicate<BlockAmountRevokedEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.BLOCK_AMOUNT_REVOKED.getHeaderValue().equals(typeHeader);
 
-            ctx.blockAmountRevokedEvent = natsClient.findMessageAsync(
-                    subject,
-                    BlockAmountRevokedEventPayload.class,
-                    filter).get();
+            ctx.blockAmountRevokedEvent = natsClient.expect(BlockAmountRevokedEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.blockAmountRevokedEvent.getPayload();
             assertAll("Проверка полей в событии снятия блокировки",
@@ -166,8 +167,9 @@ class DeleteBlockAmountTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения block_amount_revoked в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.blockAmountRevokedEvent.getSequence());
+            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.blockAmountRevokedEvent.getSequence())
+                    .fetch();
             assertTrue(utils.areEquivalent(
                     kafkaMessage, ctx.blockAmountRevokedEvent), "kafka.payload");
         });

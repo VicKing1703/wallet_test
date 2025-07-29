@@ -178,10 +178,10 @@ public class DepositWageringBetWinTest extends BaseParameterizedTest {
             BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
 
-            ctx.depositEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsDepositedMoneyPayload.class,
-                    filter).get();
+            ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.depositEvent.getPayload();
             assertAll("Проверка полей депозита",
@@ -222,10 +222,10 @@ public class DepositWageringBetWinTest extends BaseParameterizedTest {
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.betRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.betEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.betEvent.getPayload();
             assertAll("Проверка полей события ставки",
@@ -276,10 +276,10 @@ public class DepositWageringBetWinTest extends BaseParameterizedTest {
                     NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.winRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.winEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.winEvent.getPayload();
             assertAll("Проверка полей события выигрыша",

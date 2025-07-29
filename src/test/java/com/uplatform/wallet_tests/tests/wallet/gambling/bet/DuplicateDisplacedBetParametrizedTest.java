@@ -146,10 +146,10 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.lastMadeBetTransactionId.equals(payload.getUuid());
 
-            ctx.lastBetNatsEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.lastBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.lastBetNatsEvent, "nats.betted_from_gamble");
         });

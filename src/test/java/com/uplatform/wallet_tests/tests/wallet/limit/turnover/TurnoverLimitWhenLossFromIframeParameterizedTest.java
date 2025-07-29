@@ -128,7 +128,10 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
                                 periodType.getValue().equals(payload.getLimits().get(0).getIntervalType()) &&
                                 request.getCurrency().equals(payload.getLimits().get(0).getCurrencyCode());
 
-                ctx.limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+                ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
@@ -165,7 +168,10 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
                         NatsEventType.LOOSED_FORM_IFRAME.getHeaderValue().equals(typeHeader) &&
                                 ctx.betRequestBody.getBetId().equals(payload.getBetId());
 
-                ctx.lossEvent = natsClient.findMessageAsync(subject, NatsBettingEventPayload.class, filter).get();
+                ctx.lossEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertAll("nats.loosed_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.lossEvent, "nats.loosed_from_iframe_event"),

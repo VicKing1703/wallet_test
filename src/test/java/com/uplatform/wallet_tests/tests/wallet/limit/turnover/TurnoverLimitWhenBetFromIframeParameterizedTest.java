@@ -120,7 +120,10 @@ class TurnoverLimitWhenBetFromIframeParameterizedTest extends BaseParameterizedT
                                 periodType.getValue().equals(payload.getLimits().get(0).getIntervalType()) &&
                                 request.getCurrency().equals(payload.getLimits().get(0).getCurrencyCode());
 
-                ctx.limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+                ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event.received");
             });
@@ -149,10 +152,10 @@ class TurnoverLimitWhenBetFromIframeParameterizedTest extends BaseParameterizedT
                 BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader);
 
-                ctx.betEvent = natsClient.findMessageAsync(
-                        subject,
-                        NatsBettingEventPayload.class,
-                        filter).get();
+                ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertAll("nats.betted_from_iframe_event.content_validation",
                         () -> assertEquals(0, betAmount.compareTo(ctx.betEvent.getPayload().getAmount().negate()), "nats.betted_from_iframe_event.payload.amount"),

@@ -134,11 +134,10 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
                             payload.getLimits().get(0).getAmount() != null &&
                             limitAmount.compareTo(payload.getLimits().get(0).getAmount()) == 0;
 
-            ctx.limitEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsLimitChangedV2Payload.class,
-                    filter
-            ).get();
+            ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.limitEvent, "nats.limit_changed_v2_event.message_not_null");
         });
@@ -167,9 +166,10 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
         });
 
         step("Kafka: Получение transactionId", () -> {
-            ctx.kafkaPaymentMessage = paymentKafkaClient.expectTransactionMessage(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    nodeId);
+            ctx.kafkaPaymentMessage = paymentKafkaClient.expect(PaymentTransactionMessage.class)
+                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("nodeId", nodeId)
+                    .fetch();
 
             ctx.transactionId = ctx.kafkaPaymentMessage.getTransaction().getTransactionId();
 
@@ -184,10 +184,10 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
             BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, header) ->
                     NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(header);
 
-            ctx.depositEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsDepositedMoneyPayload.class,
-                    filter).get();
+            ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.depositEvent, "nats.deposited_money_event.message_not_null");
 

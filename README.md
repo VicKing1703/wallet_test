@@ -314,8 +314,9 @@ public class BonusAwardKafkaClient extends AbstractKafkaClient {
 private WalletProjectionKafkaClient walletProjectionKafkaClient;
 
 step("Kafka: получение сообщения", () -> {
-    var message = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-            testData.someEvent.getSequence());
+    var message = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            .with("seq_number", testData.someEvent.getSequence())
+            .fetch();
     assertTrue(utils.areEquivalent(message, testData.someEvent));
 });
 ```
@@ -549,8 +550,8 @@ step("DB: проверяем запись кошелька", () -> {
 ### 4. Как работает клиент
 
 `NatsClient` предоставляет метод `buildWalletSubject` для формирования subject и
-`findMessageAsync` для ожидания события с фильтром. Внутри учитываются повторы и
-тайм-ауты.
+флюентный интерфейс `expect` для ожидания события с фильтром. Внутри учитываются
+повторы и тайм‑ауты.
 
 ### 5. Подключение нового subject
 
@@ -562,11 +563,10 @@ step("DB: проверяем запись кошелька", () -> {
 
 ```java
 String subject = natsClient.buildWalletSubject(playerUuid, walletUuid);
-var message = natsClient.findMessageAsync(
-        subject,
-        NatsBalanceAdjustedPayload.class,
-        (payload, type) -> payload.getSequence() == expectedSeq
-).get();
+var message = natsClient.expect(NatsBalanceAdjustedPayload.class)
+        .from(subject)
+        .matching((payload, type) -> payload.getSequence() == expectedSeq)
+        .fetch();
 ```
 
 ### 7. Использование в тестах
@@ -576,7 +576,9 @@ var message = natsClient.findMessageAsync(
 private NatsClient natsClient;
 
 step("NATS: получаем событие", () -> {
-    var msg = natsClient.findMessageAsync(subject, SomePayload.class, (p, t) -> true).get();
+    var msg = natsClient.expect(SomePayload.class)
+            .from(subject)
+            .fetch();
     assertNotNull(msg);
 });
 ```
@@ -656,15 +658,15 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
         var subject = natsClient.buildWalletSubject(
                 ctx.registeredPlayer.getWalletData().getPlayerUUID(),
                 ctx.registeredPlayer.getWalletData().getWalletUUID());
-        ctx.winEvent = natsClient.findMessageAsync(
-                subject,
-                NatsBettingEventPayload.class,
-                (p, t) -> true).get();
+        ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
+                .from(subject)
+                .fetch();
     });
 
     step("Kafka: Проверка сообщения", () -> {
-        walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                ctx.winEvent.getSequence());
+        walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                .with("seq_number", ctx.winEvent.getSequence())
+                .fetch();
     });
 
     step("DB Wallet: Проверка записи", () -> {

@@ -148,10 +148,10 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
                     NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.firstWinRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.firstWinNatsEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.firstWinNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.firstWinNatsEvent, "nats.won_from_gamble");
         });

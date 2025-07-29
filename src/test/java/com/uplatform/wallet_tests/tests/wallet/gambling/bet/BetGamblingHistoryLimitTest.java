@@ -161,10 +161,10 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.lastTransactionId.equals(payload.getUuid());
 
-            ctx.lastBetEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.lastBetEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.lastBetEvent, "nats.betted_from_gamble");
         });

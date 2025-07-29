@@ -8,7 +8,6 @@ import okhttp3.ConnectionPool;
 import org.springframework.cloud.openfeign.FeignBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import java.util.concurrent.TimeUnit;
 
@@ -36,10 +35,9 @@ public class AllureFeignLoggerConfig {
 
     @Bean
     public FeignBuilderCustomizer allureFeignLoggerCustomizer(Logger.Level feignLoggerLevel,
-                                                              AllureAttachmentService attachmentService,
-                                                              ObjectMapper objectMapper) {
+                                                              AllureAttachmentService attachmentService) {
         return builder -> {
-            builder.logger(new AllureFeignLogger(attachmentService, objectMapper))
+            builder.logger(new AllureFeignLogger(attachmentService))
                     .logLevel(feignLoggerLevel);
         };
     }
