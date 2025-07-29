@@ -12,6 +12,7 @@ import java.util.function.BiPredicate;
 import com.uplatform.wallet_tests.api.nats.NatsSubscriber;
 import com.uplatform.wallet_tests.api.nats.NatsAttachmentHelper;
 import com.uplatform.wallet_tests.api.nats.NatsConnectionManager;
+import com.uplatform.wallet_tests.api.nats.NatsExpectationBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -70,6 +71,14 @@ public class NatsClient {
                                                                          Class<T> messageType,
                                                                          BiPredicate<T, String> filter) {
         return subscriber.findUniqueMessageAsync(subject, messageType, filter);
+    }
+
+    public <T> NatsExpectationBuilder<T> expect(Class<T> messageType) {
+        return new NatsExpectationBuilder<>(this, messageType, this.searchTimeout);
+    }
+
+    Duration getSearchTimeout() {
+        return this.searchTimeout;
     }
 
 }

@@ -8,6 +8,8 @@ import com.uplatform.wallet_tests.api.nats.dto.NatsDepositedMoneyPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsDepositStatus;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
+import com.uplatform.wallet_tests.api.kafka.dto.PaymentTransactionMessage;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.PaymentMethodId;
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.DepositRedirect;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -106,9 +108,10 @@ class DepositPositiveTest extends BaseTest {
         });
 
         step("Kafka: Получение transactionId", () -> {
-            var paymentMessage = paymentKafkaClient.expectTransactionMessage(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    nodeId);
+            var paymentMessage = paymentKafkaClient.expect(PaymentTransactionMessage.class)
+                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("nodeId", nodeId)
+                    .fetch();
 
             ctx.transactionId = paymentMessage.getTransaction().getTransactionId();
 
@@ -123,10 +126,10 @@ class DepositPositiveTest extends BaseTest {
             BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
 
-            ctx.depositEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsDepositedMoneyPayload.class,
-                    filter).get();
+            ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var actualPayload = ctx.depositEvent.getPayload();
 
@@ -152,8 +155,9 @@ class DepositPositiveTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения deposited_money в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.depositEvent.getSequence());
+            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.depositEvent.getSequence())
+                    .fetch();
 
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.depositEvent), "kafka.payload");
         });

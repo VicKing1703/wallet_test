@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.single_bet;
 
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.SetSingleBetLimitRequest;
@@ -100,12 +101,13 @@ class SingleBetLimitUpdateTest extends BaseTest {
 
         step("Kafka: Получение сообщения из топика limits.v2", () -> {
             var expectedAmount = initialAmount.stripTrailingZeros().toPlainString();
-            ctx.kafkaLimitMessage = limitKafkaClient.expectLimitMessage(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    NatsLimitType.SINGLE_BET.getValue(),
-                    ctx.registeredPlayer.getWalletData().getCurrency(),
-                    expectedAmount
-            );
+            ctx.kafkaLimitMessage = limitKafkaClient.expect(LimitMessage.class)
+                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("limitType", NatsLimitType.SINGLE_BET.getValue())
+                    .with("currencyCode", ctx.registeredPlayer.getWalletData().getCurrency())
+                    .with("amount", expectedAmount
+            )
+                    .fetch();
             assertNotNull(ctx.kafkaLimitMessage, "kafka.limits_v2_event.message_not_null");
         });
 
@@ -119,10 +121,10 @@ class SingleBetLimitUpdateTest extends BaseTest {
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
                             ctx.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
 
-            ctx.createEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsLimitChangedV2Payload.class,
-                    filter).get();
+            ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation.message_not_null");
         });
@@ -152,10 +154,10 @@ class SingleBetLimitUpdateTest extends BaseTest {
                             ctx.createEvent.getPayload().getLimits().get(0).getExternalId().equals(payload.getLimits().get(0).getExternalId()) &&
                             NatsLimitEventType.AMOUNT_UPDATED.getValue().equals(payload.getEventType());
 
-            ctx.updateEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsLimitChangedV2Payload.class,
-                    filter).get();
+            ctx.updateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update.message_not_null");
 
@@ -174,8 +176,9 @@ class SingleBetLimitUpdateTest extends BaseTest {
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.updateEvent.getSequence());
+            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.updateEvent.getSequence())
+                    .fetch();
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
             assertTrue(utils.areEquivalent(projectionMsg, ctx.updateEvent), "kafka.wallet_projection.equivalent_to_nats");
         });

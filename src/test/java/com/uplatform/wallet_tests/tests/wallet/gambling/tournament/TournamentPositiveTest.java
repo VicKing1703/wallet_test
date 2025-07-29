@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.tournament;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.TournamentRequestBody;
@@ -97,10 +98,10 @@ class TournamentPositiveTest extends BaseTest {
                     NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.tournamentRequestBody.getTransactionId().equals(payload.getUuid());
 
-            ctx.tournamentEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.tournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertAll(
                     () -> assertEquals(ctx.tournamentRequestBody.getTransactionId(), ctx.tournamentEvent.getPayload().getUuid(), "nats.payload.uuid"),
@@ -174,8 +175,9 @@ class TournamentPositiveTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения турнира в топик wallet.projectionSource", () -> {
-            var message = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.tournamentEvent.getSequence());
+            var message = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.tournamentEvent.getSequence())
+                    .fetch();
 
             assertTrue(utils.areEquivalent(message, ctx.tournamentEvent), "kafka.payload");
         });

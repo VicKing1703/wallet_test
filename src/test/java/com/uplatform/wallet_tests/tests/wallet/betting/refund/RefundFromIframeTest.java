@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.refund;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -132,10 +133,10 @@ class RefundFromIframeTest extends BaseTest {
                     NatsEventType.REFUNDED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                             Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
 
-            ctx.refundEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBettingEventPayload.class,
-                    filter).get();
+            ctx.refundEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var actualPayload = ctx.refundEvent.getPayload();
             var expectedBetInfoList = objectMapper.readValue(
@@ -170,8 +171,9 @@ class RefundFromIframeTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения refunded_from_iframe в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.refundEvent.getSequence());
+            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.refundEvent.getSequence())
+                    .fetch();
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.refundEvent), "kafka.payload");
         });
 

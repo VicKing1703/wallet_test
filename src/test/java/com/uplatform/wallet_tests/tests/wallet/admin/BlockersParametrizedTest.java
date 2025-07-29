@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
@@ -90,10 +91,10 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
                             && payload.isGamblingActive() == gamblingEnabled
                             && payload.isBettingActive() == bettingEnabled;
 
-            ctx.updateBlockersEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsPreventGambleSettedPayload.class,
-                    filter).get();
+            ctx.updateBlockersEvent = natsClient.expect(NatsPreventGambleSettedPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertAll(
                     () -> assertEquals(gamblingEnabled, ctx.updateBlockersEvent.getPayload().isGamblingActive(), "nats.update_blockers.gambling_enabled"),
@@ -137,8 +138,9 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения setting_prevent_gamble_setted в топик wallet.v8.projectionSource", () -> {
-            var kafkaMsg = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.updateBlockersEvent.getSequence());
+            var kafkaMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.updateBlockersEvent.getSequence())
+                    .fetch();
             assertTrue(utils.areEquivalent(kafkaMsg, ctx.updateBlockersEvent), "kafka.payload");
         });
     }

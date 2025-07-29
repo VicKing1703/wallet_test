@@ -127,10 +127,10 @@ class DepositWageringBetFromIframeTest extends BaseParameterizedTest {
             BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
 
-            ctx.depositEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsDepositedMoneyPayload.class,
-                    filter).get();
+            ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.depositEvent.getPayload();
             assertAll("Проверка полей депозита",
@@ -169,10 +169,10 @@ class DepositWageringBetFromIframeTest extends BaseParameterizedTest {
                     NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                             ctx.betRequest.getBetId().equals(payload.getBetId());
 
-            ctx.betEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBettingEventPayload.class,
-                    filter).get();
+            ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.betEvent.getPayload();
             assertAll("Проверка полей события ставки",

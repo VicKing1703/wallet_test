@@ -131,7 +131,10 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
                                 payload.getLimits().stream().anyMatch(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()));
 
-                ctx.limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+                ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
@@ -164,10 +167,10 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
                         NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                                 ctx.tournamentRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.tournamentEvent = natsClient.findMessageAsync(
-                        subject,
-                        NatsGamblingEventPayload.class,
-                        filter).get();
+                ctx.tournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.tournamentEvent, "nats.tournament_won_from_gamble");
             });
         });

@@ -128,7 +128,10 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
                 BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
 
-                var limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+                var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
             });
@@ -158,10 +161,10 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
                         NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                                 ctx.tournamentRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.tournamentEvent = natsClient.findMessageAsync(
-                        subject,
-                        NatsGamblingEventPayload.class,
-                        filter).get();
+                ctx.tournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertNotNull(ctx.tournamentEvent, "nats.event.tournament_started");
             });

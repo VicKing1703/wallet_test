@@ -1,6 +1,8 @@
 package com.uplatform.wallet_tests.tests.wallet.payment;
 
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.PaymentTransactionMessage;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
@@ -128,9 +130,10 @@ class WithdrawalPositiveTest extends BaseTest {
         });
 
         step("Kafka: Получение transactionId", () -> {
-            var paymentMessage = paymentKafkaClient.expectTransactionMessage(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    nodeId);
+            var paymentMessage = paymentKafkaClient.expect(PaymentTransactionMessage.class)
+                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("nodeId", nodeId)
+                    .fetch();
 
             ctx.transactionId = paymentMessage.getTransaction().getTransactionId();
             assertNotNull(ctx.transactionId, "kafka.transaction.id");
@@ -145,10 +148,10 @@ class WithdrawalPositiveTest extends BaseTest {
                     NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue().equals(typeHeader)
                             && ctx.transactionId.equals(payload.getUuid());
 
-            ctx.blockEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBlockAmountEventPayload.class,
-                    filter).get();
+            ctx.blockEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var payload = ctx.blockEvent.getPayload();
             assertAll("Проверка основных полей NATS payload",
@@ -163,8 +166,9 @@ class WithdrawalPositiveTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения block_amount_started в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.blockEvent.getSequence());
+            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.blockEvent.getSequence())
+                    .fetch();
 
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.blockEvent), "kafka.payload");
         });

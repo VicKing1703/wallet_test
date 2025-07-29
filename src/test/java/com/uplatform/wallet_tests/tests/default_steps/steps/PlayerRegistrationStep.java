@@ -99,8 +99,10 @@ public class PlayerRegistrationStep {
         });
 
         step("Kafka: Ожидание и получение OTP кода", () -> {
-            ctx.confirmationMessage = this.playerAccountKafkaClient.expectPhoneConfirmationMessage(
-                    ctx.verificationRequest.getContact());
+            ctx.confirmationMessage = this.playerAccountKafkaClient.expect(PlayerAccountMessage.class)
+                    .with("message.eventType", "player.confirmationPhone")
+                    .with("player.phone", ctx.verificationRequest.getContact().substring(1))
+                    .fetch();
             assertNotNull(ctx.confirmationMessage, "kafka.phone_confirmation.message");
             assertNotNull(ctx.confirmationMessage.getContext(), "kafka.phone_confirmation.context");
             assertNotNull(ctx.confirmationMessage.getContext().getConfirmationCode(), "kafka.phone_confirmation.code");
@@ -143,8 +145,10 @@ public class PlayerRegistrationStep {
         });
 
         step("Kafka: Получение сообщения о регистрации", () -> {
-            ctx.fullRegistrationMessage = this.playerAccountKafkaClient.expectPlayerSignUpV2FullMessage(
-                    ctx.verificationRequest.getContact());
+            ctx.fullRegistrationMessage = this.playerAccountKafkaClient.expect(PlayerAccountMessage.class)
+                    .with("message.eventType", "player.signUpV2Full")
+                    .with("player.phone", ctx.verificationRequest.getContact().substring(1))
+                    .fetch();
             assertNotNull(ctx.fullRegistrationMessage, "kafka.player_signup.message");
             assertNotNull(ctx.fullRegistrationMessage.getPlayer(), "kafka.player_signup.player");
             assertNotNull(ctx.fullRegistrationMessage.getPlayer().getExternalId(), "kafka.player_signup.player_external_id");

@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.loss;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -131,10 +132,10 @@ class LossFromIframeTest extends BaseTest {
                     NatsEventType.LOOSED_FORM_IFRAME.getHeaderValue().equals(typeHeader) &&
                             Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
 
-            ctx.lossNatsEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBettingEventPayload.class,
-                    filter).get();
+            ctx.lossNatsEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var actualPayload = ctx.lossNatsEvent.getPayload();
             var expectedBetInfoList = objectMapper.readValue(
@@ -169,8 +170,9 @@ class LossFromIframeTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения loosed_from_iframe в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.lossNatsEvent.getSequence());
+            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.lossNatsEvent.getSequence())
+                    .fetch();
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.lossNatsEvent), "kafka.payload");
         });
 

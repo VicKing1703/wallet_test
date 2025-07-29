@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.deposit;
 
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.deposit.SetDepositLimitRequest;
@@ -115,12 +116,13 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
         step("Kafka: Проверка получения события limits.v2", () -> {
             var expectedAmount = limitAmount.stripTrailingZeros().toPlainString();
 
-            testData.kafkaLimitMessage = limitKafkaClient.expectLimitMessage(
-                    testData.registeredPlayer.getWalletData().getPlayerUUID(),
-                    NatsLimitType.DEPOSIT.getValue(),
-                    testData.registeredPlayer.getWalletData().getCurrency(),
-                    expectedAmount
-            );
+            testData.kafkaLimitMessage = limitKafkaClient.expect(LimitMessage.class)
+                    .with("playerId", testData.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("limitType", NatsLimitType.DEPOSIT.getValue())
+                    .with("currencyCode", testData.registeredPlayer.getWalletData().getCurrency())
+                    .with("amount", expectedAmount
+            )
+                    .fetch();
 
             assertNotNull(testData.kafkaLimitMessage, "kafka.limits_v2_event.message_not_null");
 
@@ -142,11 +144,10 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
                             testData.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
 
-            testData.natsLimitChangeEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsLimitChangedV2Payload.class,
-                    filter
-            ).get();
+            testData.natsLimitChangeEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(testData.natsLimitChangeEvent, "nats.limit_changed_v2_event.message_not_null");
             assertNotNull(testData.natsLimitChangeEvent.getPayload(), "nats.limit_changed_v2_event.payload_not_null");
@@ -165,8 +166,9 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    testData.natsLimitChangeEvent.getSequence());
+            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", testData.natsLimitChangeEvent.getSequence())
+                    .fetch();
 
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
             assertTrue(utils.areEquivalent(projectionMsg, testData.natsLimitChangeEvent), "kafka.wallet_projection.equivalent_to_nats");

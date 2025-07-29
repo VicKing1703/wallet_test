@@ -142,7 +142,10 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
                                                 periodType.getValue().equals(l.getIntervalType())
                                 );
 
-                ctx.limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+                ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
@@ -178,7 +181,10 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
                         NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                                 ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.betEvent = natsClient.findMessageAsync(subject, NatsGamblingEventPayload.class, filter).get();
+                ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
             });
         });
@@ -214,7 +220,10 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
                         NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                                 ctx.refundRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.refundEvent = natsClient.findMessageAsync(subject, NatsGamblingEventPayload.class, filter).get();
+                ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.refundEvent, "nats.refunded_from_gamble_event");
             });
         });

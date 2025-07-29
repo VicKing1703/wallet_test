@@ -143,7 +143,10 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
                                                 periodType.getValue().equals(l.getIntervalType())
                                 );
 
-                ctx.limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+                ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
@@ -179,7 +182,10 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
                         NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                                 ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.betEvent = natsClient.findMessageAsync(subject, NatsGamblingEventPayload.class, filter).get();
+                ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
             });
         });
@@ -218,10 +224,10 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
                         NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                                 ctx.rollbackRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.rollbackEvent = natsClient.findMessageAsync(
-                        subject,
-                        NatsGamblingEventPayload.class,
-                        filter).get();
+                ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.rollbackEvent, "nats.rollbacked_from_gamble_event");
             });
         });

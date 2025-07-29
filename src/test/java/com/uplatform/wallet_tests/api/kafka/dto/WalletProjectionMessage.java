@@ -39,3 +39,4 @@ public class WalletProjectionMessage {
     @JsonProperty("seq_number_node_uuid")
     private String seqNumberNodeUuid;
 }
+

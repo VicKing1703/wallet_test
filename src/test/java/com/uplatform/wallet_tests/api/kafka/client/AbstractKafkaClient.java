@@ -3,6 +3,7 @@ package com.uplatform.wallet_tests.api.kafka.client;
 import com.uplatform.wallet_tests.api.kafka.consumer.KafkaBackgroundConsumer;
 import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
 import org.opentest4j.AssertionFailedError;
+import com.uplatform.wallet_tests.api.kafka.client.KafkaExpectationBuilder;
 
 import java.time.Duration;
 import java.util.Map;
@@ -93,5 +94,9 @@ public abstract class AbstractKafkaClient {
         return filter.entrySet().stream()
                 .map(e -> e.getKey() + " = " + e.getValue())
                 .collect(Collectors.joining(", "));
+    }
+
+    public <T> KafkaExpectationBuilder<T> expect(Class<T> messageClass) {
+        return new KafkaExpectationBuilder<>(this.kafkaBackgroundConsumer, this.defaultFindTimeout, messageClass);
     }
 }

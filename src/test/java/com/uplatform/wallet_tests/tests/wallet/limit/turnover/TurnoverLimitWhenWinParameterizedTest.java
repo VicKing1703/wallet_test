@@ -116,7 +116,10 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                                 NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType()) &&
                                 periodType.getValue().equals(payload.getLimits().get(0).getIntervalType());
 
-                ctx.limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+                ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
@@ -151,10 +154,10 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                         NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                                 ctx.winRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.winEvent = natsClient.findMessageAsync(
-                        subject,
-                        NatsGamblingEventPayload.class,
-                        filter).get();
+                ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
                 assertNotNull(ctx.winEvent, "nats.won_from_gamble");
             });
         });

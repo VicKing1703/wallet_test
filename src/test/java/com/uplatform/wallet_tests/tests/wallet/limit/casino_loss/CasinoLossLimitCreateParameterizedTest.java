@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.casino_loss;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss.SetCasinoLossLimitRequest;
@@ -115,12 +116,13 @@ public class CasinoLossLimitCreateParameterizedTest extends BaseParameterizedTes
 
         step("Kafka: Проверка получения события limits.v2", () -> {
             var expectedAmount = limitAmount.stripTrailingZeros().toPlainString();
-            ctx.kafkaLimitMessage = limitKafkaClient.expectLimitMessage(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    NatsLimitType.CASINO_LOSS.getValue(),
-                    ctx.registeredPlayer.getWalletData().getCurrency(),
-                    expectedAmount
-            );
+            ctx.kafkaLimitMessage = limitKafkaClient.expect(LimitMessage.class)
+                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("limitType", NatsLimitType.CASINO_LOSS.getValue())
+                    .with("currencyCode", ctx.registeredPlayer.getWalletData().getCurrency())
+                    .with("amount", expectedAmount
+            )
+                    .fetch();
 
             assertNotNull(ctx.kafkaLimitMessage, "kafka.limits_v2_event.message_not_null");
             assertAll("kafka.limits_v2_event.content_validation",
@@ -144,7 +146,10 @@ public class CasinoLossLimitCreateParameterizedTest extends BaseParameterizedTes
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
                             ctx.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
 
-            ctx.natsLimitChangeEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+            ctx.natsLimitChangeEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
             assertNotNull(ctx.natsLimitChangeEvent, "nats.limit_changed_v2_event.message_not_null");
             assertNotNull(ctx.natsLimitChangeEvent.getPayload(), "nats.limit_changed_v2_event.payload_not_null");
             assertNotNull(ctx.natsLimitChangeEvent.getPayload().getLimits(), "nats.limit_changed_v2_event.payload.limits_list_not_null");
@@ -165,8 +170,9 @@ public class CasinoLossLimitCreateParameterizedTest extends BaseParameterizedTes
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.natsLimitChangeEvent.getSequence());
+            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.natsLimitChangeEvent.getSequence())
+                    .fetch();
 
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
             assertTrue(utils.areEquivalent(projectionMsg, ctx.natsLimitChangeEvent), "kafka.wallet_projection.equivalent_to_nats");

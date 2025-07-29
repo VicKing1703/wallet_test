@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.turnover;
 
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitRequest;
@@ -150,7 +151,10 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
                             NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType());
 
-            ctx.createEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+            ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation");
         });
@@ -184,7 +188,10 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                         NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                                 ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
 
-                ctx.betEvent = natsClient.findMessageAsync(subject, NatsGamblingEventPayload.class, filter).get();
+                ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
             });
@@ -215,7 +222,10 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                             ctx.createEvent.getPayload().getLimits().get(0).getExternalId().equals(payload.getLimits().get(0).getExternalId()) &&
                             NatsLimitEventType.AMOUNT_UPDATED.getValue().equals(payload.getEventType());
 
-            ctx.updateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+            ctx.updateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update");
 
@@ -234,8 +244,9 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.updateEvent.getSequence());
+            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.updateEvent.getSequence())
+                    .fetch();
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
             assertTrue(utils.areEquivalent(projectionMsg, ctx.updateEvent), "kafka.wallet_projection.equivalent_to_nats");
         });
