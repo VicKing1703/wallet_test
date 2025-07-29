@@ -69,9 +69,7 @@ public abstract class AbstractDatabaseClient {
 
             Optional<T> optionalResult = condition.until(queryCallable, Optional::isPresent);
 
-            T result = optionalResult.get();
-            attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - Found", createJsonAttachment(result));
-            return result;
+            return optionalResult.get();
 
         } catch (ConditionTimeoutException e) {
             attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - NOT Found (Timeout)",
