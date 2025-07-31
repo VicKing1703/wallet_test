@@ -244,7 +244,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.updateEvent.getSequence())
                     .fetch();
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");

@@ -18,7 +18,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitReq
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactResponse;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactTypedRequest;
-import com.uplatform.wallet_tests.api.kafka.client.PlayerAccountKafkaClient;
+import com.uplatform.wallet_tests.api.kafka.client.KafkaClient;
 import com.uplatform.wallet_tests.api.kafka.dto.PlayerAccountMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
 import com.uplatform.wallet_tests.api.redis.client.PlayerRedisClient;
@@ -48,7 +48,7 @@ public class PlayerFullRegistrationStep {
 
     private final FapiClient publicClient;
     private final CapAdminClient capAdminClient;
-    private final PlayerAccountKafkaClient playerAccountKafkaClient;
+    private final KafkaClient kafkaClient;
     private final PlayerRedisClient playerRedisClient;
     private final WalletRedisClient walletRedisClient;
     private final CapAdminTokenStorage tokenStorage;
@@ -59,7 +59,7 @@ public class PlayerFullRegistrationStep {
     @Autowired
     public PlayerFullRegistrationStep(FapiClient publicClient,
                                   CapAdminClient capAdminClient,
-                                  PlayerAccountKafkaClient playerAccountKafkaClient,
+                                  KafkaClient kafkaClient,
                                   PlayerRedisClient playerRedisClient,
                                   WalletRedisClient walletRedisClient,
                                   CapAdminTokenStorage tokenStorage,
@@ -68,7 +68,7 @@ public class PlayerFullRegistrationStep {
                                   @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
         this.publicClient = Objects.requireNonNull(publicClient);
         this.capAdminClient = Objects.requireNonNull(capAdminClient);
-        this.playerAccountKafkaClient = Objects.requireNonNull(playerAccountKafkaClient);
+        this.kafkaClient = Objects.requireNonNull(kafkaClient);
         this.playerRedisClient = Objects.requireNonNull(playerRedisClient);
         this.walletRedisClient = Objects.requireNonNull(walletRedisClient);
         this.tokenStorage = Objects.requireNonNull(tokenStorage);
@@ -107,7 +107,7 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Kafka: Ожидание и получение OTP кода", () -> {
-            ctx.confirmationMessage = this.playerAccountKafkaClient.expect(PlayerAccountMessage.class)
+            ctx.confirmationMessage = this.kafkaClient.expect(PlayerAccountMessage.class)
                     .with("message.eventType", "player.confirmationPhone")
                     .with("player.phone", ctx.verificationRequest.getContact().substring(1))
                     .fetch();
@@ -153,7 +153,7 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Kafka: Получение сообщения о регистрации", () -> {
-            ctx.fullRegistrationMessage = this.playerAccountKafkaClient.expect(PlayerAccountMessage.class)
+            ctx.fullRegistrationMessage = this.kafkaClient.expect(PlayerAccountMessage.class)
                     .with("message.eventType", "player.signUpV2Full")
                     .with("player.phone", ctx.verificationRequest.getContact().substring(1))
                     .fetch();
@@ -245,7 +245,7 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Kafka: Получение сообщения о подтверждении email", () -> {
-            ctx.emailConfirmationMessage = playerAccountKafkaClient.expect(PlayerAccountMessage.class)
+            ctx.emailConfirmationMessage = kafkaClient.expect(PlayerAccountMessage.class)
                     .with("message.eventType", "player.confirmationEmail")
                     .with("player.email", ctx.emailVerificationRequest.getContact())
                     .fetch();

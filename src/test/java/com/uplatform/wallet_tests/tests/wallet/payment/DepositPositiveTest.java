@@ -108,7 +108,7 @@ class DepositPositiveTest extends BaseTest {
         });
 
         step("Kafka: Получение transactionId", () -> {
-            var paymentMessage = paymentKafkaClient.expect(PaymentTransactionMessage.class)
+            var paymentMessage = kafkaClient.expect(PaymentTransactionMessage.class)
                     .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .with("nodeId", nodeId)
                     .fetch();
@@ -155,7 +155,7 @@ class DepositPositiveTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения deposited_money в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.depositEvent.getSequence())
                     .fetch();
 

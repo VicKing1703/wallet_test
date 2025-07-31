@@ -175,7 +175,7 @@ class TournamentPositiveTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения турнира в топик wallet.projectionSource", () -> {
-            var message = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var message = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.tournamentEvent.getSequence())
                     .fetch();
 

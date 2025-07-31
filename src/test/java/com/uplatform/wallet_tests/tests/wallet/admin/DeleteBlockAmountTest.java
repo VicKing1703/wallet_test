@@ -167,7 +167,7 @@ class DeleteBlockAmountTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения block_amount_revoked в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.blockAmountRevokedEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(

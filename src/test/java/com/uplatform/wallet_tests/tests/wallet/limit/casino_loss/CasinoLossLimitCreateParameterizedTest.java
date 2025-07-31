@@ -116,7 +116,7 @@ public class CasinoLossLimitCreateParameterizedTest extends BaseParameterizedTes
 
         step("Kafka: Проверка получения события limits.v2", () -> {
             var expectedAmount = limitAmount.stripTrailingZeros().toPlainString();
-            ctx.kafkaLimitMessage = limitKafkaClient.expect(LimitMessage.class)
+            ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
                     .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .with("limitType", NatsLimitType.CASINO_LOSS.getValue())
                     .with("currencyCode", ctx.registeredPlayer.getWalletData().getCurrency())
@@ -170,7 +170,7 @@ public class CasinoLossLimitCreateParameterizedTest extends BaseParameterizedTes
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.natsLimitChangeEvent.getSequence())
                     .fetch();
 

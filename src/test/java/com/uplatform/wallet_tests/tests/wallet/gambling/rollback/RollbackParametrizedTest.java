@@ -301,7 +301,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения о роллбэке в топик wallet.v8.projectionSource", () -> {
-            var message = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var message = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.rollbackEvent.getSequence())
                     .fetch();
 
