@@ -166,7 +166,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
         });
 
         step("Kafka: Получение transactionId", () -> {
-            ctx.kafkaPaymentMessage = paymentKafkaClient.expect(PaymentTransactionMessage.class)
+            ctx.kafkaPaymentMessage = kafkaClient.expect(PaymentTransactionMessage.class)
                     .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .with("nodeId", nodeId)
                     .fetch();

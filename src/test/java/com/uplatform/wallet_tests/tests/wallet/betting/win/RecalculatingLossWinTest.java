@@ -185,7 +185,7 @@ class RecalculatingLossWinTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления сообщения recalculated_from_iframe в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.recalculatedEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.recalculatedEvent), "kafka.payload");
