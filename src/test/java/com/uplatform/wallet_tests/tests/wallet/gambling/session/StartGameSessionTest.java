@@ -105,7 +105,7 @@ class StartGameSessionTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления события GameSessionStart", () -> {
-            var kafkaMessage = gameSessionKafkaClient.expect(GameSessionStartMessage.class)
+            var kafkaMessage = kafkaClient.expect(GameSessionStartMessage.class)
                     .with("id", ctx.coreGameSession.getUuid())
                     .fetch();
 

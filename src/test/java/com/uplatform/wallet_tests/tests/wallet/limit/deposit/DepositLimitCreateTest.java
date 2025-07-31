@@ -116,7 +116,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
         step("Kafka: Проверка получения события limits.v2", () -> {
             var expectedAmount = limitAmount.stripTrailingZeros().toPlainString();
 
-            testData.kafkaLimitMessage = limitKafkaClient.expect(LimitMessage.class)
+            testData.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
                     .with("playerId", testData.registeredPlayer.getWalletData().getPlayerUUID())
                     .with("limitType", NatsLimitType.DEPOSIT.getValue())
                     .with("currencyCode", testData.registeredPlayer.getWalletData().getCurrency())
@@ -166,7 +166,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", testData.natsLimitChangeEvent.getSequence())
                     .fetch();
 

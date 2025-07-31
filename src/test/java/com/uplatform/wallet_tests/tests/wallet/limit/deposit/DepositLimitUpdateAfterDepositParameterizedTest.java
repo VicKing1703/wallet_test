@@ -138,7 +138,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
 
         step("Kafka: Получение сообщения из топика limits.v2", () -> {
             var expectedAmount = limitAmountBase.stripTrailingZeros().toPlainString();
-            ctx.kafkaLimitMessage = limitKafkaClient.expect(LimitMessage.class)
+            ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
                     .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .with("limitType", NatsLimitType.DEPOSIT.getValue())
                     .with("currencyCode", ctx.registeredPlayer.getWalletData().getCurrency())
@@ -189,7 +189,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
         });
 
         step("Kafka: Получение transactionId", () -> {
-            ctx.kafkaPaymentMessage = paymentKafkaClient.expect(PaymentTransactionMessage.class)
+            ctx.kafkaPaymentMessage = kafkaClient.expect(PaymentTransactionMessage.class)
                     .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .with("nodeId", platformNodeId)
                     .fetch();
@@ -263,7 +263,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.updateEvent.getSequence())
                     .fetch();
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");

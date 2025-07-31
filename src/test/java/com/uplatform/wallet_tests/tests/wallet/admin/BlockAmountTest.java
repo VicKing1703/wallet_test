@@ -112,7 +112,7 @@ class BlockAmountTest extends BaseTest {
         });
         
         step("Kafka: Проверка поступления сообщения block_amount_started в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.blockAmountEvent.getSequence())
                     .fetch();
         

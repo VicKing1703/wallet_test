@@ -118,7 +118,7 @@ public class TurnoverLimitUpdateParameterizedTest extends BaseParameterizedTest 
 
         step("Kafka: Получение сообщения из топика limits.v2", () -> {
             var expectedAmount = initialAmount.stripTrailingZeros().toPlainString();
-            ctx.kafkaLimitMessage = limitKafkaClient.expect(LimitMessage.class)
+            ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
                     .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .with("limitType", NatsLimitType.TURNOVER_FUNDS.getValue())
                     .with("currencyCode", ctx.registeredPlayer.getWalletData().getCurrency())
@@ -193,7 +193,7 @@ public class TurnoverLimitUpdateParameterizedTest extends BaseParameterizedTest 
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
-            var projectionMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.updateEvent.getSequence())
                     .fetch();
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");

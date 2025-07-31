@@ -67,7 +67,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
         step("Kafka: Получение сообщения из топика limits.v2", () -> {
             var expectedAmount = ctx.limitAmount.stripTrailingZeros().toPlainString();
-            ctx.kafkaLimitMessage = limitKafkaClient.expect(LimitMessage.class)
+            ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
                     .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .with("limitType", NatsLimitType.SINGLE_BET.getValue())
                     .with("currencyCode", ctx.registeredPlayer.getWalletData().getCurrency())
@@ -105,7 +105,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
         });
 
         step("Kafka: Сравнение сообщения из Kafka с событием из NATS", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.limitCreateEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.limitCreateEvent), "kafka.wallet_projection.equivalent_to_nats");

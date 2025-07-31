@@ -155,7 +155,7 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения balance_adjusted в топик wallet.v8.projectionSource", () -> {
-            ctx.projectionAdjustEvent = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            ctx.projectionAdjustEvent = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.balanceAdjustedEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(ctx.projectionAdjustEvent, ctx.balanceAdjustedEvent), "kafka.payload");

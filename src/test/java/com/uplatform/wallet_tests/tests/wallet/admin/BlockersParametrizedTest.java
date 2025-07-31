@@ -138,7 +138,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения setting_prevent_gamble_setted в топик wallet.v8.projectionSource", () -> {
-            var kafkaMsg = walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+            var kafkaMsg = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.updateBlockersEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(kafkaMsg, ctx.updateBlockersEvent), "kafka.payload");
