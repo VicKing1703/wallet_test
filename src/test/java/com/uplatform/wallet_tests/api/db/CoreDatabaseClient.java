@@ -31,7 +31,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
                               CoreWalletRepository coreWalletRepository,
                               CoreGameProviderRepository coreGameProviderRepository,
                               ObjectMapper objectMapper) {
-        super(attachmentService, objectMapper);
+        super(attachmentService);
         this.coreGameSessionRepository = coreGameSessionRepository;
         this.coreGameRepository = coreGameRepository;
         this.coreWalletRepository = coreWalletRepository;
@@ -43,7 +43,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
         String attachmentNamePrefix = String.format("Core Game Session [PlayerUUID: %s]", playerUuid);
         Supplier<Optional<CoreGameSession>> querySupplier = () ->
                 Optional.ofNullable(coreGameSessionRepository.findByPlayerUuidOrderByStartedAtDesc(playerUuid));
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     public CoreGame findGameByIdOrFail(int gameId) {
@@ -52,7 +52,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
 
         Supplier<Optional<CoreGame>> querySupplier = () ->
                 coreGameRepository.findById(gameId);
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     public CoreWallet findWalletByIdOrFail(int walletId) {
@@ -61,7 +61,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
 
         Supplier<Optional<CoreWallet>> querySupplier = () ->
                 coreWalletRepository.findById(walletId);
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     public GameProvider findGameProviderByIdOrFail(int providerId) {
@@ -71,7 +71,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
         Supplier<Optional<GameProvider>> querySupplier = () ->
                 coreGameProviderRepository.findById(providerId);
 
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
 }
