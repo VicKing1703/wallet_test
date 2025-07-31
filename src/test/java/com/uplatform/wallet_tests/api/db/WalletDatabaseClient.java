@@ -30,7 +30,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
                                 WalletRepository walletRepository,
                                 BettingProjectionIframeHistoryRepository iframeHistoryRepository,
                                 ObjectMapper objectMapper) {
-        super(attachmentService, objectMapper);
+        super(attachmentService);
         this.transactionRepository = transactionRepository;
         this.playerThresholdWinRepository = playerThresholdWinRepository;
         this.playerThresholdDepositRepository = playerThresholdDepositRepository;
@@ -45,7 +45,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String attachmentNamePrefix = String.format("Wallet Transaction Record [UUID: %s]", uuid);
         Supplier<Optional<GamblingProjectionTransactionHistory>> querySupplier = () ->
                 transactionRepository.findById(uuid);
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -53,8 +53,8 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String description = String.format("player threshold win record for player '%s'", playerUuid);
         String attachmentNamePrefix = String.format("Player Threshold Win [Player: %s]", playerUuid);
         Supplier<Optional<PlayerThresholdWin>> querySupplier = () ->
-                Optional.ofNullable(playerThresholdWinRepository.findByPlayerUuid(playerUuid));
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+                playerThresholdWinRepository.findByPlayerUuid(playerUuid);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -62,8 +62,8 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String description = String.format("player threshold deposit record for player '%s'", playerUuid);
         String attachmentNamePrefix = String.format("Player Threshold Deposit [Player: %s]", playerUuid);
         Supplier<Optional<PlayerThresholdDeposit>> querySupplier = () ->
-                Optional.ofNullable(playerThresholdDepositRepository.findByPlayerUuid(playerUuid));
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+                playerThresholdDepositRepository.findByPlayerUuid(playerUuid);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -71,8 +71,8 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String description = String.format("single game session for player UUID '%s'", playerUuid);
         String attachmentNamePrefix = String.format("Wallet Game Session [PlayerUUID: %s]", playerUuid);
         Supplier<Optional<WalletGameSession>> querySupplier = () ->
-                Optional.ofNullable(walletGameSessionRepository.findByPlayerUuid(playerUuid));
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+                walletGameSessionRepository.findByPlayerUuid(playerUuid);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -80,8 +80,8 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         String description = String.format("wallet record by UUID '%s'", walletUuid);
         String attachmentPrefix = String.format("Wallet Record [UUID: %s]", walletUuid);
         Supplier<Optional<Wallet>> querySupplier = () ->
-                Optional.ofNullable(walletRepository.findByUuid(walletUuid));
-        return awaitAndGetJsonOrFail(description, attachmentPrefix, querySupplier);
+                walletRepository.findByUuid(walletUuid);
+        return awaitAndGetOrFail(description, attachmentPrefix, querySupplier);
     }
 
     @Transactional(readOnly = true)
@@ -92,7 +92,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
         Supplier<Optional<BettingProjectionIframeHistory>> querySupplier = () ->
                 iframeHistoryRepository.findFirstByUuidOrderBySeqDesc(uuid);
 
-        return awaitAndGetJsonOrFail(description, attachmentNamePrefix, querySupplier);
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
 
 }
