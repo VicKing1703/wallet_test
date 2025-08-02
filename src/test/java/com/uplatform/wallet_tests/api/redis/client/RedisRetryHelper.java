@@ -10,8 +10,12 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Type;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
+import java.time.Duration;
+import org.awaitility.core.ConditionTimeoutException;
+
+import static org.awaitility.Awaitility.await;
 
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import com.uplatform.wallet_tests.api.attachment.AttachmentType;
@@ -53,6 +57,10 @@ public class RedisRetryHelper {
         return retryDelayMs;
     }
 
+    public long getTotalTimeoutMs() {
+        return (long) retryAttempts * retryDelayMs;
+    }
+
     public <T> T deserializeValue(String rawValue, JavaType javaType) throws JsonProcessingException {
         return objectMapper.readValue(rawValue, javaType);
     }
@@ -72,89 +80,69 @@ public class RedisRetryHelper {
 
         JavaType javaType = objectMapper.constructType(valueType);
 
-        Optional<T> result = Optional.empty();
-        String lastErrorMsg = "Initial state";
-        String lastRawValue = null;
-        T lastDeserializedValue = null;
-        boolean interrupted = false;
+        Optional<String> rawValueOpt = awaitValue(key, () -> valueGetter.apply(instance, key));
 
-        int attemptsMade = 0;
-        for (int i = 0; i < retryAttempts; i++) {
-            final int attemptNum = i + 1;
-            attemptsMade = attemptNum;
-            if (i > 0) {
-                try {
-                    TimeUnit.MILLISECONDS.sleep(retryDelayMs);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    log.warn("[{}] Wait interrupted before attempt {} for key '{}'", instance, attemptNum, key);
-                    lastErrorMsg = "Thread interrupted during wait";
-                    interrupted = true;
-                    break;
-                }
-            }
-
-            try {
-                Optional<String> rawValueOpt = valueGetter.apply(instance, key);
-                if (rawValueOpt.isEmpty()) {
-                    lastErrorMsg = "Key not found or value is empty";
-                    log.warn("[{}] Attempt {}: Key '{}' not found or empty.", instance, attemptNum, key);
-                } else {
-                    String rawValue = rawValueOpt.get();
-                    lastRawValue = rawValue;
-                    try {
-                        T deserializedValue = deserializeValue(rawValue, javaType);
-                        lastDeserializedValue = deserializedValue;
-
-                        if (checkFunc != null) {
-                            CheckResult checkResult = runCheck(checkFunc, deserializedValue, rawValue);
-                            if (!checkResult.isSuccess()) {
-                                log.warn("[{}] Attempt {}: Check result: success=false, message='{}'", instance, attemptNum, checkResult.getMessage());
-                                lastErrorMsg = "Check failed: " + checkResult.getMessage();
-                            }
-
-                            if (checkResult.isSuccess()) {
-                                result = Optional.of(deserializedValue);
-                                attachValue(String.format("Redis Value Found & Validated (%d/%d)", attemptNum, retryAttempts),
-                                        instance, key, deserializedValue, rawValue, checkResult.getMessage());
-                                break;
-                            }
-                        } else {
-                            result = Optional.of(deserializedValue);
-                            attachValue(String.format("Redis Value Found (%d/%d)", attemptNum, retryAttempts),
-                                    instance, key, deserializedValue, rawValue, "Check not required");
-                            break;
-                        }
-                    } catch (JsonProcessingException e) {
-                        lastErrorMsg = "Failed to deserialize JSON: " + e.getMessage();
-                        log.error("[{}] Attempt {}: Failed to deserialize JSON to type {}. Error: {}", instance, attemptNum, typeName, e.getMessage());
-                    } catch (Exception e) {
-                        lastErrorMsg = "Unexpected error during value processing: " + e.getMessage();
-                        log.error("[{}] Attempt {}: Unexpected error processing key '{}'. Error: {}", instance, attemptNum, key, e.getMessage(), e);
-                        interrupted = true;
-                        break;
-                    }
-                }
-            } catch (Exception e) {
-                lastErrorMsg = "Unexpected error during attempt: " + e.getMessage();
-                log.error("[{}] Unexpected error occurred during attempt {}: {}", instance, attemptNum, e.getMessage(), e);
-                interrupted = true;
-                break;
-            }
+        if (rawValueOpt.isEmpty()) {
+            String errorMsg = "Key not found or timeout while waiting";
+            log.error("Failed to find expected value for key '{}' in Redis instance [{}]: {}", key, instance, errorMsg);
+            attachmentService.attachText(AttachmentType.REDIS,
+                    "Final State (Failure)",
+                    createAttachmentContent(instance, key, null, null, errorMsg));
+            return Optional.empty();
         }
 
-        if (result.isPresent()) {
+        String rawValue = rawValueOpt.get();
+        try {
+            T deserializedValue = deserializeValue(rawValue, javaType);
+
+            if (checkFunc != null) {
+                CheckResult checkResult = runCheck(checkFunc, deserializedValue, rawValue);
+                if (!checkResult.isSuccess()) {
+                    String errorMsg = "Check failed: " + checkResult.getMessage();
+                    log.error("[{}] {}", instance, errorMsg);
+                    attachmentService.attachText(AttachmentType.REDIS,
+                            "Final State (Validation Failed)",
+                            createAttachmentContent(instance, key, deserializedValue, rawValue, errorMsg));
+                    return Optional.empty();
+                }
+                // Validation handled by caller; avoid duplicating attachments
+            } else {
+                attachValue("Redis Value Found", instance, key, deserializedValue, rawValue,
+                        "Check not required");
+            }
+
             log.info("Successfully found value for key '{}' in Redis instance [{}]", key, instance);
-        } else {
-            log.error("Failed to find expected value for key '{}' in Redis instance [{}] after {} attempts. Last error: {}", key, instance, retryAttempts, lastErrorMsg);
-            if (!interrupted) {
-                attachmentService.attachText(AttachmentType.REDIS,
-                        String.format("Final State (Failure %d/%d)", attemptsMade, retryAttempts),
-                        createAttachmentContent(instance, key, lastDeserializedValue, lastRawValue,
-                                "Failure after all attempts. Last error: " + lastErrorMsg));
-            }
+            return Optional.of(deserializedValue);
+
+        } catch (JsonProcessingException e) {
+            String errorMsg = "Failed to deserialize JSON: " + e.getMessage();
+            log.error("[{}] Failed to deserialize JSON to type {}. Error: {}", instance, typeName, e.getMessage());
+            attachmentService.attachText(AttachmentType.REDIS,
+                    "Final State (Deserialization Failure)",
+                    createAttachmentContent(instance, key, null, rawValue, errorMsg));
+            return Optional.empty();
+        } catch (Exception e) {
+            String errorMsg = "Unexpected error during value processing: " + e.getMessage();
+            log.error("[{}] Unexpected error processing key '{}'. Error: {}", instance, key, e.getMessage(), e);
+            attachmentService.attachText(AttachmentType.REDIS,
+                    "Final State (Error)",
+                    createAttachmentContent(instance, key, null, rawValue, errorMsg));
+            return Optional.empty();
         }
-        return result;
+    }
+
+    public <T> Optional<T> awaitValue(String key, Supplier<Optional<T>> supplier) {
+        try {
+            return await()
+                    .alias("Redis await key: " + key)
+                    .atMost(Duration.ofMillis(getTotalTimeoutMs()))
+                    .pollInterval(Duration.ofMillis(retryDelayMs))
+                    .pollDelay(Duration.ZERO)
+                    .ignoreExceptions()
+                    .until(() -> supplier.get(), Optional::isPresent);
+        } catch (ConditionTimeoutException e) {
+            return Optional.empty();
+        }
     }
 
     private <T> CheckResult runCheck(BiFunction<T, String, CheckResult> checkFunc, T value, String rawValue) {
