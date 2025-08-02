@@ -56,8 +56,9 @@ dependencies {
         implementation 'io.nats:jnats:2.21.1'
         implementation 'org.awaitility:awaitility:4.2.1'
         implementation 'com.jayway.jsonpath:json-path:2.9.0'
+        implementation 'commons-codec:commons-codec'
 
-	compileOnly "org.projectlombok:lombok:${lombokVersion}"
+        compileOnly "org.projectlombok:lombok:${lombokVersion}"
 	annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 	testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
 	testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
