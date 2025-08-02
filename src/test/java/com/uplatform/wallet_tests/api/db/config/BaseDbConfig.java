@@ -6,7 +6,7 @@ import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.sql.DataSource;
+import com.zaxxer.hikari.HikariDataSource;
 
 public abstract class BaseDbConfig {
 
@@ -14,12 +14,14 @@ public abstract class BaseDbConfig {
         return new DataSourceProperties();
     }
 
-    protected DataSource createDataSource(DataSourceProperties properties) {
-        return properties.initializeDataSourceBuilder().build();
+    protected HikariDataSource createDataSource(DataSourceProperties properties) {
+        return properties.initializeDataSourceBuilder()
+                .type(HikariDataSource.class)
+                .build();
     }
 
     protected LocalContainerEntityManagerFactoryBean createEntityManagerFactory(EntityManagerFactoryBuilder builder,
-                                                                                 DataSource dataSource,
+                                                                                 HikariDataSource dataSource,
                                                                                  String packages,
                                                                                  String persistenceUnit) {
         return builder
