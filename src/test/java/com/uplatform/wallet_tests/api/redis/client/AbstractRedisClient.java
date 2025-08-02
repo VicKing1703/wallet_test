@@ -87,7 +87,8 @@ public abstract class AbstractRedisClient<T> {
                 typeReference.getType(),
                 typeReference,
                 (inst, k) -> getValue(k),
-                null);
+                null,
+                true);
         long timeoutMs = retryHelper.getTotalTimeoutMs();
         return result.orElseThrow(() -> new RedisClientException(String.format(
                 "[%s] Failed to get value for key '%s' within %d ms",
@@ -97,6 +98,10 @@ public abstract class AbstractRedisClient<T> {
     }
 
     public T getWithCheck(String key, BiFunction<T, String, CheckResult> checkFunc) {
+        return getWithCheck(key, checkFunc, true);
+    }
+
+    public T getWithCheck(String key, BiFunction<T, String, CheckResult> checkFunc, boolean attachOnSuccess) {
         if (key == null) {
             String errorMsg = String.format("[%s] Cannot check value: key is null.", instanceName);
             log.error(errorMsg);
@@ -109,7 +114,8 @@ public abstract class AbstractRedisClient<T> {
                 typeReference.getType(),
                 typeReference,
                 (inst, k) -> getValue(k),
-                checkFunc);
+                checkFunc,
+                attachOnSuccess);
         long timeoutMs = retryHelper.getTotalTimeoutMs();
         return result.orElseThrow(() -> new RedisClientException(String.format(
                 "[%s] Failed to get expected value for key '%s' within %d ms",

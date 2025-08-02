@@ -58,7 +58,7 @@ public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletDat
             return new CheckResult(false, "Map found, but no wallet matches criteria: " + criteriaDesc);
         };
 
-        getWithCheck(playerId, checkFunc);
+        getWithCheck(playerId, checkFunc, false);
 
         WalletData wallet = Optional.ofNullable(selectedWallet.get()).orElseThrow(() -> new RedisClientException(String.format(
                 "[PLAYER] Internal error: Wallet matching criteria %s for player '%s' found during check but lost afterwards.",
