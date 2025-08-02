@@ -88,11 +88,12 @@ public abstract class AbstractRedisClient<T> {
                 typeReference,
                 (inst, k) -> getValue(k),
                 null);
+        long timeoutMs = retryHelper.getTotalTimeoutMs();
         return result.orElseThrow(() -> new RedisClientException(String.format(
-                "[%s] Failed to get value for key '%s' after %d attempts",
+                "[%s] Failed to get value for key '%s' within %d ms",
                 instanceName,
                 key,
-                retryHelper.getRetryAttempts())));
+                timeoutMs)));
     }
 
     public T getWithCheck(String key, BiFunction<T, String, CheckResult> checkFunc) {
@@ -109,11 +110,12 @@ public abstract class AbstractRedisClient<T> {
                 typeReference,
                 (inst, k) -> getValue(k),
                 checkFunc);
+        long timeoutMs = retryHelper.getTotalTimeoutMs();
         return result.orElseThrow(() -> new RedisClientException(String.format(
-                "[%s] Failed to get expected value for key '%s' after %d attempts",
+                "[%s] Failed to get expected value for key '%s' within %d ms",
                 instanceName,
                 key,
-                retryHelper.getRetryAttempts())));
+                timeoutMs)));
     }
 
     public String describeCriteria(WalletFilterCriteria criteria) {
