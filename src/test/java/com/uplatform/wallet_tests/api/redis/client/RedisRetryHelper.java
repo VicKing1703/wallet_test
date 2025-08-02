@@ -72,7 +72,8 @@ public class RedisRetryHelper {
             Type valueType,
             Object valueTypeInfo,
             BiFunction<String, String, Optional<String>> valueGetter,
-            BiFunction<T, String, CheckResult> checkFunc) {
+            BiFunction<T, String, CheckResult> checkFunc,
+            boolean attachOnSuccess) {
 
         String typeName = (valueTypeInfo instanceof Class<?> ? ((Class<?>) valueTypeInfo).getSimpleName() : valueTypeInfo.toString())
                 .replace("com.fasterxml.jackson.core.type.TypeReference<", "")
@@ -105,8 +106,11 @@ public class RedisRetryHelper {
                             createAttachmentContent(instance, key, deserializedValue, rawValue, errorMsg));
                     return Optional.empty();
                 }
-                // Validation handled by caller; avoid duplicating attachments
-            } else {
+                if (attachOnSuccess) {
+                    attachValue("Redis Value Found", instance, key, deserializedValue, rawValue,
+                            checkResult.getMessage());
+                }
+            } else if (attachOnSuccess) {
                 attachValue("Redis Value Found", instance, key, deserializedValue, rawValue,
                         "Check not required");
             }
