@@ -4,6 +4,8 @@ import jakarta.annotation.PostConstruct;
 import org.awaitility.core.ConditionFactory;
 import org.awaitility.core.ConditionTimeoutException;
 import org.springframework.beans.factory.annotation.Value;
+import com.uplatform.wallet_tests.api.db.exceptions.DatabaseQueryTimeoutException;
+import com.uplatform.wallet_tests.api.db.exceptions.DatabaseRecordNotFoundException;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -71,11 +73,11 @@ public abstract class AbstractDatabaseClient {
         } catch (ConditionTimeoutException e) {
             attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - NOT Found (Timeout)",
                     "Timeout after " + retryTimeoutDuration + ": " + e.getMessage());
-            throw e;
+            throw new DatabaseRecordNotFoundException("Record not found within timeout for '" + description + "'", e);
         } catch (Exception e) {
             attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - Error",
                     "Error type: " + e.getClass().getName() + "\nMessage: " + e.getMessage());
-            throw new RuntimeException("Unexpected error during DB await for '" + description + "'", e);
+            throw new DatabaseQueryTimeoutException("Unexpected error during DB await for '" + description + "'", e);
         }
     }
 

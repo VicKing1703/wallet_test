@@ -2,7 +2,8 @@ package com.uplatform.wallet_tests.api.kafka.client;
 
 import com.uplatform.wallet_tests.api.kafka.consumer.KafkaBackgroundConsumer;
 import com.uplatform.wallet_tests.api.kafka.consumer.MessageFinder;
-import org.opentest4j.AssertionFailedError;
+import com.uplatform.wallet_tests.api.kafka.exceptions.KafkaMessageNotFoundException;
+import com.uplatform.wallet_tests.api.kafka.exceptions.KafkaMessageNotUniqueException;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -50,31 +51,22 @@ public class KafkaExpectationBuilder<T> {
 
         if (unique) {
             MessageFinder.FindResult<T> result = consumer.findAndCountMessages(filters, effectiveTimeout, messageType);
-            result.getFirstMatch().orElseThrow(() -> new AssertionFailedError(
+            result.getFirstMatch().orElseThrow(() -> new KafkaMessageNotFoundException(
                     String.format("Kafka message %s %s not found within %s. Filter: %s",
-                            typeDescription, searchDetails, effectiveTimeout, filters),
-                    filters,
-                    String.format("Message '%s' not received", typeDescription)
-            ));
+                            typeDescription, searchDetails, effectiveTimeout, filters)));
 
             int count = result.getCount();
             if (count != 1) {
-                throw new AssertionFailedError(
+                throw new KafkaMessageNotUniqueException(
                         String.format("Kafka message %s %s expected once but found %d. Filter: %s",
-                                typeDescription, searchDetails, count, filters),
-                        filters,
-                        String.format("Message '%s' is not unique", typeDescription)
-                );
+                                typeDescription, searchDetails, count, filters));
             }
             return result.getFirstMatch().get();
         } else {
             return consumer.findMessage(filters, effectiveTimeout, messageType)
-                    .orElseThrow(() -> new AssertionFailedError(
+                    .orElseThrow(() -> new KafkaMessageNotFoundException(
                             String.format("Kafka message %s %s not found within %s. Filter: %s",
-                                    typeDescription, searchDetails, effectiveTimeout, filters),
-                            filters,
-                            String.format("Message '%s' not received", typeDescription)
-                    ));
+                                    typeDescription, searchDetails, effectiveTimeout, filters)));
         }
     }
 

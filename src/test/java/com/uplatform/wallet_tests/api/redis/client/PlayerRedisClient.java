@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.api.redis.client;
 
-import com.uplatform.wallet_tests.api.redis.exception.RedisClientException;
+import com.uplatform.wallet_tests.api.redis.exceptions.RedisRetryExhaustedException;
 import com.uplatform.wallet_tests.api.redis.model.WalletData;
 import com.uplatform.wallet_tests.api.redis.model.WalletFilterCriteria;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
@@ -37,8 +37,8 @@ public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletDat
     }
 
     public WalletData getPlayerWalletByCriteria(String playerId, WalletFilterCriteria criteria) {
-        if (playerId == null) { throw new RedisClientException("[PLAYER] Cannot get wallet: playerId is null."); }
-        if (criteria == null) { throw new RedisClientException("[PLAYER] Cannot get wallet: criteria is null."); }
+        if (playerId == null) { throw new RedisRetryExhaustedException("[PLAYER] Cannot get wallet: playerId is null."); }
+        if (criteria == null) { throw new RedisRetryExhaustedException("[PLAYER] Cannot get wallet: criteria is null."); }
 
         String criteriaDesc = describeCriteria(criteria);
 
@@ -60,7 +60,7 @@ public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletDat
 
         getWithCheck(playerId, checkFunc, false);
 
-        WalletData wallet = Optional.ofNullable(selectedWallet.get()).orElseThrow(() -> new RedisClientException(String.format(
+        WalletData wallet = Optional.ofNullable(selectedWallet.get()).orElseThrow(() -> new RedisRetryExhaustedException(String.format(
                 "[PLAYER] Internal error: Wallet matching criteria %s for player '%s' found during check but lost afterwards.",
                 criteriaDesc, playerId)));
 

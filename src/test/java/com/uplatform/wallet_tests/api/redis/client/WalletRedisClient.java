@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.api.redis.client;
 
-import com.uplatform.wallet_tests.api.redis.exception.RedisClientException;
+import com.uplatform.wallet_tests.api.redis.exceptions.RedisRetryExhaustedException;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -22,7 +22,7 @@ public class WalletRedisClient extends AbstractRedisClient<WalletFullData> {
     }
 
     public WalletFullData getWalletDataWithSeqCheck(String key, int expectedSeq) {
-        if (key == null) { throw new RedisClientException("[WALLET] Cannot check wallet sequence: key is null."); }
+        if (key == null) { throw new RedisRetryExhaustedException("[WALLET] Cannot check wallet sequence: key is null."); }
         Function<WalletFullData, Integer> seqExtractor = WalletFullData::getLastSeqNumber;
         BiFunction<WalletFullData, String, CheckResult> checkFunc = (data, rawJson) -> {
             if (data == null) {
