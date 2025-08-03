@@ -1,0 +1,7 @@
+Subject: s
+Sequence: 1
+Timestamp: <null>
+Data Type: java.lang.String
+
+Payload (JSON):
+"first"

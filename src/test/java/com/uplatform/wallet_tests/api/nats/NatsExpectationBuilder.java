@@ -1,6 +1,9 @@
 package com.uplatform.wallet_tests.api.nats;
 
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.uplatform.wallet_tests.api.nats.exceptions.NatsDeserializationException;
+import com.uplatform.wallet_tests.api.nats.exceptions.NatsDuplicateMessageException;
+import com.uplatform.wallet_tests.api.nats.exceptions.NatsMessageNotFoundException;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -58,8 +61,18 @@ public class NatsExpectationBuilder<T> {
     public NatsMessage<T> fetch() {
         try {
             return fetchAsync().get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new NatsMessageNotFoundException("Fetching NATS message interrupted", e);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to fetch NATS message", e);
+            Throwable cause = e instanceof java.util.concurrent.ExecutionException ? e.getCause() : e;
+            if (cause instanceof NatsDuplicateMessageException) {
+                throw (NatsDuplicateMessageException) cause;
+            } else if (cause instanceof NatsDeserializationException) {
+                throw (NatsDeserializationException) cause;
+            } else {
+                throw new NatsMessageNotFoundException("Failed to fetch NATS message", cause);
+            }
         }
     }
 }
