@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.api.redis.client;
 
-import com.uplatform.wallet_tests.api.redis.exception.RedisClientException;
+import com.uplatform.wallet_tests.api.redis.exceptions.RedisConnectionException;
+import com.uplatform.wallet_tests.api.redis.exceptions.RedisRetryExhaustedException;
 import com.uplatform.wallet_tests.api.redis.model.WalletFilterCriteria;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.RedisSystemException;
@@ -67,10 +68,10 @@ public abstract class AbstractRedisClient<T> {
             return Optional.ofNullable(value).filter(s -> !s.isEmpty());
         } catch (RedisSystemException e) {
             log.error("[{}] Redis connection/system error when getting key '{}': {}", instanceName, key, e.getMessage());
-            return Optional.empty();
+            throw new RedisConnectionException(String.format("[%s] Redis connection/system error for key '%s'", instanceName, key), e);
         } catch (Exception e) {
             log.error("[{}] Unexpected error getting value from Redis for key '{}': {}", instanceName, key, e.getMessage(), e);
-            return Optional.empty();
+            throw new RedisConnectionException(String.format("[%s] Unexpected Redis error for key '%s'", instanceName, key), e);
         }
     }
 
@@ -79,7 +80,7 @@ public abstract class AbstractRedisClient<T> {
             String errorMsg = String.format("[%s] Cannot get value: key is null.", instanceName);
             log.error(errorMsg);
             attachmentService.attachText(AttachmentType.REDIS, "Error", errorMsg);
-            throw new RedisClientException(errorMsg);
+            throw new RedisRetryExhaustedException(errorMsg);
         }
         Optional<T> result = retryHelper.waitForValue(
                 instanceName,
@@ -90,7 +91,7 @@ public abstract class AbstractRedisClient<T> {
                 null,
                 true);
         long timeoutMs = retryHelper.getTotalTimeoutMs();
-        return result.orElseThrow(() -> new RedisClientException(String.format(
+        return result.orElseThrow(() -> new RedisRetryExhaustedException(String.format(
                 "[%s] Failed to get value for key '%s' within %d ms",
                 instanceName,
                 key,
@@ -106,7 +107,7 @@ public abstract class AbstractRedisClient<T> {
             String errorMsg = String.format("[%s] Cannot check value: key is null.", instanceName);
             log.error(errorMsg);
             attachmentService.attachText(AttachmentType.REDIS, "Error", errorMsg);
-            throw new RedisClientException(errorMsg);
+            throw new RedisRetryExhaustedException(errorMsg);
         }
         Optional<T> result = retryHelper.waitForValue(
                 instanceName,
@@ -117,7 +118,7 @@ public abstract class AbstractRedisClient<T> {
                 checkFunc,
                 attachOnSuccess);
         long timeoutMs = retryHelper.getTotalTimeoutMs();
-        return result.orElseThrow(() -> new RedisClientException(String.format(
+        return result.orElseThrow(() -> new RedisRetryExhaustedException(String.format(
                 "[%s] Failed to get expected value for key '%s' within %d ms",
                 instanceName,
                 key,
