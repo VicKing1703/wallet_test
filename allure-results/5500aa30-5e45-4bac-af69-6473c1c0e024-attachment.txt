@@ -1,7 +1,0 @@
-Subject: s
-Sequence: 2
-Timestamp: <null>
-Data Type: java.lang.String
-
-Payload (JSON):
-"dup"
