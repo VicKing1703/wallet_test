@@ -16,7 +16,7 @@ public enum NatsEventType {
     LIMIT_CHANGED_V2("limit_changed_v2"),
     BETTED_FROM_IFRAME("betted_from_iframe"),
     WON_FROM_IFRAME("won_from_iframe"),
-    LOOSED_FORM_IFRAME("loosed_from_iframe"),
+    LOOSED_FROM_IFRAME("loosed_from_iframe"),
     REFUNDED_FROM_IFRAME("refunded_from_iframe"),
     RECALCULATED_FROM_IFRAME("recalculated_from_iframe"),
     BLOCK_AMOUNT_STARTED("block_amount_started"),

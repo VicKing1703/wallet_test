@@ -7,7 +7,6 @@ import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.db.entity.wallet.enums.CouponCalcStatus;
 import com.uplatform.wallet_tests.api.db.entity.wallet.enums.CouponStatus;
 import com.uplatform.wallet_tests.api.db.entity.wallet.enums.CouponType;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
@@ -129,7 +128,7 @@ class LossFromIframeTest extends BaseTest {
                     ctx.registeredPlayer.getWalletData().getWalletUUID());
 
             BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LOOSED_FORM_IFRAME.getHeaderValue().equals(typeHeader) &&
+                    NatsEventType.LOOSED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                             Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
 
             ctx.lossNatsEvent = natsClient.expect(NatsBettingEventPayload.class)
