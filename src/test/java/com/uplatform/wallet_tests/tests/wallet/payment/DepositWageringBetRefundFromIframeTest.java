@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Payment")
 @Feature("Deposit")
 @Suite("Позитивные сценарии: Отыгрыш депозита")
-@Tag("Wallet7") @Tag("Payment")
+@Tag("Wallet") @Tag("Payment")
 class DepositWageringBetRefundFromIframeTest extends BaseTest {
 
     private static final BigDecimal DEPOSIT_AMOUNT = new BigDecimal("150.00");
