@@ -133,7 +133,7 @@ class CasinoLossWhenLossFromIframeParametrizedTest extends BaseParameterizedTest
                         ctx.registeredPlayer.getWalletData().getWalletUUID());
 
                 BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LOOSED_FORM_IFRAME.getHeaderValue().equals(typeHeader) &&
+                        NatsEventType.LOOSED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                                 ctx.betRequestBody.getBetId() == payload.getBetId();
 
                 ctx.lossEvent = natsClient.expect(NatsBettingEventPayload.class)
