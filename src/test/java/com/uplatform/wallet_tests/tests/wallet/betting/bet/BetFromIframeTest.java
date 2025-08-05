@@ -1,6 +1,4 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.bet;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
-import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -8,229 +6,211 @@ import com.uplatform.wallet_tests.api.db.entity.wallet.enums.CouponCalcStatus;
 import com.uplatform.wallet_tests.api.db.entity.wallet.enums.CouponStatus;
 import com.uplatform.wallet_tests.api.db.entity.wallet.enums.CouponType;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.redis.model.enums.IFrameRecordType;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiPredicate;
+import java.util.stream.Stream;
 
-import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * <p>
+ * Этот параметризованный тест проверяет полный цикл обработки ставки на спорт,
+ * совершенной через iFrame, с различными типами купонов.
+ *
+ * <h3>Сценарий: Полный цикл обработки ставки из iFrame</h3>
+ * <p>Проверяется, что система корректно обрабатывает запрос от manager_api,
+ * отправляет события в NATS и Kafka, обновляет данные в БД и конечное состояние кошелька в Redis.</p>
+ *
+ * <b>GIVEN:</b>
+ * <ul>
+ *   <li>Существует зарегистрированный игрок с положительным балансом.</li>
+ * </ul>
+ *
+ * <b>WHEN:</b>
+ * <ul><li>Игрок совершает ставку на спорт через эндпоинт `makePayment` с купоном типа SINGLE, EXPRESS или SYSTEM.</li></ul>
+ *
+ * <b>THEN:</b>
+ * <ul>
+ *   <li><b>manager_api</b>: Отвечает статусом <code>200 OK</code> на запрос <code>makePayment</code>.</li>
+ *   <li><b>wallet-manager</b>: Обрабатывает ставку и отправляет событие <code>betted_from_iframe</code> в NATS.</li>
+ *   <li><b>wallet_projections_nats_to_kafka</b>: Пересылает событие из NATS в Kafka для downstream-сервисов.</li>
+ *   <li><b>wallet_database</b>: Обновляет таблицы <code>threshold</code> и <code>betting_projection_iframe_history</code>.</li>
+ *   <li><b>wallet_wallet_redis</b>: Обновляет агрегат кошелька (ключ <code>wallet:{uuid}</code>), уменьшая баланс и добавляя запись о ставке.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Betting")
 @Feature("MakePayment")
 @Suite("Позитивные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet")
-/**
- * Проверяет обработку ставки, совершённой из iframe, и фиксацию всех сопутствующих событий.
- *
- * Тест имитирует совершение ставки новым игроком через API MakePayment и убеждается,
- * что событие betted_from_iframe корректно распространяется по системам и отражается в БД и Redis.
- *
- * <p><b>Сценарий теста:</b></p>
- * <ol>
- *   <li><b>Регистрация игрока:</b> создание нового пользователя и кошелька.</li>
- *   <li><b>Основное действие:</b> отправка запроса makePayment для ставки из iframe.</li>
- *   <li><b>Проверка ответа API:</b> статус код 200 и успешное тело.</li>
- *   <li><b>Проверка NATS:</b> получение события betted_from_iframe.</li>
- *   <li><b>Проверка Kafka:</b> сообщение в топике wallet.v8.projectionSource.</li>
- *   <li><b>Проверка БД:</b> обновление player_threshold_win.</li>
- *   <li><b>Проверка БД:</b> запись в betting_projection_iframe_history.</li>
- *   <li><b>Проверка Redis:</b> изменение агрегата кошелька.</li>
- * </ol>
- *
- * <p><b>Проверяемые компоненты и сущности:</b></p>
- * <ul>
- *   <li>REST API: makePayment</li>
- *   <li>NATS: событие betted_from_iframe</li>
- *   <li>Kafka: wallet.v8.projectionSource</li>
- *   <li>База данных Wallet</li>
- *   <li>Redis кошелька</li>
- * </ul>
- *
- * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
- */
-class BetFromIframeTest extends BaseTest {
+@Tag("Betting")
+@Tag("Wallet")
+class BetFromIframeTest extends BaseParameterizedTest {
 
-    @Test
-    @DisplayName("Проверка обработки ставки iframe")
-    void shouldPlaceBetFromIframeAndVerifyEvent() {
-        final BigDecimal adjustmentAmount = new BigDecimal("150.00");
-        final BigDecimal betAmount = new BigDecimal("10.15");
-        final class TestContext {
-            RegisteredPlayerData registeredPlayer;
-            MakePaymentData betInputData;
-            MakePaymentRequest betRequestBody;
+    private static final BigDecimal INITIAL_BALANCE = new BigDecimal("150.00");
+    private static final BigDecimal BET_AMOUNT = new BigDecimal("10.15");
+
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, 1, "Ставка с купоном SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, 2, "Ставка с купоном EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, 3, "Ставка с купоном SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{2}")
+    @MethodSource("couponProvider")
+    @DisplayName("Проверка обработки ставки iframe с купоном")
+    void shouldPlaceBetFromIframeWithCoupon(
+            NatsBettingCouponType couponType,
+            int expectedBetInfoSize,
+            String description) throws Exception {
+
+        final class TestData {
+            RegisteredPlayerData player;
+            MakePaymentRequest betRequest;
             NatsMessage<NatsBettingEventPayload> betEvent;
-            BigDecimal expectedBalance;
+            BigDecimal expectedBalanceAfterBet;
         }
-        final TestContext ctx = new TestContext();
+        final TestData ctx = new TestData();
 
-        ctx.expectedBalance = adjustmentAmount.subtract(betAmount);
+        step("GIVEN: Игрок с положительным балансом", () -> {
+            step("Регистрация нового игрока с начальным балансом", () -> {
+                ctx.player = defaultTestSteps.registerNewPlayer(INITIAL_BALANCE);
+                assertNotNull(ctx.player, "setup.player.creation");
+            });
 
-        step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(adjustmentAmount);
-
-            assertNotNull(ctx.registeredPlayer, "default_step.registration");
+            step("Подготовка ожидаемых результатов для последующих проверок", () -> {
+                ctx.expectedBalanceAfterBet = INITIAL_BALANCE.subtract(BET_AMOUNT);
+            });
         });
 
-        step("Manager API: Совершение ставки на спорт", () -> {
-            ctx.betInputData = MakePaymentData.builder()
+        step("WHEN: Игрок совершает ставку на спорт через manager_api", () -> {
+            var betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
-                    .summ(betAmount.toPlainString())
-                    .couponType(NatsBettingCouponType.SINGLE)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.player.getWalletData().getPlayerUUID())
+                    .summ(BET_AMOUNT.toPlainString())
+                    .couponType(couponType)
+                    .currency(ctx.player.getWalletData().getCurrency())
                     .build();
 
-            ctx.betRequestBody = generateRequest(ctx.betInputData);
+            ctx.betRequest = generateRequest(betInputData);
+            var response = managerClient.makePayment(ctx.betRequest);
 
-            var response = managerClient.makePayment(ctx.betRequestBody);
-
-            assertAll("Проверка статус-кода и тела ответа",
-                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.body.description")
+            assertAll("Проверка ответа от manager_api",
+                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.make_payment.status_code"),
+                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.make_payment.body.success")
             );
         });
 
-        step("NATS: Проверка поступления события betted_from_iframe", () -> {
-            var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+        step("THEN: Система корректно обрабатывает ставку во всех компонентах", () -> {
+            step("wallet-manager отправляет событие `betted_from_iframe` в NATS", () -> {
+                var subject = natsClient.buildWalletSubject(
+                        ctx.player.getWalletData().getPlayerUUID(),
+                        ctx.player.getWalletData().getWalletUUID());
 
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                            Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
+                BiPredicate<NatsBettingEventPayload, String> filter = (payload, type) ->
+                        NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(type) &&
+                                Objects.equals(ctx.betRequest.getBetId(), payload.getBetId());
 
-            ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
-                    .from(subject)
-                    .matching(filter)
-                    .fetch();
+                ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
+                        .from(subject)
+                        .matching(filter)
+                        .fetch();
 
-            var actualPayload = ctx.betEvent.getPayload();
-            var expectedBetInfoList = objectMapper.readValue(
-                    ctx.betRequestBody.getBetInfo(),
-                    new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
-            assertAll("Проверка основных полей NATS payload",
-                    () -> assertNotNull(actualPayload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(ctx.betRequestBody.getType(), actualPayload.getType(), "nats.payload.type"),
-                    () -> assertEquals(ctx.betRequestBody.getBetId(), actualPayload.getBetId(), "nats.payload.bet_id"),
-                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getSumm()).negate().compareTo(actualPayload.getAmount()), "nats.payload.amount"),
-                    () -> assertNotNull(actualPayload.getRawAmount(), "nats.payload.raw_amount"),
-                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getSumm()).compareTo(actualPayload.getRawAmount()), "nats.payload.raw_amount"),
-                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getTotalCoef()).compareTo(actualPayload.getTotalCoeff()), "nats.payload.total_coeff"),
-                    () -> assertTrue(Math.abs(ctx.betRequestBody.getTime() - actualPayload.getTime()) <= 10, "nats.payload.time"),
-                    () -> assertNotNull(actualPayload.getCreatedAt(), "nats.payload.created_at"),
-                    () -> assertTrue(actualPayload.getWageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info")
-            );
+                assertNotNull(ctx.betEvent, "nats.bet_event.not_found");
 
-            var expectedBetInfo = expectedBetInfoList.get(0);
-            var actualBetInfo = actualPayload.getBetInfo().get(0);
-            assertAll("Проверка полей внутри bet_info NATS payload",
-                    () -> assertEquals(expectedBetInfo.getChampId(), actualBetInfo.getChampId(), "nats.payload.bet_info.champId"),
-                    () -> assertEquals(expectedBetInfo.getChampName(), actualBetInfo.getChampName(), "nats.payload.bet_info.champ_name"),
-                    () -> assertEquals(0, expectedBetInfo.getCoef().compareTo(actualBetInfo.getCoef()), "nats.payload.bet_info.coef"),
-                    () -> assertEquals(expectedBetInfo.getCouponType(), actualBetInfo.getCouponType(), "nats.payload.bet_info.coupon_type"),
-                    () -> assertEquals(expectedBetInfo.getDateStart(), actualBetInfo.getDateStart(), "nats.payload.bet_info.date_start"),
-                    () -> assertEquals(expectedBetInfo.getEvent(), actualBetInfo.getEvent(), "nats.payload.bet_info.event"),
-                    () -> assertEquals(expectedBetInfo.getGameName(), actualBetInfo.getGameName(), "nats.payload.bet_info.game_name"),
-                    () -> assertEquals(expectedBetInfo.getScore(), actualBetInfo.getScore(), "nats.payload.bet_info.score"),
-                    () -> assertEquals(expectedBetInfo.getSportName(), actualBetInfo.getSportName(), "nats.payload.bet_info.sport_name")
-            );
-        });
+                var payload = ctx.betEvent.getPayload();
+                assertAll("Проверка полей события ставки в NATS",
+                        () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.payload.bet_id"),
+                        () -> assertEquals(0, new BigDecimal(ctx.betRequest.getSumm()).negate().compareTo(payload.getAmount()), "nats.payload.amount"),
+                        () -> assertEquals(expectedBetInfoSize, payload.getBetInfo().size(), "nats.payload.bet_info.size")
+                );
 
-        step("Kafka: Проверка поступления сообщения betted_from_iframe в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.betEvent.getSequence())
-                    .fetch();
+                payload.getBetInfo().forEach(bi ->
+                        assertEquals(couponType.getValue(), bi.getCouponType(), "nats.payload.bet_info.coupon_type"));
+            });
 
-            assertTrue(utils.areEquivalent(kafkaMessage, ctx.betEvent), "kafka.payload");
-        });
+            step("AND: Kafka получает соответствующее сообщение", () -> {
+                var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
+                        .with("seq_number", ctx.betEvent.getSequence())
+                        .fetch();
 
-        step("DB Wallet: Проверка записи порога выигрыша в player_threshold_win", () -> {
-            var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID());
+                assertTrue(utils.areEquivalent(kafkaMessage, ctx.betEvent), "kafka.message.payload_match");
+            });
 
-            var player = ctx.registeredPlayer.getWalletData();
-            assertAll("Проверка трешхолда после совершения ставки на спорт",
-                    () -> assertEquals(player.getPlayerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
-                    () -> assertEquals(0, betAmount.negate().compareTo(threshold.getAmount()), "db.threshold.amount"),
-                    () -> assertNotNull(threshold.getUpdatedAt(), "db.threshold.updated_at")
-            );
-        });
+            step("AND: В БД обновляется порог выигрыша", () -> {
+                var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
+                        ctx.player.getWalletData().getPlayerUUID());
 
-        step("DB Wallet: Проверка записи в таблице betting_projection_iframe_history", () -> {
-            var dbTransaction = walletDatabaseClient.findLatestIframeHistoryByUuidOrFail(
-                    ctx.betEvent.getPayload().getUuid());
+                assertAll("Проверка записи в таблице порогов (thresholds)",
+                        () -> assertEquals(ctx.player.getWalletData().getPlayerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
+                        () -> assertEquals(0, BET_AMOUNT.negate().compareTo(threshold.getAmount()), "db.threshold.amount"),
+                        () -> assertNotNull(threshold.getUpdatedAt(), "db.threshold.updated_at")
+                );
+            });
 
-            var betEvent = ctx.betEvent.getPayload();
-            var player = ctx.registeredPlayer.getWalletData();
-            var betInfo = betEvent.getBetInfo().get(0);
+            step("AND: Запись сохраняется в betting_projection_iframe_history", () -> {
+                var dbTransaction = walletDatabaseClient.findLatestIframeHistoryByUuidOrFail(
+                        ctx.betEvent.getPayload().getUuid());
 
-            var actualDbBetInfoList = objectMapper
-                    .readValue(dbTransaction.getBetInfo(),
-                            new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
+                var betEventPayload = ctx.betEvent.getPayload();
+                var playerData = ctx.player.getWalletData();
 
-            assertAll("Проверка записанной строки в таблицу с историей ставок на спорт",
-                    () -> assertEquals(betEvent.getUuid(), dbTransaction.getUuid(), "db.iframe_history.uuid"),
-                    () -> assertEquals(player.getWalletUUID(), dbTransaction.getWalletUuid(), "db.iframe_history.wallet_uuid"),
-                    () -> assertEquals(player.getPlayerUUID(), dbTransaction.getPlayerUuid(), "db.iframe_history.player_uuid"),
-                    () -> assertEquals(CouponType.SINGLE, dbTransaction.getCouponType(), "db.iframe_history.coupon_type"),
-                    () -> assertEquals(CouponStatus.ACCEPTED, dbTransaction.getCouponStatus(),  "db.iframe_history.coupon_status"),
-                    () -> assertEquals(CouponCalcStatus.NO, dbTransaction.getCouponCalcStatus(),  "db.iframe_history.coupon_calc_status"),
-                    () -> assertEquals(betEvent.getBetId(), dbTransaction.getBetId(), "db.iframe_history.bet_id"),
-                    () -> assertEquals(betEvent.getBetInfo(), actualDbBetInfoList, "db.iframe_history.bet_info"),
-                    () -> assertEquals(0, betEvent.getAmount().compareTo(dbTransaction.getAmount().negate()), "db.iframe_history.amount"),
-                    () -> assertEquals(0, betInfo.getCoef().compareTo(dbTransaction.getTotalCoeff()), "db.iframe_history.total_coeff"),
-                    () -> assertNotNull(dbTransaction.getBetTime(), "db.iframe_history.bet_time"),
-                    () -> assertNotNull(dbTransaction.getModifiedAt(), "db.iframe_history.modified_at"),
-                    () -> assertNotNull(dbTransaction.getCreatedAt(), "db.iframe_history.created_at"),
-                    () -> assertEquals(ctx.betEvent.getSequence(), dbTransaction.getSeq(), "db.iframe_history.seq"),
-                    () -> assertNull(dbTransaction.getPrevCoeff(), "db.iframe_history.prev_coeff"),
-                    () -> assertEquals(0, betInfo.getCoef().compareTo(dbTransaction.getSourceCoeff()), "db.iframe_history.source_coeff"),
-                    () -> assertEquals(0, betEvent.getAmount().compareTo(dbTransaction.getAmountDelta()), "db.iframe_history.amount_delta"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(dbTransaction.getWinSum()), "db.iframe_history.win_sum"),
-                    () -> assertNotNull(dbTransaction.getCouponCreatedAt(), "db.iframe_history.coupon_created_at")
-            );
-        });
+                var actualDbBetInfoList = objectMapper.readValue(
+                        dbTransaction.getBetInfo(), new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
 
-        step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.betEvent.getSequence());
+                assertAll("Проверка записи в таблице истории (iframe_history)",
+                        () -> assertEquals(betEventPayload.getUuid(), dbTransaction.getUuid(), "db.history.uuid"),
+                        () -> assertEquals(playerData.getWalletUUID(), dbTransaction.getWalletUuid(), "db.history.wallet_uuid"),
+                        () -> assertEquals(playerData.getPlayerUUID(), dbTransaction.getPlayerUuid(), "db.history.player_uuid"),
+                        () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.getCouponType(), "db.history.coupon_type"),
+                        () -> assertEquals(CouponStatus.ACCEPTED, dbTransaction.getCouponStatus(), "db.history.coupon_status"),
+                        () -> assertEquals(CouponCalcStatus.NO, dbTransaction.getCouponCalcStatus(), "db.history.coupon_calc_status"),
+                        () -> assertEquals(betEventPayload.getBetId(), dbTransaction.getBetId(), "db.history.bet_id"),
+                        () -> assertEquals(0, betEventPayload.getAmount().compareTo(dbTransaction.getAmount().negate()), "db.history.amount"),
+                        () -> assertEquals(ctx.betEvent.getSequence(), dbTransaction.getSeq(), "db.history.seq")
+                );
+            });
 
-            var actualBetInfo = aggregate.getIFrameRecords().get(0);
-            var expectedBetInfo = ctx.betEvent.getPayload();
+            step("AND: В Redis обновляется агрегат кошелька", () -> {
+                var aggregate = redisClient.getWalletDataWithSeqCheck(
+                        ctx.player.getWalletData().getWalletUUID(),
+                        (int) ctx.betEvent.getSequence());
 
-            assertAll("Проверка изменения агрегата, после обработки ставки",
-                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
-                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.getAvailableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
-                    () -> assertEquals(expectedBetInfo.getUuid(), actualBetInfo.getUuid(), "redis.aggregate.iframe.uuid"),
-                    () -> assertEquals(expectedBetInfo.getBetId(), actualBetInfo.getBetID(), "redis.aggregate.iframe.bet_id"),
-                    () -> assertEquals(expectedBetInfo.getAmount(), actualBetInfo.getAmount(), "redis.aggregate.iframe.amount"),
-                    () -> assertEquals(0, expectedBetInfo.getTotalCoeff().compareTo(actualBetInfo.getTotalCoeff()), "redis.aggregate.iframe.total_coeff"),
-                    () -> assertNotNull(actualBetInfo.getTime(), "redis.aggregate.iframe.time"),
-                    () -> assertNotNull(actualBetInfo.getCreatedAt(), "redis.aggregate.iframe.created_at"),
-                    () -> assertEquals(IFrameRecordType.BET, actualBetInfo.getType(), "redis.aggregate.iframe.type")
-            );
+                var iframeRecord = aggregate.getIFrameRecords().stream()
+                        .filter(r -> r.getUuid().equals(ctx.betEvent.getPayload().getUuid()))
+                        .findFirst().orElse(null);
+
+                assertAll("Проверка агрегата кошелька в Redis после ставки",
+                        () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.aggregate.last_seq_number"),
+                        () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
+                        () -> assertNotNull(iframeRecord, "redis.aggregate.iframe_record_not_found"),
+                        () -> assertEquals(ctx.betEvent.getPayload().getBetId(), iframeRecord.getBetID(), "redis.aggregate.iframe_record.bet_id"),
+                        () -> assertEquals(IFrameRecordType.BET, iframeRecord.getType(), "redis.aggregate.iframe_record.type")
+                );
+            });
         });
     }
 }
