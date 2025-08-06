@@ -1,9 +1,8 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.bet;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
 
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -11,21 +10,18 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
-
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.BETTING_IS_DISABLED;
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Severity(SeverityLevel.CRITICAL)
-@Epic("Betting")
-@Feature("MakePayment")
-@Suite("Негативные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet") @Tag("Limits")
 /**
  * Проверяет отказ в ставке при заблокированном беттинге у игрока.
  *
@@ -48,11 +44,25 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
  */
-class BetWhenBettingBlockedTest extends BaseTest {
+@Severity(SeverityLevel.CRITICAL)
+@Epic("Betting")
+@Feature("MakePayment")
+@Suite("Негативные сценарии: MakePayment")
+@Tag("Betting") @Tag("Wallet4") @Tag("Limits")
+class BetWhenBettingBlockedParameterizedTest extends BaseParameterizedTest {
 
-    @Test
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, "Ставка с купоном SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, "Ставка с купоном EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, "Ставка с купоном SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("couponProvider")
     @DisplayName("Совершение ставки в iframe, игроком с заблокированным беттингом")
-    void shouldRejectBetWhenBettingIsBlocked() {
+    void shouldRejectBetWhenBettingIsBlocked(NatsBettingCouponType couponType, String description) {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
         final BigDecimal betAmount = new BigDecimal("10.15");
         final BigDecimal adjustmentAmount = new BigDecimal("150.00");
@@ -86,7 +96,7 @@ class BetWhenBettingBlockedTest extends BaseTest {
                     .type(NatsBettingTransactionOperation.BET)
                     .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .summ(betAmount.toPlainString())
-                    .couponType(NatsBettingCouponType.SINGLE)
+                    .couponType(couponType)
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .build();
 

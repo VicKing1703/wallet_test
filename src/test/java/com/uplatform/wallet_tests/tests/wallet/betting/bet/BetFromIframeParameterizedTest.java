@@ -23,7 +23,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
@@ -64,9 +63,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Betting")
 @Feature("MakePayment")
 @Suite("Позитивные сценарии: MakePayment")
-@Tag("Betting")
-@Tag("Wallet")
-class BetFromIframeTest extends BaseParameterizedTest {
+@Tag("Betting") @Tag("Wallet4")
+class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal INITIAL_BALANCE = new BigDecimal("150.00");
     private static final BigDecimal BET_AMOUNT = new BigDecimal("10.15");

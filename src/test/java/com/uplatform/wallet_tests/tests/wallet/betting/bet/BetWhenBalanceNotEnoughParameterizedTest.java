@@ -1,8 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.bet;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
 
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -10,21 +9,18 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
-
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.BALANCE_NOT_ENOUGH;
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Severity(SeverityLevel.CRITICAL)
-@Epic("Betting")
-@Feature("MakePayment")
-@Suite("Негативные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet") @Tag("Limits")
 /**
  * Проверяет отказ в ставке при недостаточном балансе игрока.
  *
@@ -45,11 +41,25 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
  */
-class BetWhenBalanceNotEnoughTest extends BaseTest {
+@Severity(SeverityLevel.CRITICAL)
+@Epic("Betting")
+@Feature("MakePayment")
+@Suite("Негативные сценарии: MakePayment")
+@Tag("Betting") @Tag("Wallet4") @Tag("Limits")
+class BetWhenBalanceNotEnoughParameterizedTest extends BaseParameterizedTest {
 
-    @Test
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, "Ставка с купоном SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, "Ставка с купоном EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, "Ставка с купоном SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("couponProvider")
     @DisplayName("Совершение ставки в iframe, превышающей баланс игрока")
-    void shouldRejectBetWhenBalanceNotEnough() {
+    void shouldRejectBetWhenBalanceNotEnough(NatsBettingCouponType couponType, String description) {
         final BigDecimal betAmount = new BigDecimal("190.15");
         final BigDecimal adjustmentAmount = new BigDecimal("150.00");
         final class TestContext {
@@ -67,7 +77,7 @@ class BetWhenBalanceNotEnoughTest extends BaseTest {
                     .type(NatsBettingTransactionOperation.BET)
                     .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .summ(betAmount.toPlainString())
-                    .couponType(NatsBettingCouponType.SINGLE)
+                    .couponType(couponType)
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .build();
 

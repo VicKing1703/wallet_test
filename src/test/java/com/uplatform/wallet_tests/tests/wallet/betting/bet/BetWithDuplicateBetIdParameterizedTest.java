@@ -1,8 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.bet;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
 
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -10,10 +9,12 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
-
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.ALREADY_PROCESSED_REQUEST_ID;
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
@@ -22,11 +23,6 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Severity(SeverityLevel.CRITICAL)
-@Epic("Betting")
-@Feature("MakePayment")
-@Suite("Негативные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet")
 /**
  * Проверяет идемпотентность ставки по betId.
  *
@@ -48,11 +44,25 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
  */
-class BetWithDuplicateBetIdTest extends BaseTest {
+@Severity(SeverityLevel.CRITICAL)
+@Epic("Betting")
+@Feature("MakePayment")
+@Suite("Негативные сценарии: MakePayment")
+@Tag("Betting") @Tag("Wallet4")
+class BetWithDuplicateBetIdParameterizedTest extends BaseParameterizedTest {
 
-    @Test
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, "Ставка с купоном SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, "Ставка с купоном EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, "Ставка с купоном SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("couponProvider")
     @DisplayName("Совершение ставки в iframe с неуникальным betId (проверка идемпотентности по ID)")
-    void shouldRejectBetWithDuplicateBetId() {
+    void shouldRejectBetWithDuplicateBetId(NatsBettingCouponType couponType, String description) {
         final BigDecimal adjustmentAmount = new BigDecimal("200.00");
         final BigDecimal betAmount = generateBigDecimalAmount(adjustmentAmount);
         final Long sharedBetId = System.currentTimeMillis();
@@ -73,7 +83,7 @@ class BetWithDuplicateBetIdTest extends BaseTest {
                     .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .summ(betAmount.toPlainString())
-                    .couponType(NatsBettingCouponType.SINGLE)
+                    .couponType(couponType)
                     .betId(sharedBetId)
                     .build();
 
@@ -95,7 +105,7 @@ class BetWithDuplicateBetIdTest extends BaseTest {
                     .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .summ(betAmount.toPlainString())
-                    .couponType(NatsBettingCouponType.SINGLE)
+                    .couponType(couponType)
                     .betId(sharedBetId)
                     .build();
 
