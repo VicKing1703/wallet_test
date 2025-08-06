@@ -1,8 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.refund;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
@@ -16,7 +15,9 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -26,16 +27,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Severity(SeverityLevel.CRITICAL)
-@Epic("Betting")
-@Feature("MakePayment")
-@Suite("Позитивные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet")
 /**
  * Рефанд для вытесненной из Redis ставки.
  *
@@ -57,15 +54,29 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
  */
-class RefundDisplacedIframeBetTest extends BaseTest {
+@Severity(SeverityLevel.CRITICAL)
+@Epic("Betting")
+@Feature("MakePayment")
+@Suite("Позитивные сценарии: MakePayment")
+@Tag("Betting") @Tag("Wallet")
+class RefundDisplacedIframeBetParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal singleBetAmount = new BigDecimal("1.00");
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("550.00");
     private static final BigDecimal refundCoeff = new BigDecimal("1.00");
 
-    @Test
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, "Рефанд вытесненной ставки с купоном SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, "Рефанд вытесненной ставки с купоном EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, "Рефанд вытесненной ставки с купоном SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("couponProvider")
     @DisplayName("API рефанд iFrame ставки вытесненной из Redis")
-    void testApiRefundByModifyingOriginalRequestForDisplacedIframeBet() {
+    void testApiRefundByModifyingOriginalRequestForDisplacedIframeBet(NatsBettingCouponType couponType, String description) {
         final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().getMaxIframeCount();
         final int currentTransactionCountToMake = maxIframeCountInRedis + 1;
 
@@ -91,7 +102,7 @@ class RefundDisplacedIframeBetTest extends BaseTest {
                         .type(NatsBettingTransactionOperation.BET)
                         .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
                         .summ(singleBetAmount.toPlainString())
-                        .couponType(NatsBettingCouponType.SINGLE)
+                        .couponType(couponType)
                         .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                         .build();
                 var betRequestBody = MakePaymentRequestGenerator.generateRequest(betInputData);
