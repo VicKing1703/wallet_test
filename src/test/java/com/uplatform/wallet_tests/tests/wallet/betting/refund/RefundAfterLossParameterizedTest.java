@@ -1,9 +1,7 @@
-package com.uplatform.wallet_tests.tests.wallet.betting.win;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+package com.uplatform.wallet_tests.tests.wallet.betting.refund;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
@@ -12,50 +10,61 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Severity(SeverityLevel.CRITICAL)
-@Epic("Betting")
-@Feature("MakePayment")
-@Suite("Позитивные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet")
 /**
- * Проверка win при заблокированном беттинге.
+ * Рефанд после расчёта ставки как loss.
  *
- * После ставки беттинг отключается в CAP, но win обрабатывается без ошибок.
+ * Игрок делает ставку, потом получает loss и отправляет refund.
  *
  * <p><b>Сценарий теста:</b></p>
  * <ol>
  *   <li><b>Регистрация игрока:</b> новый пользователь.</li>
- *   <li><b>Основное действие:</b> ставка, блокировка беттинга, затем win.</li>
- *   <li><b>Проверка ответа API:</b> статус 200 и success.</li>
+ *   <li><b>Основное действие:</b> ставка, loss, затем refund.</li>
+ *   <li><b>Проверка ответа API:</b> каждая операция успешна.</li>
  * </ol>
  *
  * <p><b>Проверяемые компоненты и сущности:</b></p>
  * <ul>
- *   <li>CAP API: updateBlockers</li>
  *   <li>REST API: makePayment</li>
  * </ul>
  *
  * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
  */
-class WinWhenBettingBlockedTest extends BaseTest {
+@Severity(SeverityLevel.CRITICAL)
+@Epic("Betting")
+@Feature("MakePayment")
+@Suite("Негативные сценарии: MakePayment")
+@Tag("Betting") @Tag("Wallet")
+class RefundAfterLossParameterizedTest extends BaseParameterizedTest {
 
-    @Test
-    @DisplayName("Получение выигрыша в iframe, игроком с заблокированным беттингом")
-    void shouldProcessWinWhenBettingIsBlocked() {
-        final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, "Рефанд после Loss с купоном SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, "Рефанд после Loss с купоном EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, "Рефанд после Loss с купоном SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("couponProvider")
+    @DisplayName("Проверка обработки рефанда после расчета ставки Loss -> Refund")
+    void shouldProcessRefundAfterLoss(NatsBettingCouponType couponType, String description) {
         final BigDecimal adjustmentAmount = new BigDecimal("150.00");
         final BigDecimal betAmount = new BigDecimal("10.15");
-        final BigDecimal winAmount = new BigDecimal("20.15");
+        final BigDecimal lossAmount = BigDecimal.ZERO;
+
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             MakePaymentData betInputData;
@@ -73,7 +82,7 @@ class WinWhenBettingBlockedTest extends BaseTest {
                     .type(NatsBettingTransactionOperation.BET)
                     .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .summ(betAmount.toPlainString())
-                    .couponType(NatsBettingCouponType.SINGLE)
+                    .couponType(couponType)
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .build();
 
@@ -89,24 +98,9 @@ class WinWhenBettingBlockedTest extends BaseTest {
             );
         });
 
-        step("CAP API: Блокировка беттинга", () -> {
-            var request = UpdateBlockersRequest.builder()
-                    .gamblingEnabled(true)
-                    .bettingEnabled(false)
-                    .build();
-
-            var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    utils.getAuthorizationHeader(),
-                    platformNodeId,
-                    request
-            );
-            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.status_code");
-        });
-
-        step("Manager API: Получение выигрыша", () -> {
-            ctx.betRequestBody.setSumm(winAmount.toString());
-            ctx.betRequestBody.setType(NatsBettingTransactionOperation.WIN);
+        step("Manager API: Получение проигрыша", () -> {
+            ctx.betRequestBody.setSumm(lossAmount.toString());
+            ctx.betRequestBody.setType(NatsBettingTransactionOperation.LOSS);
             var response = managerClient.makePayment(ctx.betRequestBody);
 
             assertAll("Проверка статус-кода и тела ответа",
@@ -115,6 +109,17 @@ class WinWhenBettingBlockedTest extends BaseTest {
                     () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
                     () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode"),
                     () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.body.description")
+            );
+        });
+
+        step("Manager API: Получение рефанда", () -> {
+            ctx.betRequestBody.setSumm(betAmount.toString());
+            ctx.betRequestBody.setType(NatsBettingTransactionOperation.REFUND);
+            var response = managerClient.makePayment(ctx.betRequestBody);
+
+            assertAll("Проверка статус-кода и тела ответа",
+                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
+                    () -> assertNotNull(response.getBody(), "manager_api.body_not_null")
             );
         });
     }
