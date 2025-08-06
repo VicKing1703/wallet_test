@@ -1,8 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.refund;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
@@ -11,21 +10,19 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Severity(SeverityLevel.CRITICAL)
-@Epic("Betting")
-@Feature("MakePayment")
-@Suite("Негативные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet")
 /**
  * Повторный refund после уже принятого refund.
  *
@@ -45,11 +42,25 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
  */
-class RefundAfterRefundTest extends BaseTest {
+@Severity(SeverityLevel.CRITICAL)
+@Epic("Betting")
+@Feature("MakePayment")
+@Suite("Негативные сценарии: MakePayment")
+@Tag("Betting") @Tag("Wallet")
+class RefundAfterRefundParameterizedTest extends BaseParameterizedTest {
 
-    @Test
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, "Повторный рефанд для купона SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, "Повторный рефанд для купона EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, "Повторный рефанд для купона SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("couponProvider")
     @DisplayName("Проверка обработки рефанда после рефанда Refund -> Refund")
-    void shouldProcessRefundAfterRefund() {
+    void shouldProcessRefundAfterRefund(NatsBettingCouponType couponType, String description) {
         final BigDecimal adjustmentAmount = new BigDecimal("150.00");
         final BigDecimal betAmount = new BigDecimal("10.15");
         final BigDecimal refundCoefficient = new BigDecimal("1.00");
@@ -70,7 +81,7 @@ class RefundAfterRefundTest extends BaseTest {
                     .type(NatsBettingTransactionOperation.BET)
                     .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .summ(betAmount.toPlainString())
-                    .couponType(NatsBettingCouponType.SINGLE)
+                    .couponType(couponType)
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .build();
 

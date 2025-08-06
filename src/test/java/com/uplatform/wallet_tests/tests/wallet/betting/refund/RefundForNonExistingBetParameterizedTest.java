@@ -1,8 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.refund;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -10,10 +9,13 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.NOT_FOUND;
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -21,11 +23,6 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Severity(SeverityLevel.CRITICAL)
-@Epic("Betting")
-@Feature("MakePayment")
-@Suite("Негативные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet")
 /**
  * Отказ в refund по несуществующей ставке.
  *
@@ -45,11 +42,25 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
  */
-class RefundForNonExistingBetTest extends BaseTest {
+@Severity(SeverityLevel.CRITICAL)
+@Epic("Betting")
+@Feature("MakePayment")
+@Suite("Негативные сценарии: MakePayment")
+@Tag("Betting") @Tag("Wallet")
+class RefundForNonExistingBetParameterizedTest extends BaseParameterizedTest {
 
-    @Test
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, "Рефанд несуществующей ставки с купоном SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, "Рефанд несуществующей ставки с купоном EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, "Рефанд несуществующей ставки с купоном SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("couponProvider")
     @DisplayName("Попытка зарегистрировать рефанд для несуществующей ставки iframe")
-    void shouldRejectRefundForNonExistingBet() {
+    void shouldRejectRefundForNonExistingBet(NatsBettingCouponType couponType, String description) {
         final BigDecimal adjustmentAmount = new BigDecimal("100.00");
         final BigDecimal refundSumForRequest = generateBigDecimalAmount(adjustmentAmount);
         final String refundCoefficientForRequest = "1.00";
@@ -72,7 +83,7 @@ class RefundForNonExistingBetTest extends BaseTest {
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .summ(refundSumForRequest.toPlainString())
                     .totalCoef(refundCoefficientForRequest)
-                    .couponType(NatsBettingCouponType.SINGLE)
+                    .couponType(couponType)
                     .betId(nonExistingBetId)
                     .build();
 

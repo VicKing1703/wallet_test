@@ -1,8 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.refund;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
@@ -11,31 +10,29 @@ import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Severity(SeverityLevel.CRITICAL)
-@Epic("Betting")
-@Feature("MakePayment")
-@Suite("Негативные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet")
 /**
- * Рефанд после расчёта ставки как loss.
+ * Рефанд после выплаты win.
  *
- * Игрок делает ставку, потом получает loss и отправляет refund.
+ * Сначала ставка выигрывает, затем применяется refund.
  *
  * <p><b>Сценарий теста:</b></p>
  * <ol>
  *   <li><b>Регистрация игрока:</b> новый пользователь.</li>
- *   <li><b>Основное действие:</b> ставка, loss, затем refund.</li>
- *   <li><b>Проверка ответа API:</b> каждая операция успешна.</li>
+ *   <li><b>Основное действие:</b> ставка, win, затем refund.</li>
+ *   <li><b>Проверка ответа API:</b> все шаги успешны.</li>
  * </ol>
  *
  * <p><b>Проверяемые компоненты и сущности:</b></p>
@@ -45,14 +42,28 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @see com.uplatform.wallet_tests.api.http.manager.client.ManagerClient
  */
-class RefundAfterLossTest extends BaseTest {
+@Severity(SeverityLevel.CRITICAL)
+@Epic("Betting")
+@Feature("MakePayment")
+@Suite("Негативные сценарии: MakePayment")
+@Tag("Betting") @Tag("Wallet")
+class RefundAfterWinParameterizedTest extends BaseParameterizedTest {
 
-    @Test
-    @DisplayName("Проверка обработки рефанда после расчета ставки Loss -> Refund")
-    void shouldProcessRefundAfterLoss() {
+    static Stream<Arguments> couponProvider() {
+        return Stream.of(
+                Arguments.of(NatsBettingCouponType.SINGLE, "Рефанд после Win с купоном SINGLE"),
+                Arguments.of(NatsBettingCouponType.EXPRESS, "Рефанд после Win с купоном EXPRESS"),
+                Arguments.of(NatsBettingCouponType.SYSTEM, "Рефанд после Win с купоном SYSTEM")
+        );
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("couponProvider")
+    @DisplayName("Проверка обработки рефанда после расчета ставки Win -> Refund")
+    void shouldProcessRefundAfterWin(NatsBettingCouponType couponType, String description) {
         final BigDecimal adjustmentAmount = new BigDecimal("150.00");
         final BigDecimal betAmount = new BigDecimal("10.15");
-        final BigDecimal lossAmount = BigDecimal.ZERO;
+        final BigDecimal winAmount = new BigDecimal("20.15");
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -71,7 +82,7 @@ class RefundAfterLossTest extends BaseTest {
                     .type(NatsBettingTransactionOperation.BET)
                     .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
                     .summ(betAmount.toPlainString())
-                    .couponType(NatsBettingCouponType.SINGLE)
+                    .couponType(couponType)
                     .currency(ctx.registeredPlayer.getWalletData().getCurrency())
                     .build();
 
@@ -87,9 +98,9 @@ class RefundAfterLossTest extends BaseTest {
             );
         });
 
-        step("Manager API: Получение проигрыша", () -> {
-            ctx.betRequestBody.setSumm(lossAmount.toString());
-            ctx.betRequestBody.setType(NatsBettingTransactionOperation.LOSS);
+        step("Manager API: Получение выигрыша", () -> {
+            ctx.betRequestBody.setSumm(winAmount.toString());
+            ctx.betRequestBody.setType(NatsBettingTransactionOperation.WIN);
             var response = managerClient.makePayment(ctx.betRequestBody);
 
             assertAll("Проверка статус-кода и тела ответа",
