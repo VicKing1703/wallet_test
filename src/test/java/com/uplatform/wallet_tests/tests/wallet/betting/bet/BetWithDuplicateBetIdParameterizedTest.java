@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Betting")
 @Feature("MakePayment")
 @Suite("Негативные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet4")
+@Tag("Betting") @Tag("Wallet")
 class BetWithDuplicateBetIdParameterizedTest extends BaseParameterizedTest {
 
     static Stream<Arguments> couponProvider() {

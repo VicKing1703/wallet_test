@@ -57,7 +57,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Betting")
 @Feature("MakePayment")
 @Suite("Позитивные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet4")
+@Tag("Betting") @Tag("Wallet")
 class BetIframeHistoryLimitTest extends BaseTest {
 
     private static final BigDecimal singleBetAmount = new BigDecimal("1.00");

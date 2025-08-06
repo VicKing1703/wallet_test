@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Betting")
 @Feature("MakePayment")
 @Suite("Негативные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet4") @Tag("Limits")
+@Tag("Betting") @Tag("Wallet") @Tag("Limits")
 class BetWhenBettingBlockedParameterizedTest extends BaseParameterizedTest {
 
     static Stream<Arguments> couponProvider() {
