@@ -9,9 +9,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 
-/**
- * Fluent builder for awaiting NATS messages.
- */
 public class NatsExpectationBuilder<T> {
     private final NatsClient client;
     private final Class<T> messageType;

@@ -40,6 +40,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.*;
+import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.*;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
