@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
+
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountResponse;
@@ -17,11 +17,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-
 import java.math.BigDecimal;
 import java.util.function.BiPredicate;
 
-import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.NAME;
+import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.get;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
