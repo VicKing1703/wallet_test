@@ -6,10 +6,6 @@ import io.qameta.allure.Allure;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/**
- * Utility service for adding formatted attachments to Allure reports.
- */
-
 @Component
 @RequiredArgsConstructor
 public class AllureAttachmentService {
@@ -33,16 +29,10 @@ public class AllureAttachmentService {
         Allure.addAttachment(name, "text/plain", content, ".txt");
     }
 
-    /**
-     * Attach JSON data with a unified prefix based on {@link AttachmentType}.
-     */
     public void attachJson(AttachmentType type, String name, Object data) {
         attachJson(type.getPrefix() + ": " + name, data);
     }
 
-    /**
-     * Attach plain text with a unified prefix based on {@link AttachmentType}.
-     */
     public void attachText(AttachmentType type, String name, String content) {
         attachText(type.getPrefix() + ": " + name, content);
     }

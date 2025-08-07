@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.DirectionType;
@@ -19,13 +19,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
-
 import java.math.BigDecimal;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.NatsEnumMapper.*;
-import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.NAME;
+import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.get;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
