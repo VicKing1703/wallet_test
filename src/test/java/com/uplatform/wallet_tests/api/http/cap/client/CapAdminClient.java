@@ -1,6 +1,12 @@
 package com.uplatform.wallet_tests.api.http.cap.client;
 
+import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.brand.GetBrandResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.category.CreateCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.category.CreateCategoryResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.category.GetCategoryResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
@@ -103,4 +109,57 @@ public interface CapAdminClient {
             @RequestHeader("Platform-NodeID") String platformNodeId,
             @RequestBody UpdateVerificationStatusRequest request
     );
+
+    @PostMapping("/_cap/api/v1/categories")
+    ResponseEntity<CreateCategoryResponse> createCategory(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestHeader("Platform-UserID") String platformUserId,
+            @RequestHeader("Platform-UserName") String platformUserName,
+            @RequestBody CreateCategoryRequest request
+    );
+
+    @GetMapping ("/_cap/api/v1/categories/{categoryId}")
+    ResponseEntity<GetCategoryResponse> getCategoryId(
+            @PathVariable("categoryId") String categoryId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestHeader("Platform-UserID") String platformUserId,
+            @RequestHeader("Platform-UserName") String platformUserName
+    );
+
+    @DeleteMapping("/_cap/api/v1/categories/{categoryId}")
+    ResponseEntity<Void> deleteCategory(
+            @PathVariable("categoryId") String categoryId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestHeader("Platform-UserID") String platformUserId,
+            @RequestHeader("Platform-UserName") String platformUserName
+    );
+
+    @PostMapping("/_cap/api/v1/brands")
+    ResponseEntity<CreateBrandResponse> createBrand(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody CreateBrandRequest request
+    );
+
+    @GetMapping ("/_cap/api/v1/brands/{brandId}")
+    ResponseEntity<GetBrandResponse> getBrandId(
+            @PathVariable("brandId") String brandId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestHeader("Platform-UserID") String platformUserId,
+            @RequestHeader("Platform-UserName") String platformUserName
+    );
+
+    @DeleteMapping("/_cap/api/v1/brands/{brandId}")
+    ResponseEntity<Void> deleteBrand(
+            @PathVariable("brandId") String brandId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestHeader("Platform-UserID") String platformUserId,
+            @RequestHeader("Platform-UserName") String platformUserName
+    );
+
 }

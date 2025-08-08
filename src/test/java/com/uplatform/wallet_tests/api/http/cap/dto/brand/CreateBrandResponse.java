@@ -1,4 +1,10 @@
 package com.uplatform.wallet_tests.api.http.cap.dto.brand;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
 public class CreateBrandResponse {
+    private String id;
 }

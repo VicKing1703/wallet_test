@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Builder
 @Data
-public class GetCategoryIdRequest {
-    private String categoryId;
+public class GetCategoryRequest {
+    private String id;
 }

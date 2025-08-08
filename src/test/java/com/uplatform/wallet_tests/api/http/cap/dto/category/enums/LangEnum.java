@@ -1,4 +1,4 @@
-package com.uplatform.wallet_tests.api.http.cap.dto.enums;
+package com.uplatform.wallet_tests.api.http.cap.dto.category.enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 @Getter
 @RequiredArgsConstructor
 public enum LangEnum {
-    RUSSIAN("en"),
+    RUSSIAN("ru"),
     ENGLISH("en"),
     LATVIAN("lv"),
     UNKNOWN("UNKNOWN"),
@@ -37,43 +37,3 @@ public enum LangEnum {
         return result;
     }
 }
-
-    /*    public enum CategoryNames {
-
-    CAT_VERTICAL(Map.of(
-            "ru", "Вертикальная",
-            "en", "Vertical",
-            "lv", "Vertikāli"
-    )),
-    CAT_HORIZONTAL(Map.of(
-            "ru", "Горизонтальный",
-            "en", "Horizontal",
-            "lv", "Horizontāli"
-    )),
-    CAT_NAV(Map.of(
-            "ru", "Навигационная панель",
-            "en", "Navigation panel",
-            "lv", "Navigācijas josla"
-    )),
-    EMPTY(Map.of(
-            "", ""
-    ));
-
-
-    private final Map<String, String> names;
-
-    @JsonValue
-    public Map<String, String> getValue() {
-        return names;
-    }
-
-    @JsonCreator
-    public static CategoryNames fromValue(Map<String, String> map) {
-        for (CategoryNames value : CategoryNames.values()) {
-            if (value.names.equals(map)) {
-                return value;
-            }
-        }
-        throw new IllegalArgumentException("Unknown category: " + map);
-    }
-}*/

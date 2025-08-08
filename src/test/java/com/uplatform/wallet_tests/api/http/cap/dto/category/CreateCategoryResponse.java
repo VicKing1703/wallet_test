@@ -5,6 +5,6 @@ import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
-public class CreateBrandResponse {
+public class CreateCategoryResponse {
     private String id;
 }
