@@ -109,10 +109,10 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
                     NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.firstTournamentRequest.getTransactionId().equals(payload.getUuid());
 
-            ctx.firstTournamentNatsEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.firstTournamentNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.firstTournamentNatsEvent, "nats.tournament_won_from_gamble_event_for_first_win");
         });

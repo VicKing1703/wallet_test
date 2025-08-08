@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.session;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.GameSessionStartMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGame;
@@ -104,9 +105,9 @@ class StartGameSessionTest extends BaseTest {
         });
 
         step("Kafka: Проверка поступления события GameSessionStart", () -> {
-            var kafkaMessage = gameSessionKafkaClient.expectGameSessionStartMessage(
-                    ctx.coreGameSession.getUuid()
-            );
+            var kafkaMessage = kafkaClient.expect(GameSessionStartMessage.class)
+                    .with("id", ctx.coreGameSession.getUuid())
+                    .fetch();
 
             assertAll(
                     () -> assertEquals("wallet.gameSession", kafkaMessage.getMessage().getEventType(), "kafka.game_session.event_type"),

@@ -224,98 +224,51 @@ step("HTTP: отправка запроса Bet", () -> {
 }
 ```
 
-### 4. Как работает абстрактный класс
+### 4. Как работает клиент Kafka
 
-Базовый клиент `AbstractKafkaClient` инкапсулирует логику поиска сообщений в `MessageBuffer`.
-Конкретные клиенты наследуют его и указывают тип возвращаемого DTO.
+`KafkaClient` наследует `AbstractKafkaClient` и предоставляет универсальные методы ожидания сообщений.
+Топики настраиваются через `KafkaConsumerConfig`, где каждому классу DTO сопоставляется суффикс топика.
+Клиент ищет сообщения в `MessageBuffer` и десериализует их в нужный тип.
 
-Основные методы:
-- `expectMessage(filter, messageClass)` — ждёт первое сообщение, удовлетворяющее фильтру (например, по ключу `sequence`).
-- `expectUniqueMessage(filter, messageClass)` — аналогично, но дополнительно убеждается, что найдено единственное сообщение.
-  Также класс содержит стандартный тайм-аут ожидания и методы для проверки отсутствия сообщений.
+Основной DSL:
+- `expect(Class<T>)` — подготовить ожидание сообщения указанного типа.
+  Фильтры добавляйте через `.with("key", value)`, уникальность — `.unique()`,
+  таймаут — `.within(Duration)` и завершайте ожидание методом `.fetch()`.
 
 ### 5. Подключение нового топика
 
-1. Посмотрите пример сообщения, приходящего в топик, и по его структуре создайте DTO в пакете `api/kafka/dto`.
-2. Затем напишите клиент в `api/kafka/client`, наследующий `AbstractKafkaClient`(Пример ниже)
-3. Зарегистрируйте соответствие между DTO и суффиксом топика в `KafkaConsumerConfig`.
-   Ниже приведён фрагмент метода `kafkaTopicMappingRegistry` со всеми маппингами и новым топиком:
+1. Создайте DTO в пакете `api/kafka/dto`.
+2. Добавьте соответствие между DTO и суффиксом топика в `KafkaConsumerConfig`:
+
 ```java
 @Bean
 public KafkaTopicMappingRegistry kafkaTopicMappingRegistry() {
     Map<Class<?>, String> mappings = new HashMap<>();
-
     // существующие топики
     mappings.put(PlayerAccountMessage.class, "player.v1.account");
     mappings.put(WalletProjectionMessage.class, "wallet.v8.projectionSource");
     mappings.put(GameSessionStartMessage.class, "core.gambling.v1.GameSessionStart");
     mappings.put(LimitMessage.class, "limits.v2");
-
-    // добавляем новый топик
+    // новый топик
     mappings.put(BonusAwardMessage.class, "bonus.v1.award");
-
     return new SimpleKafkaTopicMappingRegistry(mappings);
 }
 ```
-4. Укажите этот суффикс в списке `listenTopicSuffixes` конфигурационного файла.
-   Ниже пример фрагмента json после добавления нового топика:
+3. Укажите этот суффикс в поле `listenTopicSuffixes` конфигурационного файла.
+После перезапуска тестов `MessageBuffer` начнёт слушать указанный топик.
 
-   ```json
-   "listenTopicSuffixes": [
-     "player.v1.account",
-     "wallet.v8.projectionSource",
-     "core.gambling.v1.GameSessionStart",
-     "limits.v2",
-     "bonus.v1.award" // новый топик
-   ]
-   ```
-   После перезапуска тестов `MessageBuffer` начнёт слушать этот топик.
+### 6. Использование в тестах
 
-### 6. Пример клиента для нового топика
-
-
-```java
-package com.uplatform.wallet_tests.api.kafka.client;
-
-import com.uplatform.wallet_tests.api.kafka.consumer.KafkaBackgroundConsumer;
-import com.uplatform.wallet_tests.api.kafka.dto.BonusAwardMessage;
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
-import org.springframework.stereotype.Component;
-
-import java.util.Map;
-
-@Component
-public class BonusAwardKafkaClient extends AbstractKafkaClient {
-
-    public BonusAwardKafkaClient(
-            KafkaBackgroundConsumer kafkaBackgroundConsumer,
-            EnvironmentConfigurationProvider configProvider
-    ) {
-        super(kafkaBackgroundConsumer, configProvider);
-    }
-
-    public BonusAwardMessage expectBonusAward(String playerId) {
-        return expectMessage(
-                Map.of("playerId", playerId),
-                BonusAwardMessage.class
-        );
-    }
-}
-```
-
-Такой класс помещается в пакет `api/kafka/client` и автоматически становится доступным в контексте Spring.
-
-### 7. Использование в тестах
-
-Инжектируйте нужный клиент в тестовый класс и ожидайте событие внутри `Allure.step`:
+Инжектируйте `KafkaClient` и ожидайте сообщение внутри `Allure.step`:
 
 ```java
 @Autowired
-private WalletProjectionKafkaClient walletProjectionKafkaClient;
+private KafkaClient kafkaClient;
 
 step("Kafka: получение сообщения", () -> {
-    var message = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-            testData.someEvent.getSequence());
+    var message = kafkaClient.expect(WalletProjectionMessage.class)
+            .with("seq_number", testData.someEvent.getSequence())
+            .fetch();
     assertTrue(utils.areEquivalent(message, testData.someEvent));
 });
 ```
@@ -549,8 +502,8 @@ step("DB: проверяем запись кошелька", () -> {
 ### 4. Как работает клиент
 
 `NatsClient` предоставляет метод `buildWalletSubject` для формирования subject и
-`findMessageAsync` для ожидания события с фильтром. Внутри учитываются повторы и
-тайм-ауты.
+флюентный интерфейс `expect` для ожидания события с фильтром. Внутри учитываются
+повторы и тайм‑ауты.
 
 ### 5. Подключение нового subject
 
@@ -562,11 +515,10 @@ step("DB: проверяем запись кошелька", () -> {
 
 ```java
 String subject = natsClient.buildWalletSubject(playerUuid, walletUuid);
-var message = natsClient.findMessageAsync(
-        subject,
-        NatsBalanceAdjustedPayload.class,
-        (payload, type) -> payload.getSequence() == expectedSeq
-).get();
+var message = natsClient.expect(NatsBalanceAdjustedPayload.class)
+        .from(subject)
+        .matching((payload, type) -> payload.getSequence() == expectedSeq)
+        .fetch();
 ```
 
 ### 7. Использование в тестах
@@ -576,7 +528,9 @@ var message = natsClient.findMessageAsync(
 private NatsClient natsClient;
 
 step("NATS: получаем событие", () -> {
-    var msg = natsClient.findMessageAsync(subject, SomePayload.class, (p, t) -> true).get();
+    var msg = natsClient.expect(SomePayload.class)
+            .from(subject)
+            .fetch();
     assertNotNull(msg);
 });
 ```
@@ -656,15 +610,15 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
         var subject = natsClient.buildWalletSubject(
                 ctx.registeredPlayer.getWalletData().getPlayerUUID(),
                 ctx.registeredPlayer.getWalletData().getWalletUUID());
-        ctx.winEvent = natsClient.findMessageAsync(
-                subject,
-                NatsBettingEventPayload.class,
-                (p, t) -> true).get();
+        ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
+                .from(subject)
+                .fetch();
     });
 
     step("Kafka: Проверка сообщения", () -> {
-        walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                ctx.winEvent.getSequence());
+        walletProjectionKafkaClient.expect(WalletProjectionMessage.class)
+                .with("seq_number", ctx.winEvent.getSequence())
+                .fetch();
     });
 
     step("DB Wallet: Проверка записи", () -> {

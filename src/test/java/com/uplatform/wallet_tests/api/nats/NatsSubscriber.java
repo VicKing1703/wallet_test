@@ -16,6 +16,9 @@ import io.nats.client.api.ConsumerConfiguration;
 import io.nats.client.api.DeliverPolicy;
 import io.nats.client.api.ReplayPolicy;
 import io.nats.client.impl.NatsJetStreamMetaData;
+import com.uplatform.wallet_tests.api.nats.exceptions.NatsDeserializationException;
+import com.uplatform.wallet_tests.api.nats.exceptions.NatsDuplicateMessageException;
+import com.uplatform.wallet_tests.api.nats.exceptions.NatsMessageNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -28,6 +31,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
+import java.util.concurrent.Callable;
 
 @Slf4j
 class NatsSubscriber {
@@ -43,6 +47,12 @@ class NatsSubscriber {
     private final int subscriptionBufferSize;
     private final int subscriptionRetryCount;
     private final long subscriptionRetryDelayMs;
+
+    private interface MatchHandlingStrategy<T> {
+        void onFirstMatch(NatsMessage<T> message);
+        void onDuplicateMatch(NatsMessage<T> message);
+        boolean isCompleted();
+    }
 
     NatsSubscriber(io.nats.client.Connection nc,
                    JetStream js,
@@ -74,7 +84,8 @@ class NatsSubscriber {
         CompletableFuture<NatsMessage<T>> future = new CompletableFuture<>();
         String logPrefix = String.format("NATS SEARCH ASYNC [%s -> %s]", this.streamName, subject);
 
-        retryUntilSubscribed(subject, messageType, filter, future, logPrefix);
+        subscribeWithRetries(subject, future, logPrefix,
+                () -> startSubscription(subject, messageType, filter, future, logPrefix));
 
         return future;
     }
@@ -85,7 +96,8 @@ class NatsSubscriber {
         CompletableFuture<NatsMessage<T>> future = new CompletableFuture<>();
         String logPrefix = String.format("NATS SEARCH UNIQUE [%s -> %s]", this.streamName, subject);
 
-        retryUntilUniqueSubscribed(subject, messageType, filter, future, logPrefix);
+        subscribeWithRetries(subject, future, logPrefix,
+                () -> startUniqueSubscription(subject, messageType, filter, future, logPrefix));
 
         return future;
     }
@@ -98,14 +110,28 @@ class NatsSubscriber {
         Dispatcher dispatcher = nc.createDispatcher();
         JavaType javaType = objectMapper.getTypeFactory().constructType(messageType);
         final Dispatcher dispatcherRef = dispatcher;
-        final Subscription[] subHolder = new Subscription[1];
+        final AtomicReference<Subscription> subHolder = new AtomicReference<>();
+        final AtomicBoolean firstMatch = new AtomicBoolean(false);
+
+        MatchHandlingStrategy<T> strategy = new MatchHandlingStrategy<>() {
+            private final AtomicBoolean completed = new AtomicBoolean(false);
+            @Override public void onFirstMatch(NatsMessage<T> message) {
+                attachmentHelper.addNatsAttachment("NATS Message Found", message);
+                future.complete(message);
+                unsubscribeSafely(dispatcherRef, subHolder.get(), logPrefix + " after match");
+                completed.set(true);
+            }
+            @Override public void onDuplicateMatch(NatsMessage<T> message) {
+            }
+            @Override public boolean isCompleted() { return completed.get(); }
+        };
 
         MessageHandler handler = msg ->
-                handleIncomingMessage(msg, javaType, filter, future, dispatcherRef, subHolder, logPrefix);
+                processIncomingMessage(msg, javaType, filter, firstMatch, strategy, logPrefix, future);
 
-        subHolder[0] = createSubscription(subject, dispatcherRef, handler);
+        subHolder.set(createSubscription(subject, dispatcherRef, handler));
 
-        awaitMessageFuture(future, dispatcherRef, subHolder[0], logPrefix);
+        awaitMessageFuture(future, dispatcherRef, subHolder.get(), logPrefix);
         return dispatcher;
     }
 
@@ -117,30 +143,44 @@ class NatsSubscriber {
         Dispatcher dispatcher = nc.createDispatcher();
         JavaType javaType = objectMapper.getTypeFactory().constructType(messageType);
         final Dispatcher dispatcherRef = dispatcher;
-        final Subscription[] subHolder = new Subscription[1];
+        final AtomicReference<Subscription> subHolder = new AtomicReference<>();
         final AtomicReference<NatsMessage<T>> resultRef = new AtomicReference<>();
         final AtomicBoolean duplicateFound = new AtomicBoolean(false);
+        final AtomicBoolean firstMatch = new AtomicBoolean(false);
+
+        MatchHandlingStrategy<T> strategy = new MatchHandlingStrategy<>() {
+            @Override public void onFirstMatch(NatsMessage<T> message) {
+                attachmentHelper.addNatsAttachment("NATS Message Found", message);
+                resultRef.set(message);
+            }
+            @Override public void onDuplicateMatch(NatsMessage<T> message) {
+                duplicateFound.set(true);
+                attachmentHelper.addNatsAttachment("NATS Duplicate Message", message);
+                future.completeExceptionally(new NatsDuplicateMessageException("More than one message matched filter"));
+                unsubscribeSafely(dispatcherRef, subHolder.get(), logPrefix + " after duplicate");
+            }
+            @Override public boolean isCompleted() { return future.isDone(); }
+        };
 
         MessageHandler handler = msg ->
-                handleIncomingMessageUnique(msg, javaType, filter, resultRef, duplicateFound, future, dispatcherRef, subHolder, logPrefix);
+                processIncomingMessage(msg, javaType, filter, firstMatch, strategy, logPrefix, future);
 
-        subHolder[0] = createSubscription(subject, dispatcherRef, handler);
+        subHolder.set(createSubscription(subject, dispatcherRef, handler));
 
-        awaitUniqueMessageFuture(resultRef, duplicateFound, future, dispatcherRef, subHolder[0], logPrefix);
+        awaitUniqueMessageFuture(resultRef, duplicateFound, future, dispatcherRef, subHolder.get(), logPrefix);
         return dispatcher;
     }
 
-    private <T> void retryUntilSubscribed(String subject,
-                                          Class<T> messageType,
-                                          BiPredicate<T, String> filter,
+    private <T> void subscribeWithRetries(String subject,
                                           CompletableFuture<NatsMessage<T>> future,
-                                          String logPrefix) {
+                                          String logPrefix,
+                                          Callable<Dispatcher> subscriptionLogic) {
         for (int attempt = 1; attempt <= this.subscriptionRetryCount; attempt++) {
             Dispatcher dispatcher = null;
             try {
-                dispatcher = startSubscription(subject, messageType, filter, future, logPrefix);
+                dispatcher = subscriptionLogic.call();
                 return;
-            } catch (JetStreamApiException | IOException e) {
+            } catch (Exception e) {
                 if (dispatcher != null) {
                     try {
                         nc.closeDispatcher(dispatcher);
@@ -153,10 +193,10 @@ class NatsSubscriber {
                         logPrefix, attempt, this.subscriptionRetryCount, e.getMessage());
 
                 if (attempt == this.subscriptionRetryCount) {
-                    log.error("{} | All {} subscription attempts failed for subject '{}'. Giving up.",
+                log.error("{} | All {} subscription attempts failed for subject '{}'. Giving up.",
                             logPrefix, this.subscriptionRetryCount, subject, e);
                     future.completeExceptionally(
-                            new RuntimeException(
+                            new NatsMessageNotFoundException(
                                     "NATS Subscription failed for " + subject +
                                             " after " + this.subscriptionRetryCount + " attempts", e));
                     return;
@@ -168,62 +208,14 @@ class NatsSubscriber {
                     Thread.currentThread().interrupt();
                     log.error("{} | Subscription retry delay was interrupted.", logPrefix, ie);
                     future.completeExceptionally(
-                            new RuntimeException("Subscription retry interrupted for " + subject, ie));
+                            new NatsMessageNotFoundException("Subscription retry interrupted for " + subject, ie));
                     return;
                 }
             }
         }
 
         future.completeExceptionally(
-                new IllegalStateException("Exited subscription retry loop unexpectedly for " + subject));
-    }
-
-    private <T> void retryUntilUniqueSubscribed(String subject,
-                                                Class<T> messageType,
-                                                BiPredicate<T, String> filter,
-                                                CompletableFuture<NatsMessage<T>> future,
-                                                String logPrefix) {
-        for (int attempt = 1; attempt <= this.subscriptionRetryCount; attempt++) {
-            Dispatcher dispatcher = null;
-            try {
-                dispatcher = startUniqueSubscription(subject, messageType, filter, future, logPrefix);
-                return;
-            } catch (JetStreamApiException | IOException e) {
-                if (dispatcher != null) {
-                    try {
-                        nc.closeDispatcher(dispatcher);
-                    } catch (Exception closeEx) {
-                        log.warn("{} | Failed to close dispatcher after error: {}", logPrefix, closeEx.getMessage());
-                    }
-                }
-
-                log.warn("{} | Attempt {}/{} to create NATS subscription failed: {}",
-                        logPrefix, attempt, this.subscriptionRetryCount, e.getMessage());
-
-                if (attempt == this.subscriptionRetryCount) {
-                    log.error("{} | All {} subscription attempts failed for subject '{}'. Giving up.",
-                            logPrefix, this.subscriptionRetryCount, subject, e);
-                    future.completeExceptionally(
-                            new RuntimeException(
-                                    "NATS Subscription failed for " + subject +
-                                            " after " + this.subscriptionRetryCount + " attempts", e));
-                    return;
-                }
-
-                try {
-                    TimeUnit.MILLISECONDS.sleep(this.subscriptionRetryDelayMs);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    log.error("{} | Subscription retry delay was interrupted.", logPrefix, ie);
-                    future.completeExceptionally(
-                            new RuntimeException("Subscription retry interrupted for " + subject, ie));
-                    return;
-                }
-            }
-        }
-
-        future.completeExceptionally(
-                new IllegalStateException("Exited subscription retry loop unexpectedly for " + subject));
+                new NatsMessageNotFoundException("Exited subscription retry loop unexpectedly for " + subject));
     }
 
     private Subscription createSubscription(String subject, Dispatcher dispatcher, MessageHandler handler)
@@ -243,68 +235,13 @@ class NatsSubscriber {
         return js.subscribe(subject, dispatcher, handler, false, pso);
     }
 
-    private <T> void handleIncomingMessage(Message msg,
-                                           JavaType javaType,
-                                           BiPredicate<T, String> filter,
-                                           CompletableFuture<NatsMessage<T>> future,
-                                           Dispatcher dispatcher,
-                                           Subscription[] subHolder,
-                                           String logPrefix) {
-        long msgSeq = -1L;
-        String msgType = null;
-        OffsetDateTime timestamp = null;
-
-        try {
-            if (msg.isJetStream()) {
-                NatsJetStreamMetaData meta = msg.metaData();
-                if (meta != null) {
-                    msgSeq = meta.streamSequence();
-                    ZonedDateTime ts = meta.timestamp();
-                    if (ts != null) {
-                        timestamp = ts.toOffsetDateTime();
-                    }
-                } else {
-                    log.warn("{} | Received JetStream message without metadata object!", logPrefix);
-                }
-            } else {
-                log.warn("{} | Received non-JetStream message", logPrefix); return;
-            }
-
-            msgType = msg.getHeaders() != null ? msg.getHeaders().getFirst("type") : null;
-
-            T payload;
-            try {
-                payload = objectMapper.readValue(msg.getData(), javaType);
-            } catch (JsonProcessingException e) {
-                log.warn("{} | Failed JSON unmarshal seq={}: {}. Nacking msg.", logPrefix, msgSeq, e.getMessage());
-                safeNack(msg);
-                return;
-            }
-
-            if (filter.test(payload, msgType)) {
-                safeAck(msg);
-                NatsMessage<T> result = NatsMessage.<T>builder()
-                        .payload(payload).subject(msg.getSubject()).type(msgType)
-                        .sequence(msgSeq).timestamp(timestamp).build();
-                attachmentHelper.addNatsAttachment("NATS Message Found", result);
-                future.complete(result);
-                unsubscribeSafely(dispatcher, subHolder[0], logPrefix + " after match");
-            }
-        } catch (Exception e) {
-            log.error("{} | Error processing NATS msg (seq≈{}, type≈{}): {}", logPrefix, msgSeq, msgType, e.getMessage(), e);
-            safeNack(msg);
-        }
-    }
-
-    private <T> void handleIncomingMessageUnique(Message msg,
-                                                 JavaType javaType,
-                                                 BiPredicate<T, String> filter,
-                                                 AtomicReference<NatsMessage<T>> resultRef,
-                                                 AtomicBoolean duplicateFound,
-                                                 CompletableFuture<NatsMessage<T>> future,
-                                                 Dispatcher dispatcher,
-                                                 Subscription[] subHolder,
-                                                 String logPrefix) {
+    private <T> void processIncomingMessage(Message msg,
+                                            JavaType javaType,
+                                            BiPredicate<T, String> filter,
+                                            AtomicBoolean firstMatch,
+                                            MatchHandlingStrategy<T> strategy,
+                                            String logPrefix,
+                                            CompletableFuture<NatsMessage<T>> future) {
         long msgSeq = -1L;
         String msgType = null;
         OffsetDateTime timestamp = null;
@@ -334,6 +271,7 @@ class NatsSubscriber {
             } catch (JsonProcessingException e) {
                 log.warn("{} | Failed JSON unmarshal seq={}: {}. Nacking msg.", logPrefix, msgSeq, e.getMessage());
                 safeNack(msg);
+                future.completeExceptionally(new NatsDeserializationException("Failed to deserialize NATS message", e));
                 return;
             }
 
@@ -342,19 +280,19 @@ class NatsSubscriber {
                 NatsMessage<T> result = NatsMessage.<T>builder()
                         .payload(payload).subject(msg.getSubject()).type(msgType)
                         .sequence(msgSeq).timestamp(timestamp).build();
-                if (resultRef.get() == null) {
-                    attachmentHelper.addNatsAttachment("NATS Message Found", result);
-                    resultRef.set(result);
-                } else {
-                    duplicateFound.set(true);
-                    attachmentHelper.addNatsAttachment("NATS Duplicate Message", result);
-                    future.completeExceptionally(new IllegalStateException("More than one message matched filter"));
-                    unsubscribeSafely(dispatcher, subHolder[0], logPrefix + " after duplicate");
+
+                if (!strategy.isCompleted()) {
+                    if (firstMatch.compareAndSet(false, true)) {
+                        strategy.onFirstMatch(result);
+                    } else {
+                        strategy.onDuplicateMatch(result);
+                    }
                 }
             }
         } catch (Exception e) {
             log.error("{} | Error processing NATS msg (seq≈{}, type≈{}): {}", logPrefix, msgSeq, msgType, e.getMessage(), e);
             safeNack(msg);
+            future.completeExceptionally(new NatsDeserializationException("Unexpected error processing NATS message", e));
         }
     }
 
@@ -382,13 +320,13 @@ class NatsSubscriber {
                                               String logPrefix) {
         CompletableFuture.delayedExecutor(searchTimeout.toMillis(), TimeUnit.MILLISECONDS).execute(() -> {
             if (duplicateFound.get()) {
-                future.completeExceptionally(new IllegalStateException("More than one message matched filter"));
+                future.completeExceptionally(new NatsDuplicateMessageException("More than one message matched filter"));
             } else {
                 NatsMessage<T> result = resultRef.get();
                 if (result != null) {
                     future.complete(result);
                 } else {
-                    future.completeExceptionally(new TimeoutException("No matching message found"));
+                    future.completeExceptionally(new NatsMessageNotFoundException("No matching message found"));
                 }
             }
             unsubscribeSafely(dispatcher, subscription, logPrefix + " on completion");

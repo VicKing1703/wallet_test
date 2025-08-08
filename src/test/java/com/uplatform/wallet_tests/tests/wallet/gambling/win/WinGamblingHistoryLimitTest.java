@@ -157,10 +157,10 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
                     NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.lastTransactionId.equals(payload.getUuid());
 
-            ctx.lastWinEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.lastWinEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.lastWinEvent, "nats.won_from_gamble");
         });

@@ -132,10 +132,10 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
                     NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.lastMadeTournamentTransactionId.equals(payload.getUuid());
 
-            ctx.lastTournamentNatsEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.lastTournamentNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.lastTournamentNatsEvent, "nats.tournament_won_from_gamble_event");
         });

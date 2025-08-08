@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
@@ -229,10 +230,10 @@ class RefundParametrizedTest extends BaseParameterizedTest {
                     NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.refundRequestBody.getTransactionId().equals(payload.getUuid());
 
-            ctx.refundEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.refundEvent, "nats.event.refunded_from_gamble");
 
@@ -298,8 +299,9 @@ class RefundParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения о рефанде в топик wallet.v8.projectionSource", () -> {
-            var message = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.refundEvent.getSequence());
+            var message = kafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.refundEvent.getSequence())
+                    .fetch();
 
             assertNotNull(message, "kafka.message");
             assertTrue(utils.areEquivalent(message, ctx.refundEvent), "kafka.message.equivalent_to_nats");

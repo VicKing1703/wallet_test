@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
@@ -191,10 +192,10 @@ class BetParametrizedTest extends BaseParameterizedTest {
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
 
-            ctx.betEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var betRequest = ctx.betRequestBody;
             var betEvent = ctx.betEvent.getPayload();
@@ -279,8 +280,9 @@ class BetParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения betted_from_gamble в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.betEvent.getSequence());
+            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.betEvent.getSequence())
+                    .fetch();
 
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.betEvent), "wallet.v8.projectionSource");
         });

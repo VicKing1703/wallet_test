@@ -119,11 +119,10 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
                             NatsLimitType.DEPOSIT.getValue().equals(payload.getLimits().get(0).getLimitType());
 
-            ctx.limitEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsLimitChangedV2Payload.class,
-                    filter
-            ).get();
+            ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.limitEvent, "nats.limit_changed_v2_event.message_not_null");
         });

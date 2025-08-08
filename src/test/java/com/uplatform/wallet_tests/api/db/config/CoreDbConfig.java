@@ -12,7 +12,8 @@ import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-import javax.sql.DataSource;
+
+import com.zaxxer.hikari.HikariDataSource;
 
 @Configuration
 @EnableTransactionManagement
@@ -31,7 +32,7 @@ public class CoreDbConfig extends BaseDbConfig {
 
     @Bean
     @Primary
-    public DataSource coreDataSource(@Qualifier("coreDataSourceProperties") DataSourceProperties properties) {
+    public HikariDataSource coreDataSource(@Qualifier("coreDataSourceProperties") DataSourceProperties properties) {
         return createDataSource(properties);
     }
 
@@ -39,7 +40,7 @@ public class CoreDbConfig extends BaseDbConfig {
     @Primary
     public LocalContainerEntityManagerFactoryBean coreEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
-            @Qualifier("coreDataSource") DataSource dataSource) {
+            @Qualifier("coreDataSource") HikariDataSource dataSource) {
         return createEntityManagerFactory(builder, dataSource,
                 "com.uplatform.wallet_tests.api.db.entity.core", "core");
     }

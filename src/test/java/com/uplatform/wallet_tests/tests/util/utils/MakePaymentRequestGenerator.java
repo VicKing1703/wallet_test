@@ -7,8 +7,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.experimental.UtilityClass;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
@@ -26,31 +31,38 @@ public class MakePaymentRequestGenerator {
     private static final String[] TEAMS_ADJ = {"Red", "Blue", "Green", "Golden", "Iron", "Silver", "Flying", "Mighty"};
     private static final String[] TEAMS_NOUN = {"Eagles", "Lions", "Sharks", "Bears", "Wolves", "Tigers", "Hawks", "Panthers", "Dragons", "Raptors", "Vipers", "Giants"};
 
+    @Getter
+    @AllArgsConstructor
+    private static class BetInfoResult {
+        private String jsonString;
+        private BigDecimal calculatedTotalCoef;
+    }
+
     public static MakePaymentRequest generateRequest(MakePaymentData inputData) {
         Objects.requireNonNull(inputData, "Input data (inputData) cannot be null");
         final long effectiveTime = determineEffectiveTime(inputData.getTime());
         final long effectiveChampId = determineEffectiveChampId(inputData.getChampId());
         final long effectiveBetId = determineEffectiveBetId(inputData.getBetId());
         final String sign = determineEffectiveSign(inputData.getSign());
-        final String effectiveTotalCoef = determineEffectiveTotalCoef(inputData.getTotalCoef());
+
+        BetInfoResult betInfoResult = buildBetInfo(inputData, effectiveChampId, effectiveTime);
+
+        final String effectiveTotalCoef;
+        if (inputData.getTotalCoef() != null && !inputData.getTotalCoef().isBlank()) {
+            effectiveTotalCoef = inputData.getTotalCoef();
+        } else {
+            effectiveTotalCoef = betInfoResult.getCalculatedTotalCoef().toPlainString();
+        }
 
         NatsBettingTransactionOperation typeEnum = inputData.getType();
-        NatsBettingCouponType couponTypeEnum = inputData.getCouponType();
         Objects.requireNonNull(inputData.getPlayerId(), "'playerId' is required");
         validateNumericString(inputData.getSumm(), "'summ'");
-        Objects.requireNonNull(couponTypeEnum, "'couponType' (enum) is required");
         validateNumericString(effectiveTotalCoef, "'totalCoef'");
         if (inputData.getBetInfoCoef() != null) {
             validateNumericString(inputData.getBetInfoCoef(), "'betInfoCoef'");
         }
 
         String token2String = buildToken2(inputData.getPlayerId(), inputData.getCurrency());
-        String betInfoString = buildBetInfo(
-                inputData,
-                effectiveChampId,
-                effectiveTime,
-                effectiveTotalCoef
-        );
 
         return MakePaymentRequest.builder()
                 .sign(sign)
@@ -58,7 +70,7 @@ public class MakePaymentRequestGenerator {
                 .type(typeEnum)
                 .token2(token2String)
                 .betId(effectiveBetId)
-                .betInfo(betInfoString)
+                .betInfo(betInfoResult.getJsonString())
                 .summ(inputData.getSumm())
                 .totalCoef(effectiveTotalCoef)
                 .build();
@@ -89,13 +101,6 @@ public class MakePaymentRequestGenerator {
 
     private static String determineEffectiveSign(String inputSign) {
         return inputSign != null ? inputSign : generatePlaceholderSign();
-    }
-
-    private static String determineEffectiveTotalCoef(String inputTotalCoef) {
-        if (inputTotalCoef != null && !inputTotalCoef.isBlank()) {
-            return inputTotalCoef;
-        }
-        return generateRandomTotalCoefString();
     }
 
     private static long generateRandomBetId() {
@@ -160,9 +165,7 @@ public class MakePaymentRequestGenerator {
         do {
             randomHundredths = minHundredths + random.nextInt(maxHundredths - minHundredths + 1);
         } while (randomHundredths % 10 == 0);
-
         BigDecimal bd = new BigDecimal(randomHundredths).movePointLeft(2);
-
         return bd.toPlainString();
     }
 
@@ -186,44 +189,79 @@ public class MakePaymentRequestGenerator {
         }
     }
 
-    private static String buildBetInfo(
+    private static BetInfoResult buildBetInfo(
             MakePaymentData inputData,
             long effectiveChampId,
-            long effectiveTime,
-            String effectiveTotalCoef
+            long effectiveTime
     ) {
         try {
             ArrayNode betInfoArray = objectMapper.createArrayNode();
-            ObjectNode betDetails = objectMapper.createObjectNode();
-
-            String coefString = inputData.getBetInfoCoef() != null
-                    ? inputData.getBetInfoCoef()
-                    : effectiveTotalCoef;
-            validateNumericString(coefString, "coefficient for betInfo (betInfoCoef or totalCoef)");
-            BigDecimal coef = new BigDecimal(coefString);
+            BigDecimal calculatedTotalCoef = BigDecimal.ONE;
 
             NatsBettingCouponType couponTypeEnum = inputData.getCouponType();
             Objects.requireNonNull(couponTypeEnum, "CouponType enum cannot be null for betInfo");
-            String couponTypeValue = couponTypeEnum.getValue();
+
+            int numberOfEvents;
+            switch (couponTypeEnum) {
+                case EXPRESS:
+                    numberOfEvents = 2;
+                    break;
+                case SYSTEM:
+                    numberOfEvents = 3;
+                    break;
+                case SINGLE:
+                default:
+                    numberOfEvents = 1;
+                    break;
+            }
+
             String sportName = inputData.getSportName() != null ? inputData.getSportName() : generateRandomSportName();
             String champName = inputData.getChampName() != null ? inputData.getChampName() : generateRandomChampName(effectiveChampId, sportName);
-            String gameName = inputData.getGameName() != null ? inputData.getGameName() : generateRandomGameName(effectiveChampId, sportName);
-            String event = inputData.getEvent() != null ? inputData.getEvent() : generateRandomEvent();
             long dateStart = inputData.getDateStart() != null ? inputData.getDateStart() : generateDefaultDateStart(effectiveTime);
             String score = inputData.getScore() != null ? inputData.getScore() : generateDefaultScore();
+            String couponTypeValue = couponTypeEnum.getValue();
 
-            betDetails.put("ChampId", effectiveChampId);
-            betDetails.put("ChampName", champName);
-            betDetails.put("Coef", coef);
-            betDetails.put("CouponType", couponTypeValue);
-            betDetails.put("DateStart", dateStart);
-            betDetails.put("Event", event);
-            betDetails.put("GameName", gameName);
-            betDetails.put("Score", score);
-            betDetails.put("SportName", sportName);
+            List<String> usedGameNames = new ArrayList<>();
 
-            betInfoArray.add(betDetails);
-            return objectMapper.writeValueAsString(betInfoArray);
+            for (int i = 0; i < numberOfEvents; i++) {
+                ObjectNode betDetails = objectMapper.createObjectNode();
+
+                String eventCoefString = (numberOfEvents == 1 && inputData.getBetInfoCoef() != null)
+                        ? inputData.getBetInfoCoef()
+                        : generateRandomTotalCoefString();
+                validateNumericString(eventCoefString, "coefficient for betInfo");
+                BigDecimal eventCoef = new BigDecimal(eventCoefString);
+
+                String gameName;
+                do {
+                    gameName = (numberOfEvents == 1 && inputData.getGameName() != null)
+                            ? inputData.getGameName()
+                            : generateRandomGameName(effectiveChampId, sportName);
+                } while (usedGameNames.contains(gameName));
+                usedGameNames.add(gameName);
+
+                String event = (numberOfEvents == 1 && inputData.getEvent() != null)
+                        ? inputData.getEvent()
+                        : generateRandomEvent();
+
+                betDetails.put("ChampId", effectiveChampId);
+                betDetails.put("ChampName", champName);
+                betDetails.put("Coef", eventCoef);
+                betDetails.put("CouponType", couponTypeValue);
+                betDetails.put("DateStart", dateStart);
+                betDetails.put("Event", event);
+                betDetails.put("GameName", gameName);
+                betDetails.put("Score", score);
+                betDetails.put("SportName", sportName);
+
+                betInfoArray.add(betDetails);
+
+                calculatedTotalCoef = calculatedTotalCoef.multiply(eventCoef);
+            }
+
+            calculatedTotalCoef = calculatedTotalCoef.setScale(2, RoundingMode.HALF_UP);
+
+            return new BetInfoResult(objectMapper.writeValueAsString(betInfoArray), calculatedTotalCoef);
 
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Error building betInfo JSON array string", e);

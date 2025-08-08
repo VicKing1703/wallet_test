@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import static org.awaitility.Awaitility.await;
 import org.awaitility.core.ConditionTimeoutException;
-import org.opentest4j.AssertionFailedError;
+import com.uplatform.wallet_tests.api.kafka.exceptions.KafkaDeserializationException;
 
 @Component
 @Slf4j
@@ -171,8 +171,8 @@ public class KafkaBackgroundConsumer {
                 log.warn("Error evaluating final result after timeout: {}", ex.getMessage());
                 return new FindResult<>(Optional.empty(), List.of(), 0);
             }
-        } catch (AssertionFailedError afe) {
-            throw afe;
+        } catch (KafkaDeserializationException kde) {
+            throw kde;
         } catch (Exception ex) {
             log.error("Unexpected error during findAndCountMessages: {}", ex.getMessage(), ex);
             return new FindResult<>(Optional.empty(), List.of(), 0);

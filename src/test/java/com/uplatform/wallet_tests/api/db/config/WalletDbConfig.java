@@ -11,7 +11,8 @@ import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-import javax.sql.DataSource;
+
+import com.zaxxer.hikari.HikariDataSource;
 
 @Configuration
 @EnableTransactionManagement
@@ -29,14 +30,14 @@ public class WalletDbConfig extends BaseDbConfig {
     }
 
     @Bean
-    public DataSource walletDataSource(@Qualifier("walletDataSourceProperties") DataSourceProperties properties) {
+    public HikariDataSource walletDataSource(@Qualifier("walletDataSourceProperties") DataSourceProperties properties) {
         return createDataSource(properties);
     }
 
     @Bean
     public LocalContainerEntityManagerFactoryBean walletEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
-            @Qualifier("walletDataSource") DataSource dataSource) {
+            @Qualifier("walletDataSource") HikariDataSource dataSource) {
         return createEntityManagerFactory(builder, dataSource,
                 "com.uplatform.wallet_tests.api.db.entity.wallet", "wallet");
     }

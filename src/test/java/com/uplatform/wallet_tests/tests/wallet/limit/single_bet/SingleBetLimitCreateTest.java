@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.single_bet;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.SetSingleBetLimitRequest;
@@ -66,12 +67,13 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
         step("Kafka: Получение сообщения из топика limits.v2", () -> {
             var expectedAmount = ctx.limitAmount.stripTrailingZeros().toPlainString();
-            ctx.kafkaLimitMessage = limitKafkaClient.expectLimitMessage(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    NatsLimitType.SINGLE_BET.getValue(),
-                    ctx.registeredPlayer.getWalletData().getCurrency(),
-                    expectedAmount
-            );
+            ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
+                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("limitType", NatsLimitType.SINGLE_BET.getValue())
+                    .with("currencyCode", ctx.registeredPlayer.getWalletData().getCurrency())
+                    .with("amount", expectedAmount
+            )
+                    .fetch();
             assertNotNull(ctx.kafkaLimitMessage, "kafka.limits_v2_event.message_not_null");
         });
 
@@ -84,10 +86,10 @@ public class SingleBetLimitCreateTest extends BaseTest {
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
                             ctx.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
 
-            ctx.limitCreateEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsLimitChangedV2Payload.class,
-                    filter).get();
+            ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertAll("nats.limit_changed_v2_event.content_validation",
                     () -> assertEquals(NatsLimitEventType.CREATED.getValue(), ctx.limitCreateEvent.getPayload().getEventType(), "nats.limit_changed_v2_event.payload.eventType"),
@@ -103,8 +105,9 @@ public class SingleBetLimitCreateTest extends BaseTest {
         });
 
         step("Kafka: Сравнение сообщения из Kafka с событием из NATS", () -> {
-            var kafkaMessage = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.limitCreateEvent.getSequence());
+            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.limitCreateEvent.getSequence())
+                    .fetch();
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.limitCreateEvent), "kafka.wallet_projection.equivalent_to_nats");
         });
 

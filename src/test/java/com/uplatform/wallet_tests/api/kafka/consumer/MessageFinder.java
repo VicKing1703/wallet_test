@@ -4,13 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.ReadContext;
+import com.uplatform.wallet_tests.api.kafka.exceptions.KafkaDeserializationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.opentest4j.AssertionFailedError;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -124,15 +124,6 @@ public class MessageFinder {
                     if (firstRecord == null) {
                         firstRecord = record;
                     }
-                } else {
-                    throw new AssertionFailedError(
-                            String.format(
-                                    "Found Kafka message matching filter at offset %d in topic '%s' but failed to deserialize into %s.",
-                                    record.offset(),
-                                    record.topic(),
-                                    targetClass.getSimpleName()
-                            )
-                    );
                 }
             }
         }
@@ -158,11 +149,11 @@ public class MessageFinder {
                     record.offset(), record.topic(), targetClass.getSimpleName(), e.getMessage(),
                     jsonValue.substring(0, Math.min(jsonValue.length(), 100)));
             allureReporter.addDeserializationErrorAttachment(record, targetClass, e);
-            return Optional.empty();
+            throw new KafkaDeserializationException("Failed to deserialize Kafka message", e);
         } catch (Exception e) {
             log.error("Unexpected error during deserialization attempt for Kafka message (Offset: {}, Topic: {}) into {}: {}",
                     record.offset(), record.topic(), targetClass.getSimpleName(), e.getMessage(), e);
-            return Optional.empty();
+            throw new KafkaDeserializationException("Unexpected error during Kafka deserialization", e);
         }
     }
 

@@ -121,7 +121,10 @@ class CasinoLossLimitWhenBetFromIframeParametrizedTest extends BaseParameterized
                 BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
 
-                var limitCreateEvent = natsClient.findMessageAsync(subject, NatsLimitChangedV2Payload.class, filter).get();
+                var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
             });
@@ -151,10 +154,10 @@ class CasinoLossLimitWhenBetFromIframeParametrizedTest extends BaseParameterized
                         NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
                                 ctx.betRequestBody.getBetId() == payload.getBetId();
 
-                ctx.betEvent = natsClient.findMessageAsync(
-                        subject,
-                        NatsBettingEventPayload.class,
-                        filter).get();
+                ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.event.betted_from_iframe");
             });

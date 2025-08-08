@@ -147,10 +147,10 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
                     NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.lastMadeWinTransactionId.equals(payload.getUuid());
 
-            ctx.lastWinNatsEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.lastWinNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.lastWinNatsEvent, "nats.win_event");
         });

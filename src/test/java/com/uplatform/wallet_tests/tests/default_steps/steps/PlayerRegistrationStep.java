@@ -15,7 +15,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.registration.enums.BonusChoi
 import com.uplatform.wallet_tests.api.http.fapi.dto.registration.enums.Gender;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactResponse;
-import com.uplatform.wallet_tests.api.kafka.client.PlayerAccountKafkaClient;
+import com.uplatform.wallet_tests.api.kafka.client.KafkaClient;
 import com.uplatform.wallet_tests.api.kafka.dto.PlayerAccountMessage;
 import com.uplatform.wallet_tests.api.redis.client.PlayerRedisClient;
 import com.uplatform.wallet_tests.api.redis.client.WalletRedisClient;
@@ -36,6 +36,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.*;
+import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.*;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -45,7 +46,7 @@ public class PlayerRegistrationStep {
 
     private final FapiClient publicClient;
     private final CapAdminClient capAdminClient;
-    private final PlayerAccountKafkaClient playerAccountKafkaClient;
+    private final KafkaClient kafkaClient;
     private final PlayerRedisClient playerRedisClient;
     private final WalletRedisClient walletRedisClient;
     private final CapAdminTokenStorage tokenStorage;
@@ -56,7 +57,7 @@ public class PlayerRegistrationStep {
     @Autowired
     public PlayerRegistrationStep(FapiClient publicClient,
                                   CapAdminClient capAdminClient,
-                                  PlayerAccountKafkaClient playerAccountKafkaClient,
+                                  KafkaClient kafkaClient,
                                   PlayerRedisClient playerRedisClient,
                                   WalletRedisClient walletRedisClient,
                                   CapAdminTokenStorage tokenStorage,
@@ -65,7 +66,7 @@ public class PlayerRegistrationStep {
                                   @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
         this.publicClient = Objects.requireNonNull(publicClient);
         this.capAdminClient = Objects.requireNonNull(capAdminClient);
-        this.playerAccountKafkaClient = Objects.requireNonNull(playerAccountKafkaClient);
+        this.kafkaClient = Objects.requireNonNull(kafkaClient);
         this.playerRedisClient = Objects.requireNonNull(playerRedisClient);
         this.walletRedisClient = Objects.requireNonNull(walletRedisClient);
         this.tokenStorage = Objects.requireNonNull(tokenStorage);
@@ -99,8 +100,10 @@ public class PlayerRegistrationStep {
         });
 
         step("Kafka: Ожидание и получение OTP кода", () -> {
-            ctx.confirmationMessage = this.playerAccountKafkaClient.expectPhoneConfirmationMessage(
-                    ctx.verificationRequest.getContact());
+            ctx.confirmationMessage = this.kafkaClient.expect(PlayerAccountMessage.class)
+                    .with("message.eventType", "player.confirmationPhone")
+                    .with("player.phone", ctx.verificationRequest.getContact().substring(1))
+                    .fetch();
             assertNotNull(ctx.confirmationMessage, "kafka.phone_confirmation.message");
             assertNotNull(ctx.confirmationMessage.getContext(), "kafka.phone_confirmation.context");
             assertNotNull(ctx.confirmationMessage.getContext().getConfirmationCode(), "kafka.phone_confirmation.code");
@@ -143,8 +146,10 @@ public class PlayerRegistrationStep {
         });
 
         step("Kafka: Получение сообщения о регистрации", () -> {
-            ctx.fullRegistrationMessage = this.playerAccountKafkaClient.expectPlayerSignUpV2FullMessage(
-                    ctx.verificationRequest.getContact());
+            ctx.fullRegistrationMessage = this.kafkaClient.expect(PlayerAccountMessage.class)
+                    .with("message.eventType", "player.signUpV2Full")
+                    .with("player.phone", ctx.verificationRequest.getContact().substring(1))
+                    .fetch();
             assertNotNull(ctx.fullRegistrationMessage, "kafka.player_signup.message");
             assertNotNull(ctx.fullRegistrationMessage.getPlayer(), "kafka.player_signup.player");
             assertNotNull(ctx.fullRegistrationMessage.getPlayer().getExternalId(), "kafka.player_signup.player_external_id");

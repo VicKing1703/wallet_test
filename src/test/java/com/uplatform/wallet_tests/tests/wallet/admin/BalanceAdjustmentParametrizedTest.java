@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.DirectionType;
@@ -19,13 +19,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
-
 import java.math.BigDecimal;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.NatsEnumMapper.*;
-import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.NAME;
+import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.get;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
@@ -124,10 +123,10 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
                 return payload.getComment().equals(ctx.adjustmentRequest.getComment());
             };
 
-            ctx.balanceAdjustedEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsBalanceAdjustedPayload.class,
-                    filter).get();
+            ctx.balanceAdjustedEvent = natsClient.expect(NatsBalanceAdjustedPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             var expectedAdjustment = (direction == DirectionType.DECREASE)
                     ? adjustmentAmount.negate() : adjustmentAmount;
@@ -155,8 +154,9 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Kafka: Проверка поступления сообщения balance_adjusted в топик wallet.v8.projectionSource", () -> {
-            ctx.projectionAdjustEvent = walletProjectionKafkaClient.expectWalletProjectionMessageBySeqNum(
-                    ctx.balanceAdjustedEvent.getSequence());
+            ctx.projectionAdjustEvent = kafkaClient.expect(WalletProjectionMessage.class)
+                    .with("seq_number", ctx.balanceAdjustedEvent.getSequence())
+                    .fetch();
             assertTrue(utils.areEquivalent(ctx.projectionAdjustEvent, ctx.balanceAdjustedEvent), "kafka.payload");
         });
     }

@@ -147,10 +147,10 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
                     NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.lastTransactionId.equals(payload.getUuid());
 
-            ctx.lastTournamentEvent = natsClient.findMessageAsync(
-                    subject,
-                    NatsGamblingEventPayload.class,
-                    filter).get();
+            ctx.lastTournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
+                    .from(subject)
+                    .matching(filter)
+                    .fetch();
 
             assertNotNull(ctx.lastTournamentEvent, "nats.tournament_won_from_gamble");
             assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, ctx.lastTournamentEvent.getPayload().getOperation(), "nats.payload.operation_type");
