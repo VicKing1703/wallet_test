@@ -117,6 +117,8 @@
     "searchTimeoutSeconds": 30,
     "subscriptionAckWaitSeconds": 60,
     "subscriptionInactiveThresholdSeconds": 90,
-    "subscriptionBufferSize": 1000
+    "subscriptionBufferSize": 1000,
+    "uniqueDuplicateWindowMs": 400,
+    "failOnDeserialization": false
   }
 }
