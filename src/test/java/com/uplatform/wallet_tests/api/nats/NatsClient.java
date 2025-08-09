@@ -25,6 +25,7 @@ public class NatsClient {
     private final String streamPrefix;
     private final String natsBaseName;
     private final Duration searchTimeout;
+    private final Duration defaultUniqueWindow;
 
     @Autowired
     public NatsClient(ObjectMapper objectMapper,
@@ -38,6 +39,7 @@ public class NatsClient {
         String streamName = this.streamPrefix + this.natsBaseName;
 
         this.searchTimeout = Duration.ofSeconds(natsConfig.getSearchTimeoutSeconds());
+        this.defaultUniqueWindow = Duration.ofMillis(natsConfig.getUniqueDuplicateWindowMs());
 
         this.subscriber = new NatsSubscriber(
                 connectionManager.getConnection(),
@@ -50,7 +52,8 @@ public class NatsClient {
                 streamName,
                 natsConfig.getSubscriptionBufferSize(),
                 natsConfig.getSubscriptionRetryCount(),
-                natsConfig.getSubscriptionRetryDelayMs()
+                natsConfig.getSubscriptionRetryDelayMs(),
+                natsConfig.isFailOnDeserialization()
         );
     }
 
@@ -68,9 +71,16 @@ public class NatsClient {
     }
 
     public <T> CompletableFuture<NatsMessage<T>> findUniqueMessageAsync(String subject,
-                                                                         Class<T> messageType,
-                                                                         BiPredicate<T, String> filter) {
-        return subscriber.findUniqueMessageAsync(subject, messageType, filter);
+                                                                        Class<T> messageType,
+                                                                        BiPredicate<T, String> filter,
+                                                                        Duration duplicateWindow) {
+        return subscriber.findUniqueMessageAsync(subject, messageType, filter, duplicateWindow);
+    }
+
+    public <T> CompletableFuture<NatsMessage<T>> findUniqueMessageAsync(String subject,
+                                                                        Class<T> messageType,
+                                                                        BiPredicate<T, String> filter) {
+        return findUniqueMessageAsync(subject, messageType, filter, defaultUniqueWindow);
     }
 
     public <T> NatsExpectationBuilder<T> expect(Class<T> messageType) {
@@ -81,4 +91,7 @@ public class NatsClient {
         return this.searchTimeout;
     }
 
+    Duration getDefaultUniqueWindow() {
+        return this.defaultUniqueWindow;
+    }
 }

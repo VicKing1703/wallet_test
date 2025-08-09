@@ -16,4 +16,6 @@ public class NatsConfig {
     private long subscriptionAckWaitSeconds;
     private long subscriptionInactiveThresholdSeconds;
     private int subscriptionBufferSize;
+    private long uniqueDuplicateWindowMs = 400;
+    private boolean failOnDeserialization;
 }
