@@ -39,6 +39,15 @@
       "retryTimeoutSeconds": 10,
       "retryPollIntervalMs": 100,
       "retryPollDelayMs": 100
+    },
+    "player": {
+      "host": "mysql-development-01.b2bdev.pro",
+      "port": 3306,
+      "username": "qa_auto",
+      "password": "HoxTNjfnZsGt",
+      "retryTimeoutSeconds": 10,
+      "retryPollIntervalMs": 100,
+      "retryPollDelayMs": 100
     }
   },
   "redis": {

@@ -47,11 +47,21 @@ public abstract class AbstractDatabaseClient {
                                            String attachmentNamePrefix,
                                            Supplier<Optional<T>> querySupplier,
                                            Class<? extends Throwable>... ignoredExceptionsDuringAwait) {
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier,
+                retryTimeoutDuration, ignoredExceptionsDuringAwait);
+    }
+
+    @SafeVarargs
+    protected final <T> T awaitAndGetOrFail(String description,
+                                           String attachmentNamePrefix,
+                                           Supplier<Optional<T>> querySupplier,
+                                           Duration timeout,
+                                           Class<? extends Throwable>... ignoredExceptionsDuringAwait) {
         Callable<Optional<T>> queryCallable = querySupplier::get;
 
         try {
             ConditionFactory condition = await(description)
-                    .atMost(retryTimeoutDuration)
+                    .atMost(timeout)
                     .pollInterval(retryPollIntervalDuration)
                     .pollDelay(retryPollDelayDuration)
                     .ignoreExceptionsInstanceOf(org.springframework.dao.TransientDataAccessException.class);
@@ -72,7 +82,7 @@ public abstract class AbstractDatabaseClient {
 
         } catch (ConditionTimeoutException e) {
             attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - NOT Found (Timeout)",
-                    "Timeout after " + retryTimeoutDuration + ": " + e.getMessage());
+                    "Timeout after " + timeout + ": " + e.getMessage());
             throw new DatabaseRecordNotFoundException("Record not found within timeout for '" + description + "'", e);
         } catch (Exception e) {
             attachmentService.attachText(AttachmentType.DB, attachmentNamePrefix + " - Error",

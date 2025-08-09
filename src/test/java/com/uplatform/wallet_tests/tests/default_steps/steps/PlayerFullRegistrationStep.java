@@ -28,6 +28,7 @@ import com.uplatform.wallet_tests.api.redis.model.WalletFilterCriteria;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.CapAdminTokenStorage;
+import com.uplatform.wallet_tests.api.db.PlayerDatabaseClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
@@ -53,6 +55,7 @@ public class PlayerFullRegistrationStep {
     private final PlayerRedisClient playerRedisClient;
     private final WalletRedisClient walletRedisClient;
     private final CapAdminTokenStorage tokenStorage;
+    private final PlayerDatabaseClient playerDatabaseClient;
     private final String defaultCurrency;
     private final String defaultCountry;
     private final String platformNodeId;
@@ -64,6 +67,7 @@ public class PlayerFullRegistrationStep {
                                   PlayerRedisClient playerRedisClient,
                                   WalletRedisClient walletRedisClient,
                                   CapAdminTokenStorage tokenStorage,
+                                  PlayerDatabaseClient playerDatabaseClient,
                                   @Value("${app.settings.default.currency}") String defaultCurrency,
                                   @Value("${app.settings.default.country}") String defaultCountry,
                                   @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
@@ -73,6 +77,7 @@ public class PlayerFullRegistrationStep {
         this.playerRedisClient = Objects.requireNonNull(playerRedisClient);
         this.walletRedisClient = Objects.requireNonNull(walletRedisClient);
         this.tokenStorage = Objects.requireNonNull(tokenStorage);
+        this.playerDatabaseClient = Objects.requireNonNull(playerDatabaseClient);
         this.defaultCurrency = Objects.requireNonNull(defaultCurrency);
         this.defaultCountry = Objects.requireNonNull(defaultCountry);
         this.platformNodeId = Objects.requireNonNull(platformNodeId);
@@ -268,7 +273,6 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Public API: Установка лимита на одиночную ставку", () -> {
-            Thread.sleep(15000);
             var amount = new BigDecimal("100000.00");
             var request = SetSingleBetLimitRequest.builder()
                     .currency(ctx.playerWalletData.getCurrency())
@@ -281,7 +285,6 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Public API: Установка лимита на оборот средств", () -> {
-            Thread.sleep(15000);
             var amount = new BigDecimal("100000.00");
             var request = SetTurnoverLimitRequest.builder()
                     .currency(ctx.playerWalletData.getCurrency())
@@ -308,11 +311,20 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
-            Thread.sleep(15000);
             ctx.updatedWalletData = this.walletRedisClient.getWithRetry(
                     ctx.playerWalletData.getWalletUUID());
             assertNotNull(ctx.updatedWalletData, "redis.wallet.full_data_not_found");
             assertNotNull(ctx.updatedWalletData.getPlayerUUID(), "redis.wallet.player_uuid");
+        });
+
+        step("DB (Player): Получение статусов свойств аккаунта", () -> {
+            var property = playerDatabaseClient.waitForAccountPropertyStatus(
+                    ctx.updatedWalletData.getPlayerUUID(),
+                    "REQUIRED_LIMITS_SET",
+                    1,
+                    Duration.ofMinutes(2));
+            assertEquals(Integer.valueOf(1), property.get("status"),
+                    "db.player.account_properties.required_limits_set");
         });
 
         return new RegisteredPlayerData(
