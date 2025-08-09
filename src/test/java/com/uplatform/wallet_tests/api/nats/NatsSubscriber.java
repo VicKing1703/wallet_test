@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.concurrent.Callable;
 
@@ -47,6 +48,7 @@ class NatsSubscriber {
     private final int subscriptionBufferSize;
     private final int subscriptionRetryCount;
     private final long subscriptionRetryDelayMs;
+    private final boolean failOnDeserialization;
 
     private interface MatchHandlingStrategy<T> {
         void onFirstMatch(NatsMessage<T> message);
@@ -64,7 +66,8 @@ class NatsSubscriber {
                    String streamName,
                    int subscriptionBufferSize,
                    int subscriptionRetryCount,
-                   long subscriptionRetryDelayMs) {
+                   long subscriptionRetryDelayMs,
+                   boolean failOnDeserialization) {
         this.nc = nc;
         this.js = js;
         this.objectMapper = objectMapper;
@@ -76,6 +79,7 @@ class NatsSubscriber {
         this.subscriptionBufferSize = subscriptionBufferSize;
         this.subscriptionRetryCount = subscriptionRetryCount;
         this.subscriptionRetryDelayMs = subscriptionRetryDelayMs;
+        this.failOnDeserialization = failOnDeserialization;
     }
 
     <T> CompletableFuture<NatsMessage<T>> findMessageAsync(String subject,
@@ -92,12 +96,13 @@ class NatsSubscriber {
 
     <T> CompletableFuture<NatsMessage<T>> findUniqueMessageAsync(String subject,
                                                                  Class<T> messageType,
-                                                                 BiPredicate<T, String> filter) {
+                                                                 BiPredicate<T, String> filter,
+                                                                 Duration duplicateWindow) {
         CompletableFuture<NatsMessage<T>> future = new CompletableFuture<>();
         String logPrefix = String.format("NATS SEARCH UNIQUE [%s -> %s]", this.streamName, subject);
 
         subscribeWithRetries(subject, future, logPrefix,
-                () -> startUniqueSubscription(subject, messageType, filter, future, logPrefix));
+                () -> startUniqueSubscription(subject, messageType, filter, future, logPrefix, duplicateWindow));
 
         return future;
     }
@@ -118,7 +123,7 @@ class NatsSubscriber {
             @Override public void onFirstMatch(NatsMessage<T> message) {
                 attachmentHelper.addNatsAttachment("NATS Message Found", message);
                 future.complete(message);
-                unsubscribeSafely(dispatcherRef, subHolder.get(), logPrefix + " after match");
+                unsubscribeAndClose(dispatcherRef, subHolder.get(), logPrefix + " after match");
                 completed.set(true);
             }
             @Override public void onDuplicateMatch(NatsMessage<T> message) {
@@ -139,7 +144,8 @@ class NatsSubscriber {
                                                    Class<T> messageType,
                                                    BiPredicate<T, String> filter,
                                                    CompletableFuture<NatsMessage<T>> future,
-                                                   String logPrefix) throws IOException, JetStreamApiException {
+                                                   String logPrefix,
+                                                   Duration duplicateWindow) throws IOException, JetStreamApiException {
         Dispatcher dispatcher = nc.createDispatcher();
         JavaType javaType = objectMapper.getTypeFactory().constructType(messageType);
         final Dispatcher dispatcherRef = dispatcher;
@@ -147,17 +153,24 @@ class NatsSubscriber {
         final AtomicReference<NatsMessage<T>> resultRef = new AtomicReference<>();
         final AtomicBoolean duplicateFound = new AtomicBoolean(false);
         final AtomicBoolean firstMatch = new AtomicBoolean(false);
+        final long startTime = System.currentTimeMillis();
+        final AtomicLong firstMatchElapsed = new AtomicLong(-1L);
+        Duration window = (duplicateWindow == null || duplicateWindow.compareTo(searchTimeout) > 0)
+                ? searchTimeout : duplicateWindow;
+        final long windowMs = window.toMillis();
 
         MatchHandlingStrategy<T> strategy = new MatchHandlingStrategy<>() {
             @Override public void onFirstMatch(NatsMessage<T> message) {
                 attachmentHelper.addNatsAttachment("NATS Message Found", message);
                 resultRef.set(message);
+                firstMatchElapsed.set(System.currentTimeMillis() - startTime);
             }
             @Override public void onDuplicateMatch(NatsMessage<T> message) {
                 duplicateFound.set(true);
                 attachmentHelper.addNatsAttachment("NATS Duplicate Message", message);
                 future.completeExceptionally(new NatsDuplicateMessageException("More than one message matched filter"));
-                unsubscribeSafely(dispatcherRef, subHolder.get(), logPrefix + " after duplicate");
+                unsubscribeAndClose(dispatcherRef, subHolder.get(), logPrefix + " after duplicate");
+                log.info("{} | subject={} firstMatchElapsedMs={} windowMs={} duplicate=true", logPrefix, subject, firstMatchElapsed.get(), windowMs);
             }
             @Override public boolean isCompleted() { return future.isDone(); }
         };
@@ -167,7 +180,7 @@ class NatsSubscriber {
 
         subHolder.set(createSubscription(subject, dispatcherRef, handler));
 
-        awaitUniqueMessageFuture(resultRef, duplicateFound, future, dispatcherRef, subHolder.get(), logPrefix);
+        awaitUniqueMessageFuture(resultRef, duplicateFound, future, dispatcherRef, subHolder.get(), logPrefix, duplicateWindow, firstMatchElapsed, subject);
         return dispatcher;
     }
 
@@ -269,24 +282,36 @@ class NatsSubscriber {
             try {
                 payload = objectMapper.readValue(msg.getData(), javaType);
             } catch (JsonProcessingException e) {
-                log.warn("{} | Failed JSON unmarshal seq={}: {}. Nacking msg.", logPrefix, msgSeq, e.getMessage());
-                safeNack(msg);
-                future.completeExceptionally(new NatsDeserializationException("Failed to deserialize NATS message", e));
+                if (failOnDeserialization) {
+                    log.warn("{} | Failed JSON unmarshal seq={}: {}. Nacking msg.", logPrefix, msgSeq, e.getMessage());
+                    safeNack(msg);
+                    future.completeExceptionally(new NatsDeserializationException("Failed to deserialize NATS message", e));
+                } else {
+                    if (log.isDebugEnabled()) {
+                        log.debug("{} | JSON unmarshal failed seq={} → TERM/ACK and continue", logPrefix, msgSeq);
+                    }
+                    safeTermOrAck(msg);
+                }
+                return;
+            }
+            if (!filter.test(payload, msgType)) {
+                safeTermOrAck(msg);
+                if (log.isDebugEnabled()) {
+                    log.debug("{} | Non-match terminated: seq={}, subj={}, type={}", logPrefix, msgSeq, msg.getSubject(), msgType);
+                }
                 return;
             }
 
-            if (filter.test(payload, msgType)) {
-                safeAck(msg);
-                NatsMessage<T> result = NatsMessage.<T>builder()
-                        .payload(payload).subject(msg.getSubject()).type(msgType)
-                        .sequence(msgSeq).timestamp(timestamp).build();
+            safeAck(msg);
+            NatsMessage<T> result = NatsMessage.<T>builder()
+                    .payload(payload).subject(msg.getSubject()).type(msgType)
+                    .sequence(msgSeq).timestamp(timestamp).build();
 
-                if (!strategy.isCompleted()) {
-                    if (firstMatch.compareAndSet(false, true)) {
-                        strategy.onFirstMatch(result);
-                    } else {
-                        strategy.onDuplicateMatch(result);
-                    }
+            if (!strategy.isCompleted()) {
+                if (firstMatch.compareAndSet(false, true)) {
+                    strategy.onFirstMatch(result);
+                } else {
+                    strategy.onDuplicateMatch(result);
                 }
             }
         } catch (Exception e) {
@@ -308,7 +333,7 @@ class NatsSubscriber {
             else if (ex != null) {
                 log.error("{} with Exception: {}", completionLogPrefix, ex.getMessage(), ex);
             }
-            unsubscribeSafely(dispatcher, subscription, logPrefix + " on completion");
+            unsubscribeAndClose(dispatcher, subscription, logPrefix + " on completion");
         });
     }
 
@@ -317,19 +342,31 @@ class NatsSubscriber {
                                               CompletableFuture<NatsMessage<T>> future,
                                               Dispatcher dispatcher,
                                               Subscription subscription,
-                                              String logPrefix) {
-        CompletableFuture.delayedExecutor(searchTimeout.toMillis(), TimeUnit.MILLISECONDS).execute(() -> {
-            if (duplicateFound.get()) {
-                future.completeExceptionally(new NatsDuplicateMessageException("More than one message matched filter"));
-            } else {
-                NatsMessage<T> result = resultRef.get();
-                if (result != null) {
-                    future.complete(result);
+                                              String logPrefix,
+                                              Duration duplicateWindow,
+                                              AtomicLong firstMatchElapsed,
+                                              String subject) {
+        Duration window = (duplicateWindow == null || duplicateWindow.compareTo(searchTimeout) > 0)
+                ? searchTimeout : duplicateWindow;
+        CompletableFuture.delayedExecutor(window.toMillis(), TimeUnit.MILLISECONDS).execute(() -> {
+            try {
+                if (future.isDone()) return;
+                boolean duplicate = duplicateFound.get();
+                log.info("{} | subject={} firstMatchElapsedMs={} windowMs={} duplicate={}",
+                        logPrefix, subject, firstMatchElapsed.get(), window.toMillis(), duplicate);
+                if (duplicate) {
+                    future.completeExceptionally(new NatsDuplicateMessageException("More than one message matched filter"));
                 } else {
-                    future.completeExceptionally(new NatsMessageNotFoundException("No matching message found"));
+                    NatsMessage<T> result = resultRef.get();
+                    if (result != null) {
+                        future.complete(result);
+                    } else {
+                        future.completeExceptionally(new NatsMessageNotFoundException("No matching message found"));
+                    }
                 }
+            } finally {
+                unsubscribeAndClose(dispatcher, subscription, logPrefix + " on completion");
             }
-            unsubscribeSafely(dispatcher, subscription, logPrefix + " on completion");
         });
     }
 
@@ -338,6 +375,19 @@ class NatsSubscriber {
             if (msg.isJetStream()) msg.ack();
         } catch (Exception e) {
             logOnError("ACK", msg, e);
+        }
+    }
+    private void safeTermOrAck(Message msg) {
+        try {
+            if (msg.isJetStream()) {
+                try {
+                    msg.term();
+                } catch (UnsupportedOperationException | IllegalStateException ex) {
+                    msg.ack();
+                }
+            }
+        } catch (Exception e) {
+            logOnError("TERM/ACK", msg, e);
         }
     }
     private void safeNack(Message msg) {
@@ -376,6 +426,15 @@ class NatsSubscriber {
             } catch (Exception e) {
                 log.warn("{} | Error during unsubscribe: {}", context, e.getMessage());
             }
+        }
+    }
+
+    private void unsubscribeAndClose(Dispatcher d, Subscription sub, String ctx) {
+        unsubscribeSafely(d, sub, ctx);
+        try {
+            if (d != null) nc.closeDispatcher(d);
+        } catch (Exception e) {
+            log.warn("{} | closeDispatcher failed: {}", ctx, e.getMessage());
         }
     }
 }

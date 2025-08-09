@@ -17,6 +17,7 @@ public class NatsExpectationBuilder<T> {
     private BiPredicate<T, String> filter = (p, t) -> true;
     private boolean unique = false;
     private Duration timeout;
+    private Duration duplicateWindow;
 
     public NatsExpectationBuilder(NatsClient client, Class<T> messageType, Duration defaultTimeout) {
         this.client = client;
@@ -36,6 +37,13 @@ public class NatsExpectationBuilder<T> {
 
     public NatsExpectationBuilder<T> unique() {
         this.unique = true;
+        this.duplicateWindow = client.getDefaultUniqueWindow();
+        return this;
+    }
+
+    public NatsExpectationBuilder<T> unique(Duration window) {
+        this.unique = true;
+        this.duplicateWindow = window;
         return this;
     }
 
@@ -50,7 +58,8 @@ public class NatsExpectationBuilder<T> {
         }
         Duration effectiveTimeout = this.timeout != null ? this.timeout : defaultTimeout;
         CompletableFuture<NatsMessage<T>> future = unique ?
-                client.findUniqueMessageAsync(subject, messageType, filter) :
+                client.findUniqueMessageAsync(subject, messageType, filter,
+                        (duplicateWindow != null ? duplicateWindow : client.getDefaultUniqueWindow())) :
                 client.findMessageAsync(subject, messageType, filter);
         return future.orTimeout(effectiveTimeout.toMillis(), TimeUnit.MILLISECONDS);
     }
