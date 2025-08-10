@@ -79,7 +79,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
         return Stream.of(
                 arguments(NatsLimitIntervalType.DAILY, 86400),
                 arguments(NatsLimitIntervalType.WEEKLY, 604800),
-                arguments(NatsLimitIntervalType.MONTHLY, 2592000)
+                arguments(NatsLimitIntervalType.MONTHLY, 2678400)
         );
     }
 
