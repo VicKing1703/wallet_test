@@ -7,7 +7,7 @@ import java.util.Map;
 
 @Data
 @NoArgsConstructor
-public class GetCategoryResponse {
+public class GetGameCategoryResponse {
     private String id;
     private String name;
     private String alias;

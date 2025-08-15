@@ -23,21 +23,21 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Platform")
 @Feature("/categories/{uuid}")
 @Suite("Позитивный сценарий: Действия с категориями")
-@Tag("Platform") @Tag("Category")
-class GetCategoryTest extends BaseTest {
+@Tag("Platform") @Tag("GameCategory")
+class GetGameCategoryTest extends BaseTest {
 
     @Test
     @DisplayName("Получение категории по её ID")
-    void shouldCreateCategory() {
+    void shouldGetCategory() {
 
         final class TestContext {
-            CreateCategoryRequest  createCategoryRequest;
-            ResponseEntity<CreateCategoryResponse> createCategoryResponse;
-            GetCategoryRequest getCategoryIdRequest;
-            ResponseEntity<GetCategoryResponse> GetCategoryResponse;
-            String createdCategoryId;
-            DeleteCategoryRequest deleteCategoryRequest;
-            ResponseEntity<Void> deleteCategoryResponse;
+            CreateGameCategoryRequest createGameCategoryRequest;
+            ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
+            GetGameCategoryRequest getGameCategoryIdRequest;
+            ResponseEntity<GetGameCategoryResponse> getGameCategoryResponse;
+            String createdGameCategoryId;
+            DeleteGameCategoryRequest deleteGameCategoryRequest;
+            ResponseEntity<Void> deleteGameCategoryResponse;
         }
 
         final TestContext ctx = new TestContext();
@@ -48,7 +48,7 @@ class GetCategoryTest extends BaseTest {
         });
 
         step("Создание категории", () -> {
-            ctx.createCategoryRequest = CreateCategoryRequest.builder()
+            ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, 5))
                     .type(CategoryType.VERTICAL)
                     .sort(1)
@@ -57,56 +57,56 @@ class GetCategoryTest extends BaseTest {
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 5)))
                     .build();
 
-            ctx.createCategoryResponse = capAdminClient.createCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createCategoryRequest
+                    ctx.createGameCategoryRequest
             );
 
             assertAll(
                     "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createCategoryResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.createCategoryResponse.getBody().getId())
+                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
+                    () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
 
-            ctx.createdCategoryId = ctx.createCategoryResponse.getBody().getId();
+            ctx.createdGameCategoryId = ctx.createGameCategoryResponse.getBody().getId();
 
         });
 
 
         step("DB Category: проверка создания категории", () -> {
-            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdCategoryId);
+            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
             assertAll("Проверка что есть категория с uuid как у созданной",
-                    () -> assertEquals(category.getUuid(), ctx.createdCategoryId)
+                    () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
             );
         });
 
         step("Получение категории по ID", () -> {
 
-            ctx.getCategoryIdRequest = GetCategoryRequest.builder().id(ctx.createdCategoryId).build();
+            ctx.getGameCategoryIdRequest = GetGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
 
-            ctx.GetCategoryResponse = capAdminClient.getCategoryId(
-                    ctx.createdCategoryId,
+            ctx.getGameCategoryResponse = capAdminClient.getGameCategoryId(
+                    ctx.createdGameCategoryId,
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
             assertAll(
                     "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createCategoryResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getId()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getName()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getAlias()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getProjectId()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getGroupId()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getType()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getPassToCms()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getGamesCount()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getGameIds()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getStatus()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getSort()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getIsDefault()),
-                    () -> assertNotNull(ctx.GetCategoryResponse.getBody().getNames())
+                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getId()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getName()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getAlias()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getProjectId()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGroupId()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getType()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getPassToCms()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGamesCount()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGameIds()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getStatus()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getSort()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getIsDefault()),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getNames())
             );
 
             //временный костыль
@@ -116,15 +116,15 @@ class GetCategoryTest extends BaseTest {
 
             step("Постусловие: Удаление категории по ID", () -> {
 
-                ctx.deleteCategoryRequest = DeleteCategoryRequest.builder().id(ctx.createdCategoryId).build();
+                ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
 
-                ctx.deleteCategoryResponse = capAdminClient.deleteCategory(
-                        ctx.createdCategoryId,
+                ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
+                        ctx.createdGameCategoryId,
                         utils.getAuthorizationHeader(),
                         configProvider.getEnvironmentConfig().getPlatform().getNodeId()
                 );
 
-                assertEquals(HttpStatus.NO_CONTENT, ctx.deleteCategoryResponse.getStatusCode(),
+                assertEquals(HttpStatus.NO_CONTENT, ctx.deleteGameCategoryResponse.getStatusCode(),
                         "Ожидаем статус 204 No Content"
                 );
             });

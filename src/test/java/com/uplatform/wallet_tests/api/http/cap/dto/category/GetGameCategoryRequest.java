@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Builder
 @Data
-public class GetCategoryRequest {
+public class GetGameCategoryRequest {
     private String id;
 }

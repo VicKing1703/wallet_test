@@ -1,7 +1,6 @@
 package com.uplatform.wallet_tests.tests.platform.categories;
 
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
@@ -26,21 +25,21 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Platform")
 @Feature("/categories/{uuid}")
 @Suite("Позитивный сценарий: Действия с категориями")
-@Tag("Platform") @Tag("Category")
-public class PatchCategoryTest extends BaseTest {
+@Tag("Platform") @Tag("GameCategory")
+public class PatchGameCategoryTest extends BaseTest {
 
     @Test
     @DisplayName("Изменение категории")
     void shouldPatchCategory() {
 
         final class TestContext {
-            CreateCategoryRequest createCategoryRequest;
-            ResponseEntity<CreateCategoryResponse> createCategoryResponse;
-            PatchCategoryRequest patchCategoryRequest;
-            ResponseEntity<PatchCategoryResponse> patchCategoryResponse;
-            DeleteCategoryRequest deleteCategoryRequest;
-            ResponseEntity<Void> DeleteCategoryResponse;
-            String createdCategoryId;
+            CreateGameCategoryRequest createGameCategoryRequest;
+            ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
+            PatchGameCategoryRequest patchGameCategoryRequest;
+            ResponseEntity<PatchGameCategoryResponse> patchGameCategoryResponse;
+            DeleteGameCategoryRequest deleteGameCategoryRequest;
+            ResponseEntity<Void> deleteGameCategoryResponse;
+            String createdGameCategoryId;
         }
         final TestContext ctx = new TestContext();
 
@@ -50,7 +49,7 @@ public class PatchCategoryTest extends BaseTest {
         });
 
         step("Создание категории", () -> {
-            ctx.createCategoryRequest = CreateCategoryRequest.builder()
+            ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, 7))
                     .type(CategoryType.VERTICAL)
                     .sort(1)
@@ -59,49 +58,49 @@ public class PatchCategoryTest extends BaseTest {
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 7)))
                     .build();
 
-            ctx.createCategoryResponse = capAdminClient.createCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createCategoryRequest
+                    ctx.createGameCategoryRequest
             );
 
             assertAll(
                     "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createCategoryResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.createCategoryResponse.getBody().getId())
+                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
+                    () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
 
-            ctx.createdCategoryId = ctx.createCategoryResponse.getBody().getId();
+            ctx.createdGameCategoryId = ctx.createGameCategoryResponse.getBody().getId();
 
         });
 
 
         step("DB Category: проверка создания rfntujhbb", () -> {
-            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdCategoryId);
+            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
             assertAll("Проверка что есть категория с uuid как у созданной",
-                    () -> assertEquals(category.getUuid(), ctx.createdCategoryId)
+                    () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
             );
         });
 
         step("Изменение категории", () -> {
-            ctx.patchCategoryRequest = PatchCategoryRequest.builder()
+            ctx.patchGameCategoryRequest = PatchGameCategoryRequest.builder()
                     .alias(get(ALIAS, 11))
                     .type(CategoryType.VERTICAL)
                     .sort(1)
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 11)))
                     .build();
 
-            ctx.patchCategoryResponse = capAdminClient.patchCategory(
-                    ctx.createdCategoryId,
+            ctx.patchGameCategoryResponse = capAdminClient.patchGameCategory(
+                    ctx.createdGameCategoryId,
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.patchCategoryRequest
+                    ctx.patchGameCategoryRequest
             );
 
             assertAll(
                     "Проверяем тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createCategoryResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.patchCategoryResponse.getBody())
+                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
+                    () -> assertNotNull(ctx.patchGameCategoryResponse.getBody())
             );
         });
 
@@ -111,16 +110,16 @@ public class PatchCategoryTest extends BaseTest {
         });
 
         step("Постусловие: Удаление бренда по ID", () -> {
-            ctx.deleteCategoryRequest = DeleteCategoryRequest.builder().id(ctx.createdCategoryId).build();
+            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
 
-            ctx.DeleteCategoryResponse = capAdminClient.deleteCategory(
-                    ctx.createdCategoryId,
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
+                    ctx.createdGameCategoryId,
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
             assertEquals(
-                    HttpStatus.NO_CONTENT, ctx.DeleteCategoryResponse.getStatusCode(),
+                    HttpStatus.NO_CONTENT, ctx.deleteGameCategoryResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"
             );
         });

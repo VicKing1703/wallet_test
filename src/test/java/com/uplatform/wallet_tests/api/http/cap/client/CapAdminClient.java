@@ -1,12 +1,8 @@
 package com.uplatform.wallet_tests.api.http.cap.client;
 
-import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandResponse;
-import com.uplatform.wallet_tests.api.http.cap.dto.brand.GetBrandResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.CreateCategoryRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.CreateCategoryResponse;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.GetCategoryResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.category.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
@@ -111,30 +107,40 @@ public interface CapAdminClient {
     );
 
     @PostMapping("/_cap/api/v1/categories")
-    ResponseEntity<CreateCategoryResponse> createCategory(
+    ResponseEntity<CreateGameCategoryResponse> createGameCategory(
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
-            @RequestHeader("Platform-UserID") String platformUserId,
-            @RequestHeader("Platform-UserName") String platformUserName,
-            @RequestBody CreateCategoryRequest request
+            @RequestBody CreateGameCategoryRequest request
     );
 
     @GetMapping ("/_cap/api/v1/categories/{categoryId}")
-    ResponseEntity<GetCategoryResponse> getCategoryId(
+    ResponseEntity<GetGameCategoryResponse> getGameCategoryId(
             @PathVariable("categoryId") String categoryId,
             @RequestHeader("Authorization") String authorizationHeader,
-            @RequestHeader("Platform-NodeID") String platformNodeId,
-            @RequestHeader("Platform-UserID") String platformUserId,
-            @RequestHeader("Platform-UserName") String platformUserName
+            @RequestHeader("Platform-NodeID") String platformNodeId
     );
 
     @DeleteMapping("/_cap/api/v1/categories/{categoryId}")
-    ResponseEntity<Void> deleteCategory(
+    ResponseEntity<Void> deleteGameCategory(
+            @PathVariable("categoryId") String categoryId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId
+    );
+
+    @PatchMapping("/_cap/api/v1/categories/{categoryId}")
+    ResponseEntity<PatchGameCategoryResponse> patchGameCategory(
             @PathVariable("categoryId") String categoryId,
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
-            @RequestHeader("Platform-UserID") String platformUserId,
-            @RequestHeader("Platform-UserName") String platformUserName
+            @RequestBody PatchGameCategoryRequest request
+    );
+
+    @PostMapping("/_cap/api/v1/categories/{categoryId}/bind-game")
+    ResponseEntity<Void> bindGameCategory(
+            @PathVariable("categoryId") String categoryId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody BindGameCategoryRequest request
     );
 
     @PostMapping("/_cap/api/v1/brands")
@@ -148,18 +154,30 @@ public interface CapAdminClient {
     ResponseEntity<GetBrandResponse> getBrandId(
             @PathVariable("brandId") String brandId,
             @RequestHeader("Authorization") String authorizationHeader,
-            @RequestHeader("Platform-NodeID") String platformNodeId,
-            @RequestHeader("Platform-UserID") String platformUserId,
-            @RequestHeader("Platform-UserName") String platformUserName
+            @RequestHeader("Platform-NodeID") String platformNodeId
     );
 
     @DeleteMapping("/_cap/api/v1/brands/{brandId}")
     ResponseEntity<Void> deleteBrand(
             @PathVariable("brandId") String brandId,
             @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId
+    );
+
+    @PatchMapping("/_cap/api/v1/brands/{brandId}")
+    ResponseEntity<PatchBrandResponse> patchBrand(
+            @PathVariable("brandId") String brandId,
+            @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
-            @RequestHeader("Platform-UserID") String platformUserId,
-            @RequestHeader("Platform-UserName") String platformUserName
+            @RequestBody PatchBrandRequest request
+    );
+
+    @PostMapping("/_cap/api/v1/brands/{brandId}/bind-game")
+    ResponseEntity<Void> bindGameBrand(
+            @PathVariable("brandId") String brandId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody BindGameBrandRequest request
     );
 
 }

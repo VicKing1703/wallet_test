@@ -23,19 +23,19 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Platform")
 @Feature("/categories/{uuid}")
 @Suite("Позитивный сценарий: Действия с категориями")
-@Tag("Platform") @Tag("Category")
-public class DeleteCategoryTest extends BaseTest{
+@Tag("Platform") @Tag("GameCategory")
+public class DeleteGameCategoryTest extends BaseTest{
 
     @Test
     @DisplayName("Удаление категории по её ID")
-    void shouldCreateCategory() {
+    void shouldDeleteGameCategory() {
 
         final class TestContext {
-            CreateCategoryRequest createCategoryRequest;
-            ResponseEntity<CreateCategoryResponse> createCategoryResponse;
-            DeleteCategoryRequest deleteCategoryRequest;
-            ResponseEntity<Void> deleteCategoryResponse;
-            String createdCategoryId;
+            CreateGameCategoryRequest createGameCategoryRequest;
+            ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
+            DeleteGameCategoryRequest deleteGameCategoryRequest;
+            ResponseEntity<Void> deleteGameCategoryResponse;
+            String createdGameCategoryId;
         }
         final TestContext ctx = new TestContext();
 
@@ -45,7 +45,7 @@ public class DeleteCategoryTest extends BaseTest{
         });
 
         step("Создание категории", () -> {
-            ctx.createCategoryRequest = CreateCategoryRequest.builder()
+            ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, 5))
                     .type(CategoryType.VERTICAL)
                     .sort(1)
@@ -54,42 +54,42 @@ public class DeleteCategoryTest extends BaseTest{
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 5)))
                     .build();
 
-            ctx.createCategoryResponse = capAdminClient.createCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createCategoryRequest
+                    ctx.createGameCategoryRequest
             );
 
             assertAll(
                     "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createCategoryResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.createCategoryResponse.getBody().getId())
+                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
+                    () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
 
-            ctx.createdCategoryId = ctx.createCategoryResponse.getBody().getId();
+            ctx.createdGameCategoryId = ctx.createGameCategoryResponse.getBody().getId();
 
         });
 
 
         step("DB Category: проверка создания rfntujhbb", () -> {
-            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdCategoryId);
+            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
             assertAll("Проверка что есть категория с uuid как у созданной",
-                    () -> assertEquals(category.getUuid(), ctx.createdCategoryId)
+                    () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
             );
         });
 
         step("Удаление категории по ID", () -> {
-            ctx.deleteCategoryRequest = DeleteCategoryRequest.builder()
-                    .id(ctx.createdCategoryId)
+            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder()
+                    .id(ctx.createdGameCategoryId)
                     .build();
 
-            ctx.deleteCategoryResponse = capAdminClient.deleteCategory(
-                    ctx.createdCategoryId,
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
+                    ctx.createdGameCategoryId,
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
-            assertEquals(HttpStatus.NO_CONTENT, ctx.deleteCategoryResponse.getStatusCode(),
+            assertEquals(HttpStatus.NO_CONTENT, ctx.deleteGameCategoryResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"
             );
         });

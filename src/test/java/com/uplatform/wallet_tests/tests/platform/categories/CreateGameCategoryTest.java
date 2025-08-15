@@ -1,8 +1,8 @@
 package com.uplatform.wallet_tests.tests.platform.categories;
 
-import com.uplatform.wallet_tests.api.http.cap.dto.category.CreateCategoryRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.CreateCategoryResponse;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.DeleteCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.category.CreateGameCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.category.CreateGameCategoryResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.category.DeleteGameCategoryRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
@@ -28,8 +28,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Platform")
 @Feature("/categories")
 @Suite("Позитивный сценарий: Действия с категориями")
-@Tag("Platform") @Tag("Category")
-class CreateCategoryParameterizedTest extends BaseParameterizedTest {
+@Tag("Platform") @Tag("GameCategory")
+class CreateGameCategoryParameterizedTest extends BaseParameterizedTest {
 
     static Stream<Arguments> categoryParamsProvider() {
         return Stream.of(
@@ -53,11 +53,11 @@ class CreateCategoryParameterizedTest extends BaseParameterizedTest {
     void shouldCreateCategory(CategoryType categoryType, Integer titleLengths, Integer aliasLengths) {
 
         final class TestContext {
-            CreateCategoryRequest  createCategoryRequest;
-            ResponseEntity<CreateCategoryResponse> createCategoryResponse;
-            DeleteCategoryRequest deleteCategoryRequest;
-            ResponseEntity<Void> deleteCategoryResponse;
-            String createdCategoryId;
+            CreateGameCategoryRequest createGameCategoryRequest;
+            ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
+            DeleteGameCategoryRequest deleteGameCategoryRequest;
+            ResponseEntity<Void> deleteGameCategoryResponse;
+            String createdGameCategoryId;
         }
 
         final TestContext ctx = new TestContext();
@@ -68,7 +68,7 @@ class CreateCategoryParameterizedTest extends BaseParameterizedTest {
         });
 
         step("Создание новой категории", () -> {
-            ctx.createCategoryRequest = CreateCategoryRequest.builder()
+            ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, aliasLengths))
                     .type(categoryType)
                     .sort(1)
@@ -77,40 +77,40 @@ class CreateCategoryParameterizedTest extends BaseParameterizedTest {
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, titleLengths)))
                     .build();
 
-            ctx.createCategoryResponse = capAdminClient.createCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createCategoryRequest
+                    ctx.createGameCategoryRequest
             );
 
             assertAll(
               "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createCategoryResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.createCategoryResponse.getBody().getId())
+                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
+                    () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
 
-            ctx.createdCategoryId = ctx.createCategoryResponse.getBody().getId();
+            ctx.createdGameCategoryId = ctx.createGameCategoryResponse.getBody().getId();
 
         });
 
 
         step("DB Category: проверка создания rfntujhbb", () -> {
-            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdCategoryId);
+            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
             assertAll("Проверка что есть категория с uuid как у созданной",
-                    () -> assertEquals(category.getUuid(), ctx.createdCategoryId)
+                    () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
             );
         });
 
         step("Постусловие: Удаление категории по ID", () -> {
-            ctx.deleteCategoryRequest = DeleteCategoryRequest.builder().id(ctx.createdCategoryId).build();
+            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
 
-            ctx.deleteCategoryResponse = capAdminClient.deleteCategory(
-                    ctx.createdCategoryId,
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
+                    ctx.createdGameCategoryId,
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
-            assertEquals(HttpStatus.NO_CONTENT, ctx.deleteCategoryResponse.getStatusCode(),
+            assertEquals(HttpStatus.NO_CONTENT, ctx.deleteGameCategoryResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"
             );
         });

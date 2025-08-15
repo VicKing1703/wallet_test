@@ -1,14 +1,8 @@
 package com.uplatform.wallet_tests.api.db;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.uplatform.wallet_tests.api.db.entity.core.CoreGame;
-import com.uplatform.wallet_tests.api.db.entity.core.CoreGameSession;
-import com.uplatform.wallet_tests.api.db.entity.core.CoreWallet;
-import com.uplatform.wallet_tests.api.db.entity.core.GameProvider;
-import com.uplatform.wallet_tests.api.db.repository.core.CoreGameProviderRepository;
-import com.uplatform.wallet_tests.api.db.repository.core.CoreGameRepository;
-import com.uplatform.wallet_tests.api.db.repository.core.CoreGameSessionRepository;
-import com.uplatform.wallet_tests.api.db.repository.core.CoreWalletRepository;
+import com.uplatform.wallet_tests.api.db.entity.core.*;
+import com.uplatform.wallet_tests.api.db.repository.core.*;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -23,19 +17,25 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
     private final CoreGameRepository coreGameRepository;
     private final CoreWalletRepository coreWalletRepository;
     private final CoreGameProviderRepository coreGameProviderRepository;
-    
+    private final CoreBrandRepository coreBrandRepository;
+    private final CoreGameCategoryRepository coreGameCategoryRepository;
 
     public CoreDatabaseClient(AllureAttachmentService attachmentService,
                               CoreGameSessionRepository coreGameSessionRepository,
                               CoreGameRepository coreGameRepository,
                               CoreWalletRepository coreWalletRepository,
                               CoreGameProviderRepository coreGameProviderRepository,
+                              CoreBrandRepository coreBrandRepository,
+                              CoreGameCategoryRepository coreGameCategoryRepository,
                               ObjectMapper objectMapper) {
         super(attachmentService);
         this.coreGameSessionRepository = coreGameSessionRepository;
         this.coreGameRepository = coreGameRepository;
         this.coreWalletRepository = coreWalletRepository;
         this.coreGameProviderRepository = coreGameProviderRepository;
+        this.coreBrandRepository = coreBrandRepository;
+        this.coreGameCategoryRepository = coreGameCategoryRepository;
+
     }
 
     public CoreGameSession findLatestGameSessionByPlayerUuidOrFail(String playerUuid) {
@@ -70,6 +70,26 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
 
         Supplier<Optional<GameProvider>> querySupplier = () ->
                 coreGameProviderRepository.findById(providerId);
+
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+    }
+
+    public CoreBrand findBrandByUuidOrFail(String uuid) {
+        String description = String.format("core brand record by uuid '%s'", uuid);
+        String attachmentNamePrefix = String.format("Core CoreBrand Record [uuid: %s]", uuid);
+
+        Supplier<Optional<CoreBrand>> querySupplier = () ->
+                coreBrandRepository.findByUuid(uuid);
+
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+    }
+
+    public CoreGameCategory findCategoryByUuidOrFail(String uuid) {
+        String description = String.format("core Category record by uuid '%s'", uuid);
+        String attachmentNamePrefix = String.format("Core CoreCategory Record [uuid: %s]", uuid);
+
+        Supplier<Optional<CoreGameCategory>> querySupplier = () ->
+                coreGameCategoryRepository.findByUuid(uuid);
 
         return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }

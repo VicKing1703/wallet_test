@@ -9,7 +9,7 @@ import java.util.Map;
 
 @Builder
 @Data
-public class CreateCategoryRequest {
+public class CreateGameCategoryRequest {
     private Integer sort;
     private String alias;
     private CategoryType type;

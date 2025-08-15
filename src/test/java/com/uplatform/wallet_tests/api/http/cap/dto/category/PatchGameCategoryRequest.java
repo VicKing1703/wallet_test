@@ -8,7 +8,7 @@ import java.util.Map;
 
 @Builder
 @Data
-public class PatchCategoryRequest {
+public class PatchGameCategoryRequest {
     private Integer sort;
     private String alias;
     private CategoryType type;

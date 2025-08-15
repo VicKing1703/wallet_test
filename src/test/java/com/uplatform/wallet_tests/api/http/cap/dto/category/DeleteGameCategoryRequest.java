@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Builder
 @Data
-public class DeleteCategoryRequest {
+public class DeleteGameCategoryRequest {
     private String id;
 }

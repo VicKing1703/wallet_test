@@ -1,9 +1,6 @@
 package com.uplatform.wallet_tests.tests.platform.brands;
 
-import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandResponse;
-import com.uplatform.wallet_tests.api.http.cap.dto.brand.GetBrandRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.brand.GetBrandResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -16,17 +13,17 @@ import org.springframework.http.ResponseEntity;
 import java.util.Map;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.*;
+import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.*;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Severity(SeverityLevel.CRITICAL)
-@Epic("Gambling")
+@Epic("Platform")
 @Feature("/brand/{uuid}")
 @Suite("Позитивный сценарий: Действия с брендами")
-@Tag("Platform")
+@Tag("Platform") @Tag("Brand")
 class GetBrandTest extends BaseTest {
-
-    private String createdBrandId;
 
     @Test
     @DisplayName("Получение бренда по его ID")
@@ -37,45 +34,51 @@ class GetBrandTest extends BaseTest {
             ResponseEntity<CreateBrandResponse> createBrandResponse;
             GetBrandRequest getBrandRequest;
             ResponseEntity<GetBrandResponse> GetBrandResponse;
+            DeleteBrandRequest deleteBrandRequest;
+            ResponseEntity<Void> DeleteBrandResponse;
+            String createdBrandId;
         }
         final TestContext ctx = new TestContext();
 
         step("Создание бренда", () -> {
             ctx.createBrandRequest = CreateBrandRequest.builder()
                     .sort(1)
-                    .alias(get(ALIAS))
-                    .names(Map.of(LangEnum.RUSSIAN, get(BRAND_TITLE, 5)))
-                    .description("Пока оставлю так")
+                    .alias(get(ALIAS, 5))
+                    .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 5)))
+                    .description(get(LETTERS, 5))
                     .build();
 
             ctx.createBrandResponse = capAdminClient.createBrand(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createBrandRequest);
+                    ctx.createBrandRequest
+            );
 
             assertAll(
                     "Проверяю тело ответа",
                     () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode()),
                     () -> assertNotNull(ctx.createBrandResponse.getBody().getId())
             );
-            createdBrandId = ctx.createBrandResponse.getBody().getId();
+
+            ctx.createdBrandId = ctx.createBrandResponse.getBody().getId();
+
         });
 
-        step("Создан бренд с ID: " + createdBrandId);
-
-        step("Ожидание перед удалением (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
+        step("DB Brand: проверка создания бренда", () -> {
+            var brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createdBrandId);
+            assertAll("Проверка ",
+                    () -> assertEquals(brand.getUuid(), ctx.createdBrandId)
+            );
         });
 
         step("Получение бренда по ID", () -> {
-            ctx.getBrandRequest = GetBrandRequest.builder().id(createdBrandId).build();
+            ctx.getBrandRequest = GetBrandRequest.builder().id(ctx.createdBrandId).build();
 
             ctx.GetBrandResponse = capAdminClient.getBrandId(
-                    createdBrandId,
+                    ctx.createdBrandId,
                     utils.getAuthorizationHeader(),
-                    configProvider.getEnvironmentConfig().getPlatform().getGroupId(),
-                    configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    configProvider.getEnvironmentConfig().getApi().getCapCredentials().getUsername());
+                    configProvider.getEnvironmentConfig().getPlatform().getNodeId()
+            );
 
             assertAll(
                     "Проверяю тело ответа",
@@ -96,6 +99,26 @@ class GetBrandTest extends BaseTest {
                     () -> assertNotNull(ctx.GetBrandResponse.getBody().getColorLogo())
             );
 
+        });
+
+        //временный костыль
+        step("Ожидание перед удалением (для избежания deadlock)", () -> {
+            Thread.sleep(2000); // пауза 2 секунды
+        });
+
+        step("Постусловие: Удаление бренда по ID", () -> {
+            ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createdBrandId).build();
+
+            ctx.DeleteBrandResponse = capAdminClient.deleteBrand(
+                    ctx.createdBrandId,
+                    utils.getAuthorizationHeader(),
+                    configProvider.getEnvironmentConfig().getPlatform().getNodeId()
+            );
+
+            assertEquals(
+                    HttpStatus.NO_CONTENT, ctx.DeleteBrandResponse.getStatusCode(),
+                    "Ожидаем статус 204 No Content"
+            );
         });
     }
 }

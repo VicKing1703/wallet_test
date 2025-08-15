@@ -13,17 +13,16 @@ import org.springframework.http.ResponseEntity;
 import java.util.Map;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.*;
+import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.*;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Severity(SeverityLevel.CRITICAL)
-@Epic("Gambling")
+@Epic("Platform")
 @Feature("/brand/{uuid}")
 @Suite("Позитивный сценарий: Действия с брендами")
-@Tag("Platform")
+@Tag("Platform") @Tag("Brand")
 class DeleteBrandTest extends BaseTest {
-
-    private String createdBrandId;
 
     @Test
     @DisplayName("Удаление бренда по его ID")
@@ -34,47 +33,55 @@ class DeleteBrandTest extends BaseTest {
             ResponseEntity<CreateBrandResponse> createBrandResponse;
             DeleteBrandRequest deleteBrandRequest;
             ResponseEntity<Void> DeleteBrandResponse;
+            String createdBrandId;
         }
         final TestContext ctx = new TestContext();
 
         step("Создание бренда", () -> {
             ctx.createBrandRequest = CreateBrandRequest.builder()
                     .sort(1)
-                    .alias(get(ALIAS))
-                    .names(Map.of(LangEnum.RUSSIAN, get(BRAND_TITLE, 5)))
-                    .description("Пока оставлю так")
+                    .alias(get(ALIAS, 3))
+                    .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 3)))
+                    .description(get(LETTERS, 3))
                     .build();
 
             ctx.createBrandResponse = capAdminClient.createBrand(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createBrandRequest);
+                    ctx.createBrandRequest
+            );
 
             assertAll(
                     "Проверяю тело ответа",
                     () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.createBrandResponse.getBody().getId())
+                    () -> assertNotNull(ctx.createBrandResponse.getBody().getId(),
+                            "ID бренда не должен быть NULL"
+                    )
             );
-            createdBrandId = ctx.createBrandResponse.getBody().getId();
+
+            ctx.createdBrandId = ctx.createBrandResponse.getBody().getId();
+
         });
 
-        step("Создан бренд с ID: " + createdBrandId);
-
-        step("Ожидание перед удалением (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
+        step("DB Brand: проверка создания бренда", () -> {
+            var brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createdBrandId);
+            assertAll("Проверка ",
+                    () -> assertEquals(brand.getUuid(), ctx.createdBrandId)
+            );
         });
 
         step("Удаление бренда по ID", () -> {
-            ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(createdBrandId).build();
+            ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createdBrandId).build();
 
             ctx.DeleteBrandResponse = capAdminClient.deleteBrand(
-                    createdBrandId,
+                    ctx.createdBrandId,
                     utils.getAuthorizationHeader(),
-                    configProvider.getEnvironmentConfig().getPlatform().getGroupId(),
-                    configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    configProvider.getEnvironmentConfig().getApi().getCapCredentials().getUsername());
+                    configProvider.getEnvironmentConfig().getPlatform().getNodeId()
+            );
 
-            assertEquals(HttpStatus.NO_CONTENT, ctx.DeleteBrandResponse.getStatusCode(), "Ожидаем статус 204 No Content");
+            assertEquals(HttpStatus.NO_CONTENT, ctx.DeleteBrandResponse.getStatusCode(),
+                    "Ожидаем статус 204 No Content"
+            );
         });
     }
 }

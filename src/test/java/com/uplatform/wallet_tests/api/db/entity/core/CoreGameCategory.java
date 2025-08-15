@@ -15,7 +15,7 @@ import java.util.Map;
 @Setter
 @NoArgsConstructor
 @ToString
-public class CoreCategory {
+public class CoreGameCategory {
 
     @Id
     @Column(nullable = false)
