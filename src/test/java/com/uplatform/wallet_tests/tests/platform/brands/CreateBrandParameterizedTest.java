@@ -6,7 +6,7 @@ import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.DeleteBrandRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandCreateEvent;
-import com.uplatform.wallet_tests.api.kafka.dto.enums.BrandEventType;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.enums.BrandEventType;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import io.qameta.allure.*;
@@ -104,7 +104,7 @@ class CreateBrandParameterizedTest extends BaseParameterizedTest {
 
         step("2. DB Brand: проверка создания бренда", () -> {
             ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createBrandResponse.getBody().getId());
-            assertAll("Проверка что есть бренд с uuid как у созданного",
+            assertAll("Проверка записи в БД",
                     () -> assertEquals(ctx.brand.getUuid(), ctx.createBrandResponse.getBody().getId(),
                             "Uuid из ответа и в БД должны быть одинаковые")
             );
@@ -130,14 +130,13 @@ class CreateBrandParameterizedTest extends BaseParameterizedTest {
                             ctx.brandEvent.getBrand().getLocalized_names(),
                             "Localized names в Kafka должны совпадать с запросом"),
                     () -> assertEquals(ctx.brand.getCreatedAt(), ctx.brandEvent.getBrand().getCreated_at(),
-                            "Поле created_at не должно быть пустым"),
+                            "Поле created_at как и в БД"),
                     () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                             ctx.brandEvent.getBrand().getProject_id(),
                             "project_id должен соответствовать с platform-nodeid из хедера запроса"),
                     () -> assertFalse(ctx.brandEvent.getBrand().getStatus_enabled(),
                             "статус созданного бренда по умолчанию должен быть false")
             );
-
         });
 
         step("4. Постусловие: Удаление бренда по ID", () -> {

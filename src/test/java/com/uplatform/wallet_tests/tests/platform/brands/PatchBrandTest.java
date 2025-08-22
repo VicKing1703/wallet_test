@@ -1,8 +1,12 @@
 package com.uplatform.wallet_tests.tests.platform.brands;
 
 import com.uplatform.wallet_tests.allure.Suite;
+import com.uplatform.wallet_tests.api.db.entity.core.CoreBrand;
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandCreateEvent;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandUpdateEvent;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.enums.BrandEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
@@ -31,6 +35,9 @@ import static org.junit.jupiter.api.Assertions.*;
  *  {@link CreateBrandParameterizedTest}</li>
  *      <li><b>Изменение данных бренда:</b>
  *  Изменение названия, алиаса и описание бренда по API CAP, по ручке {@code PATCH  /_cap/api/v1/brands/{uuid}}</li>
+ *  <li><b>Поиск сообщения в Кафке о создании бренда.</b>
+ *  Проверяем в топике {@code core.gambling.v1.Brand} сообщение об изменении бренда, что его uuid соответствуют,
+ *  передаётся дата обновления, правильный алиас, статус, uuid ноды и названия </li>
  *      <li><b>Постусловие. Удаление созданного бренда.</b> {@link DeleteBrandTest}</li>
  * </ol>
  */
@@ -38,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Platform")
 @Feature("/brands/{uuid}")
 @Suite("Позитивный сценарий: Действия с брендами")
-@Tag("Platform") @Tag("Brands")
+@Tag("Platform") @Tag("Brands") @Tag("UpdateBrand")
 public class PatchBrandTest extends BaseTest {
 
     @Test
@@ -53,6 +60,8 @@ public class PatchBrandTest extends BaseTest {
             DeleteBrandRequest deleteBrandRequest;
             ResponseEntity<Void> DeleteBrandResponse;
             String createdBrandId;
+            BrandUpdateEvent brandEvent;
+            CoreBrand brand;
         }
         final TestContext ctx = new TestContext();
 
@@ -71,23 +80,23 @@ public class PatchBrandTest extends BaseTest {
             );
 
             assertAll(
-                    "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.createBrandResponse.getBody().getId())
+                    "Проверка тела ответа",
+                    () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode(),
+                            "Код ответа должен быть 200 ОК"),
+                    () -> assertNotNull(ctx.createBrandResponse.getBody().getId(),
+                            "В теле ответа должен быть uuid созданного бренда")
             );
-
-            ctx.createdBrandId = ctx.createBrandResponse.getBody().getId();
-
         });
 
         step("2. Предусловие. DB Brand: проверка создания бренда", () -> {
-            var brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createdBrandId);
-            assertAll("Проверка ",
-                    () -> assertEquals(brand.getUuid(), ctx.createdBrandId)
+            ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createBrandResponse.getBody().getId());
+            assertAll("Проверка записи в БД",
+                    () -> assertEquals(ctx.brand.getUuid(), ctx.createBrandResponse.getBody().getId(),
+                            "Uuid из ответа и в БД должны быть одинаковые")
             );
         });
 
-        step("3. Предусловие. Изменение бренда", () -> {
+        step("3. Изменение бренда", () -> {
             ctx.patchBrandRequest = PatchBrandRequest.builder()
                     .sort(1)
                     .alias(get(ALIAS, 11))
@@ -104,12 +113,42 @@ public class PatchBrandTest extends BaseTest {
 
             assertAll(
                     "Проверяем ответ",
-                    () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode()),
+                    () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode(),
+                            "Ожидался код 200, но получен: " + ctx.createBrandResponse.getStatusCode()),
                     () -> assertNotNull(ctx.patchBrandResponse.getBody())
             );
         });
 
-        step("4. Постусловие. Удаление бренда по ID", () -> {
+        step("4. Kafka: platform отправляет сообщение о создании бренда в Kafka", () -> {
+            ctx.brandEvent = kafkaClient.expect(BrandUpdateEvent.class)
+                    .with("message.eventType", BrandEventType.BRAND_UPDATED.getValue())
+                    .with("brand.uuid", ctx.createBrandResponse.getBody().getId())
+                    .fetch();
+
+            assertAll("Проверяем сообщение в Kafka",
+                    () -> assertNotNull(ctx.brandEvent, "Должно быть сообщение из Kafka"),
+                    () -> assertEquals(BrandEventType.BRAND_CREATED, ctx.brandEvent.getMessage().getEventType(),
+                            "Тип события в Kafka должен быть gambling.gameBrandCreated"),
+                    () -> assertEquals(ctx.createBrandResponse.getBody().getId(),
+                            ctx.brandEvent.getBrand().getUuid(),
+                            "UUID бренда в Kafka должен совпадать с UUID из ответа"),
+                    () -> assertEquals(ctx.createBrandRequest.getAlias(),
+                            ctx.brandEvent.getBrand().getAlias(),
+                            "Алиас в Kafka должен совпадать с алиасом из запроса"),
+                    () -> assertEquals(ctx.createBrandRequest.getNames(),
+                            ctx.brandEvent.getBrand().getLocalized_names(),
+                            "Localized names в Kafka должны совпадать с запросом"),
+                    () -> assertEquals(ctx.brand.getUpdatedAt(), ctx.brandEvent.getBrand().getUpdated_at(),
+                            "Поле updated_at как и в БД"),
+                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
+                            ctx.brandEvent.getBrand().getProject_id(),
+                            "project_id должен соответствовать с platform-nodeid из хедера запроса"),
+                    () -> assertFalse(ctx.brandEvent.getBrand().getStatus_enabled(),
+                            "статус созданного бренда по умолчанию должен быть false")
+            );
+        });
+
+        step("5. Постусловие. Удаление бренда по ID", () -> {
             ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createdBrandId).build();
 
             ctx.DeleteBrandResponse = capAdminClient.deleteBrand(

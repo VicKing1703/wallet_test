@@ -14,5 +14,5 @@ public class BrandDeletePayload {
     private String uuid;
 
     @JsonProperty("deleted_at")
-    private Long deleted_at;
+    private Integer deleted_at;
 }

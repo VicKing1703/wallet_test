@@ -29,5 +29,5 @@ public class BrandUpdatePayload {
     private Boolean status_enabled;
 
     @JsonProperty("updated_at")
-    private Long updated_at;
+    private Integer updated_at;
 }

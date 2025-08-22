@@ -1,4 +1,4 @@
-package com.uplatform.wallet_tests.api.kafka.dto.enums;
+package com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
