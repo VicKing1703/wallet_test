@@ -20,9 +20,23 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Этот тест проверяет API CAP на успешность изменение бренда.
+ *
+ * <h3> Сценарий: Успешное изменение бренда.</h3>
+ * <ol>
+ *      <li><b>Предусловие. Создание бренда.</b>
+ *  {@link CreateBrandParameterizedTest}</li>
+ *      <li><b>Предусловие. Нахождение созданной бренда в БД.</b>
+ *  {@link CreateBrandParameterizedTest}</li>
+ *      <li><b>Изменение данных бренда:</b>
+ *  Изменение названия, алиаса и описание бренда по API CAP, по ручке {@code PATCH  /_cap/api/v1/brands/{uuid}}</li>
+ *      <li><b>Постусловие. Удаление созданного бренда.</b> {@link DeleteBrandTest}</li>
+ * </ol>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
-@Feature("/brand/{uuid}")
+@Feature("/brands/{uuid}")
 @Suite("Позитивный сценарий: Действия с брендами")
 @Tag("Platform") @Tag("Brands")
 public class PatchBrandTest extends BaseTest {
@@ -42,7 +56,7 @@ public class PatchBrandTest extends BaseTest {
         }
         final TestContext ctx = new TestContext();
 
-        step("Создание бренда", () -> {
+        step("1. Предусловие.Создание бренда", () -> {
             ctx.createBrandRequest = CreateBrandRequest.builder()
                     .sort(1)
                     .alias(get(ALIAS, 5))
@@ -66,16 +80,16 @@ public class PatchBrandTest extends BaseTest {
 
         });
 
-        step("DB Brand: проверка создания бренда", () -> {
+        step("2. Предусловие. DB Brand: проверка создания бренда", () -> {
             var brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createdBrandId);
             assertAll("Проверка ",
                     () -> assertEquals(brand.getUuid(), ctx.createdBrandId)
             );
         });
 
-        step("Изменение бренда", () -> {
+        step("3. Предусловие. Изменение бренда", () -> {
             ctx.patchBrandRequest = PatchBrandRequest.builder()
-                    .sort(11)
+                    .sort(1)
                     .alias(get(ALIAS, 11))
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 11)))
                     .description(get(LETTERS, 11))
@@ -89,18 +103,13 @@ public class PatchBrandTest extends BaseTest {
             );
 
             assertAll(
-                    "Проверяем тело ответа",
+                    "Проверяем ответ",
                     () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode()),
                     () -> assertNotNull(ctx.patchBrandResponse.getBody())
             );
         });
 
-        //временный костыль
-        step("Ожидание (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
-        });
-
-        step("Постусловие: Удаление бренда по ID", () -> {
+        step("4. Постусловие. Удаление бренда по ID", () -> {
             ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createdBrandId).build();
 
             ctx.DeleteBrandResponse = capAdminClient.deleteBrand(

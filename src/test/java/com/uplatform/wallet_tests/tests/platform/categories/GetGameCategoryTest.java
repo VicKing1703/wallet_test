@@ -19,6 +19,21 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.Ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Этот тест проверяет API CAP на получение данных игровой категории.
+ *
+ * <h3> Сценарий: Успешное получение информации о игровой категории.</h3>
+ * <ol>
+ *      <li><b>Предусловие. Создание новой категории.</b>
+ *  {@link CreateGameCategoryParameterizedTest}</li>
+ *      <li><b>Предусловие. Нахождение созданной категории в БД.</b>
+ *  {@link CreateGameCategoryParameterizedTest}</li>
+ *      <li><b>Получение информации по категории:</b>
+ *  Получение информации о категории по API CAP, по ручке {@code GET  /_cap/api/v1/categories/{uuid}}.
+ *  В ответе есть все обязательные поля</li>
+ *      <li><b>Постусловие. Удаление созданной категории.</b> {@link DeleteGameCategoryTest}</li>
+ * </ol>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
 @Feature("/categories/{uuid}")
@@ -42,12 +57,7 @@ class GetGameCategoryTest extends BaseTest {
 
         final TestContext ctx = new TestContext();
 
-        // Временный костыль. Надо подумать, т.к. дедлок срабатывает и при создании новой категории
-        step("Ожидание перед удалением (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
-        });
-
-        step("Создание категории", () -> {
+        step("1. Предусловие. Cоздание категории", () -> {
             ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, 5))
                     .type(CategoryType.VERTICAL)
@@ -64,7 +74,7 @@ class GetGameCategoryTest extends BaseTest {
             );
 
             assertAll(
-                    "Проверяю тело ответа",
+                    "Проверяем код ответа и тело ответа",
                     () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
                     () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
@@ -74,14 +84,14 @@ class GetGameCategoryTest extends BaseTest {
         });
 
 
-        step("DB Category: проверка создания категории", () -> {
+        step("2. Предусловие. DB Category: проверка создания категории", () -> {
             var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
             assertAll("Проверка что есть категория с uuid как у созданной",
                     () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
             );
         });
 
-        step("Получение категории по ID", () -> {
+        step("3. Получение категории по ID", () -> {
 
             ctx.getGameCategoryIdRequest = GetGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
 
@@ -92,29 +102,38 @@ class GetGameCategoryTest extends BaseTest {
             );
 
             assertAll(
-                    "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getId()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getName()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getAlias()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getProjectId()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGroupId()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getType()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getPassToCms()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGamesCount()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGameIds()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getStatus()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getSort()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getIsDefault()),
-                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getNames())
+                    "Проверяем код ответа тело ответа",
+                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode(),
+                            "Ожидаем статус 200 ОК"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getId(),
+                            "Ожидаем uuid в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getName(),
+                            "Ожидаем имя (name) в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getAlias(),
+                            "Ожидаем аливас (alias) в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getProjectId(),
+                            "Ожидаем uuid проекта (projectId) в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGroupId(),
+                            "Ожидаем uuid группы проектов (groupId) в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getType(),
+                            "Ожидаем type в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getPassToCms(),
+                            "Ожидаем getPassToCms в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGamesCount(),
+                            "Ожидаем количество игр (gamesCount) в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGameIds(),
+                            "Ожидаем список игр (gamesIds) в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getStatus(),
+                            "Ожидаем status в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getSort(),
+                            "Ожидаем Sort в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getIsDefault(),
+                            "Ожидаем IsDefault в теле"),
+                    () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getNames(),
+                            "Ожидаем словарь имён в транслите (names) в теле")
             );
 
-            //временный костыль
-            step("Ожидание перед удалением (для избежания deadlock)", () -> {
-                Thread.sleep(2000); // пауза 2 секунды
-            });
-
-            step("Постусловие: Удаление категории по ID", () -> {
+            step("4. Постусловие. Удаление категории по ID", () -> {
 
                 ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
 

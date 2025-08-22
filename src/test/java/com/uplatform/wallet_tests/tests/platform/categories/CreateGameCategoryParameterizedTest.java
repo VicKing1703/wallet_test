@@ -24,6 +24,20 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.Ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Этот параметризированный тест проверяет API CAP на успешность создания игровых категорий типов:
+ * вертикальная, горизонтальная и навигационная панель.
+ *
+ * <h3> Сценарий: Успешное создание игровой категории.</h3>
+ * <ol>
+ *      <li><b>Создание новой категории:</b>
+ *  Создание новой категории через CAP, по ручке {@code POST /_cap/api/v1/categories}.
+ *  В ответе код 200 и уникеальный uuid созданной категории</li>
+ *      <li><b>Нахождение созданной категории в БД:</b>
+ *  В БД {@code `_core`.game_category} есть запись с uuid из ответа на создание категории</li>
+ *      <li><b>Постусловие: удаление созданной категории.</b> {@link DeleteGameCategoryTest}</li>
+ * </ol>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
 @Feature("/categories")
@@ -50,7 +64,7 @@ class CreateGameCategoryParameterizedTest extends BaseParameterizedTest {
     @ParameterizedTest(name = "Создание категории: название = {0}, длина названия = {1}, алиаса = {2}")
     @MethodSource("categoryParamsProvider")
     @DisplayName("Создание категории")
-    void shouldCreateCategory(CategoryType categoryType, Integer titleLengths, Integer aliasLengths) {
+    void shouldCreateGameCategory(CategoryType categoryType, Integer titleLengths, Integer aliasLengths) {
 
         final class TestContext {
             CreateGameCategoryRequest createGameCategoryRequest;
@@ -62,12 +76,7 @@ class CreateGameCategoryParameterizedTest extends BaseParameterizedTest {
 
         final TestContext ctx = new TestContext();
 
-        // Временный костыль. Надо подумать, т.к. дедлок срабатывает и при создании новой категории
-        step("Ожидание перед удалением (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
-        });
-
-        step("Создание новой категории", () -> {
+        step("1. Создание новой категории", () -> {
             ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, aliasLengths))
                     .type(categoryType)
@@ -84,7 +93,7 @@ class CreateGameCategoryParameterizedTest extends BaseParameterizedTest {
             );
 
             assertAll(
-              "Проверяю тело ответа",
+              "Проверка ответа создания категории",
                     () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
                     () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
@@ -94,14 +103,15 @@ class CreateGameCategoryParameterizedTest extends BaseParameterizedTest {
         });
 
 
-        step("DB Category: проверка создания rfntujhbb", () -> {
+        step("2. DB Category: проверка создания категории", () -> {
             var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
             assertAll("Проверка что есть категория с uuid как у созданной",
-                    () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
+                    () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId,
+                            "Uuid из ответа и в БД должны быть одинаковые")
             );
         });
 
-        step("Постусловие: Удаление категории по ID", () -> {
+        step("3. Постусловие. Удаление категории по uuid", () -> {
             ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
 
             ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(

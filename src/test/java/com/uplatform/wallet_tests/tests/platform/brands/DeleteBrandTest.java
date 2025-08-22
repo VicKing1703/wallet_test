@@ -17,16 +17,33 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.Ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Этот тест проверяет API CAP на успешность удаления бренда.
+ *
+ * <h3> Сценарий: Успешное удаление бренда.</h3>
+ * <ol>
+ *      <li><b>Предусловие. Создание нового бренда.</b>
+ *  {@link CreateBrandParameterizedTest}</li>
+ *      <li><b>Предусловие. Нахождение созданного бренда в БД.</b>
+ *  {@link CreateBrandParameterizedTest}</li>
+ *      <li><b>Удаление созданного бренда.</b>
+ *  Успешное удаление созданнго бренда по API CAP, по ручке {@code DELETE /_cap/api/v1/brands/{uuid}},
+ *  по uuid из ответа на создание. В ответ получаем код 204</li>
+ *      <li><b>Проверка удаления бренда в БД.</b>
+ *  Проверка, что в БД {@code `_core`.brand} бренд, с uuid из создания бренда, остался,
+ *  но в поле <b>deleted_at</b> не пустое</li>
+ * </ol>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
-@Feature("/brand/{uuid}")
+@Feature("/brands/{uuid}")
 @Suite("Позитивный сценарий: Действия с брендами")
 @Tag("Platform") @Tag("Brand")
 class DeleteBrandTest extends BaseTest {
 
     @Test
     @DisplayName("Удаление бренда по его ID")
-    void shouldCreateCategory() {
+    void shouldDeleteBrand() {
 
         final class TestContext {
             CreateBrandRequest createBrandRequest;
@@ -37,7 +54,7 @@ class DeleteBrandTest extends BaseTest {
         }
         final TestContext ctx = new TestContext();
 
-        step("Создание бренда", () -> {
+        step("1. Предусловие. Создание бренда", () -> {
             ctx.createBrandRequest = CreateBrandRequest.builder()
                     .sort(1)
                     .alias(get(ALIAS, 3))
@@ -63,14 +80,14 @@ class DeleteBrandTest extends BaseTest {
 
         });
 
-        step("DB Brand: проверка создания бренда", () -> {
+        step("2. Предусловие. DB Brand: проверка создания бренда", () -> {
             var brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createdBrandId);
             assertAll("Проверка ",
                     () -> assertEquals(brand.getUuid(), ctx.createdBrandId)
             );
         });
 
-        step("Удаление бренда по ID", () -> {
+        step("3. Удаление бренда по ID", () -> {
             ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createdBrandId).build();
 
             ctx.DeleteBrandResponse = capAdminClient.deleteBrand(
@@ -81,6 +98,14 @@ class DeleteBrandTest extends BaseTest {
 
             assertEquals(HttpStatus.NO_CONTENT, ctx.DeleteBrandResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"
+            );
+        });
+
+        step("4. DB Brand: проверка удаления бренда", () -> {
+            var brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createdBrandId);
+            assertAll("Проверка что в БД не осталось бренда с uuid создания",
+                    () -> assertEquals(brand.getUuid(), ctx.createdBrandId, "Ожидаем бренд в БД"),
+                    () -> assertNotNull(brand.getDeletedAt(), "Ожидаем дату удаления в поле deleted_at")
             );
         });
     }

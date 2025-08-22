@@ -1,5 +1,6 @@
 package com.uplatform.wallet_tests.tests.platform.categories;
 
+import com.uplatform.wallet_tests.api.db.exceptions.DatabaseRecordNotFoundException;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
@@ -19,15 +20,31 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.Ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Этот тест проверяет API CAP на успешность удаления игровой категорий.
+ *
+ * <h3> Сценарий: Успешное удаление игровой категории.</h3>
+ * <ol>
+ *      <li><b>Предусловие. Создание новой категории.</b>
+ *  {@link CreateGameCategoryParameterizedTest}</li>
+ *      <li><b>Предусловие. Нахождение созданной категории в БД.</b>
+ *  {@link CreateGameCategoryParameterizedTest}</li>
+ *      <li><b>Удаление созданной категории.</b>
+ *  Успешное удаление созданной категории по API CAP, по ручке {@code DELETE /_cap/api/v1/categories/{uuid}},
+ *  по uuid из ответа на создание. В ответ получаем код 204</li>
+ *      <li><b>Проверка удаления категории в БД.</b>
+ *  Проверка, что в БД {@code `_core`.game_category} отсутствует категория с uuid из создания категории</li>
+ * </ol>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
 @Feature("/categories/{uuid}")
 @Suite("Позитивный сценарий: Действия с категориями")
-@Tag("Platform") @Tag("GameCategory")
+@Tag("Platform") @Tag("GameCategory") @Tag("DeleteGameCategory")
 public class DeleteGameCategoryTest extends BaseTest{
 
     @Test
-    @DisplayName("Удаление категории по её ID")
+    @DisplayName("Удаление категории по её uuid")
     void shouldDeleteGameCategory() {
 
         final class TestContext {
@@ -39,12 +56,7 @@ public class DeleteGameCategoryTest extends BaseTest{
         }
         final TestContext ctx = new TestContext();
 
-        // Временный костыль. Надо подумать, т.к. дедлок срабатывает и при создании новой категории
-        step("Ожидание перед удалением (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
-        });
-
-        step("Создание категории", () -> {
+        step("1. Предусловие. Создание категории", () -> {
             ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, 5))
                     .type(CategoryType.VERTICAL)
@@ -61,7 +73,7 @@ public class DeleteGameCategoryTest extends BaseTest{
             );
 
             assertAll(
-                    "Проверяю тело ответа",
+                    "Проверяем код ответа и тело ответа",
                     () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
                     () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
@@ -71,14 +83,14 @@ public class DeleteGameCategoryTest extends BaseTest{
         });
 
 
-        step("DB Category: проверка создания rfntujhbb", () -> {
+        step("2. Предусловие. DB Category: проверка создания категории", () -> {
             var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
             assertAll("Проверка что есть категория с uuid как у созданной",
                     () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
             );
         });
 
-        step("Удаление категории по ID", () -> {
+        step("3. Удаление категории по ID", () -> {
             ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder()
                     .id(ctx.createdGameCategoryId)
                     .build();
@@ -92,6 +104,11 @@ public class DeleteGameCategoryTest extends BaseTest{
             assertEquals(HttpStatus.NO_CONTENT, ctx.deleteGameCategoryResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"
             );
+        });
+
+        step("4. DB Category: проверка удаления категории", () -> {
+            var category = coreDatabaseClient.findCategoryByUuid(ctx.createdGameCategoryId);
+            assertTrue(category.isEmpty(), "Категория с данным uuid должна быть удалена из БД");
         });
     }
 }

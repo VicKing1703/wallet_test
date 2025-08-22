@@ -18,16 +18,31 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Этот тест проверяет API CAP на получение данных бренда.
+ *
+ * <h3> Сценарий: Успешное получение информации о бренде.</h3>
+ * <ol>
+ *      <li><b>Предусловие. Создание бренда.</b>
+ *  {@link CreateBrandParameterizedTest}</li>
+ *      <li><b>Предусловие. Нахождение созданного бренда в БД.</b>
+ *  {@link CreateBrandParameterizedTest}</li>
+ *      <li><b>Получение информации по бренду:</b>
+ *  Получение информации о бренде по API CAP, по ручке {@code GET  /_cap/api/v1/brands/{uuid}}.
+ *  В ответе есть все обязательные поля</li>
+ *      <li><b>Постусловие. Удаление созданного бренда.</b> {@link DeleteBrandTest}</li>
+ * </ol>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
-@Feature("/brand/{uuid}")
+@Feature("/brands/{uuid}")
 @Suite("Позитивный сценарий: Действия с брендами")
 @Tag("Platform") @Tag("Brand")
 class GetBrandTest extends BaseTest {
 
     @Test
     @DisplayName("Получение бренда по его ID")
-    void shouldCreateCategory() {
+    void shouldGetBrand() {
 
         final class TestContext {
             CreateBrandRequest createBrandRequest;
@@ -40,7 +55,7 @@ class GetBrandTest extends BaseTest {
         }
         final TestContext ctx = new TestContext();
 
-        step("Создание бренда", () -> {
+        step("1. Предусловие. Создание бренда", () -> {
             ctx.createBrandRequest = CreateBrandRequest.builder()
                     .sort(1)
                     .alias(get(ALIAS, 5))
@@ -64,14 +79,14 @@ class GetBrandTest extends BaseTest {
 
         });
 
-        step("DB Brand: проверка создания бренда", () -> {
+        step("2. Предусловие. DB Brand: проверка создания бренда", () -> {
             var brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createdBrandId);
             assertAll("Проверка ",
                     () -> assertEquals(brand.getUuid(), ctx.createdBrandId)
             );
         });
 
-        step("Получение бренда по ID", () -> {
+        step("3. Получение бренда по ID", () -> {
             ctx.getBrandRequest = GetBrandRequest.builder().id(ctx.createdBrandId).build();
 
             ctx.GetBrandResponse = capAdminClient.getBrandId(
@@ -101,12 +116,7 @@ class GetBrandTest extends BaseTest {
 
         });
 
-        //временный костыль
-        step("Ожидание перед удалением (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
-        });
-
-        step("Постусловие: Удаление бренда по ID", () -> {
+        step("4. Постусловие. Удаление бренда по ID", () -> {
             ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createdBrandId).build();
 
             ctx.DeleteBrandResponse = capAdminClient.deleteBrand(

@@ -83,7 +83,10 @@
       "wallet.v8.projectionSource",
       "core.gambling.v1.GameSessionStart",
       "limits.v2",
-      "payment.v1.transaction"
+      "payment.v1.transaction",
+      "core.gambling.v1.Brand",
+      "core.gambling.v2.Game",
+      "core.gambling.v3.Game"
     ],
     "bufferSize": 500,
     "findMessageTimeout": "PT60S",

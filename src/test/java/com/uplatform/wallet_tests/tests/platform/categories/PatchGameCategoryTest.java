@@ -21,6 +21,20 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Этот тест проверяет API CAP на успешность изменения игровой категории.
+ *
+ * <h3> Сценарий: Успешное изменение игровой категории.</h3>
+ * <ol>
+ *      <li><b>Предусловие. Создание новой категории.</b>
+ *  {@link CreateGameCategoryParameterizedTest}</li>
+ *      <li><b>Предусловие. Нахождение созданной категории в БД.</b>
+ *  {@link CreateGameCategoryParameterizedTest}</li>
+ *      <li><b>Изменение данных категории:</b>
+ *  Изменение названия, алиаса и типа категории по API CAP, по ручке {@code PATCH  /_cap/api/v1/categories/{uuid}}</li>
+ *      <li><b>Постусловие: удаление созданной категории.</b> {@link DeleteGameCategoryTest}</li>
+ * </ol>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
 @Feature("/categories/{uuid}")
@@ -43,12 +57,7 @@ public class PatchGameCategoryTest extends BaseTest {
         }
         final TestContext ctx = new TestContext();
 
-        // Временный костыль. Надо подумать, т.к. дедлок срабатывает и при создании новой категории
-        step("Ожидание перед удалением (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
-        });
-
-        step("Создание категории", () -> {
+        step("1. Предусловие. Создание категории", () -> {
             ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, 7))
                     .type(CategoryType.VERTICAL)
@@ -65,7 +74,7 @@ public class PatchGameCategoryTest extends BaseTest {
             );
 
             assertAll(
-                    "Проверяю тело ответа",
+                    "Проверяем код ответа и тело ответа",
                     () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
                     () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
@@ -75,17 +84,17 @@ public class PatchGameCategoryTest extends BaseTest {
         });
 
 
-        step("DB Category: проверка создания rfntujhbb", () -> {
+        step("2. Предусловие. DB Category: проверка создания категории", () -> {
             var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
             assertAll("Проверка что есть категория с uuid как у созданной",
                     () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
             );
         });
 
-        step("Изменение категории", () -> {
+        step("3. Изменение категории", () -> {
             ctx.patchGameCategoryRequest = PatchGameCategoryRequest.builder()
                     .alias(get(ALIAS, 11))
-                    .type(CategoryType.VERTICAL)
+                    .type(CategoryType.HORIZONTAL)
                     .sort(1)
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 11)))
                     .build();
@@ -98,18 +107,13 @@ public class PatchGameCategoryTest extends BaseTest {
             );
 
             assertAll(
-                    "Проверяем тело ответа",
+                    "Проверяем код ответа и тело ответа",
                     () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
                     () -> assertNotNull(ctx.patchGameCategoryResponse.getBody())
             );
         });
 
-        //временный костыль
-        step("Ожидание (для избежания deadlock)", () -> {
-            Thread.sleep(2000); // пауза 2 секунды
-        });
-
-        step("Постусловие: Удаление бренда по ID", () -> {
+        step("4. Постусловие. Удаление бренда по ID", () -> {
             ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
 
             ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(

@@ -86,12 +86,16 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
 
     public CoreGameCategory findCategoryByUuidOrFail(String uuid) {
         String description = String.format("core Category record by uuid '%s'", uuid);
-        String attachmentNamePrefix = String.format("Core CoreCategory Record [uuid: %s]", uuid);
+        String attachmentNamePrefix = String.format("Core Category Record [uuid: %s]", uuid);
 
         Supplier<Optional<CoreGameCategory>> querySupplier = () ->
                 coreGameCategoryRepository.findByUuid(uuid);
 
         return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+    }
+
+    public Optional<CoreGameCategory> findCategoryByUuid(String uuid) {
+        return coreGameCategoryRepository.findByUuid(uuid);
     }
 
 }
