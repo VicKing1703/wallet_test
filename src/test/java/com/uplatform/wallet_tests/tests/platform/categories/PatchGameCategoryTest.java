@@ -53,7 +53,6 @@ public class PatchGameCategoryTest extends BaseTest {
             ResponseEntity<PatchGameCategoryResponse> patchGameCategoryResponse;
             DeleteGameCategoryRequest deleteGameCategoryRequest;
             ResponseEntity<Void> deleteGameCategoryResponse;
-            String createdGameCategoryId;
         }
         final TestContext ctx = new TestContext();
 
@@ -79,15 +78,14 @@ public class PatchGameCategoryTest extends BaseTest {
                     () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
 
-            ctx.createdGameCategoryId = ctx.createGameCategoryResponse.getBody().getId();
-
         });
 
 
         step("2. Предусловие. DB Category: проверка создания категории", () -> {
-            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
+            var category = coreDatabaseClient.
+                    findCategoryByUuidOrFail(ctx.createGameCategoryResponse.getBody().getId());
             assertAll("Проверка что есть категория с uuid как у созданной",
-                    () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
+                    () -> assertEquals(category.getUuid(), ctx.createGameCategoryResponse.getBody().getId())
             );
         });
 
@@ -100,7 +98,7 @@ public class PatchGameCategoryTest extends BaseTest {
                     .build();
 
             ctx.patchGameCategoryResponse = capAdminClient.patchGameCategory(
-                    ctx.createdGameCategoryId,
+                    ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                     ctx.patchGameCategoryRequest
@@ -114,10 +112,11 @@ public class PatchGameCategoryTest extends BaseTest {
         });
 
         step("4. Постусловие. Удаление бренда по ID", () -> {
-            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder().id(ctx.createdGameCategoryId).build();
+            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.
+                    builder().id(ctx.createGameCategoryResponse.getBody().getId()).build();
 
             ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
-                    ctx.createdGameCategoryId,
+                    ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );

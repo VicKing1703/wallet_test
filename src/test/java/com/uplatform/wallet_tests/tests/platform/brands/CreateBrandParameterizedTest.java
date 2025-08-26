@@ -5,7 +5,7 @@ import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.CreateBrandResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.DeleteBrandRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
-import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandCreateEvent;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandEvent;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.enums.BrandEventType;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -26,20 +26,20 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Этот параметризированный тест проверяет API CAP на успешность создания брендов
- * с разной длинной названия, алиаса и описания.
+ * Этот параметризованный тест проверяет API CAP на успешность создания брендов
+ * с разной длинной названий, алиаса и описания.
  *
  * <h3> Сценарий: Успешное создание бренда.</h3>
  * <ol>
  *      <li><b>Создание нового бренда:</b>
  *  Создание нового бренда через API CAP, по ручке {@code POST /_cap/api/v1/brands}.
- *  В ответе код 200 и уникеальный uuid созданного бренда</li>
+ *  В ответе код 200 и уникальный uuid созданного бренда</li>
  *      <li><b>Нахождение созданного бренда в БД:</b>
  *  В БД {@code `_core`.brand} есть запись с uuid из ответа на создание бренда</li>
  *      <li><b>Поиск сообщения в Кафке о создании бренда.</b>
  *  Проверяем в топике {@code core.gambling.v1.Brand} сообщение о создании бренда, что его uuid соответствуют,
  *  передаётся дата создания, правильный алиас, статус, uuid ноды и названия </li>
- *      <li><b>Постусловие: удаление созданнго бренда.</b> {@link DeleteBrandTest}</li>
+ *      <li><b>Постусловие: удаление созданного бренда.</b> {@link DeleteBrandTest}</li>
  * </ol>
  */
 @Severity(SeverityLevel.CRITICAL)
@@ -48,8 +48,6 @@ import static org.junit.jupiter.api.Assertions.*;
 @Suite("Позитивный сценарий: Действия с брендами")
 @Tag("Platform") @Tag("Brand") @Tag("CreateBrand")
 class CreateBrandParameterizedTest extends BaseParameterizedTest {
-
-    //private static final BrandEventType EVENT_TYPE = BrandEventType.BRAND_CREATED;
 
     static Stream<Arguments> brandParamsProvider() {
         return Stream.of(
@@ -73,7 +71,7 @@ class CreateBrandParameterizedTest extends BaseParameterizedTest {
             ResponseEntity<CreateBrandResponse> createBrandResponse;
             DeleteBrandRequest deleteBrandRequest;
             ResponseEntity<Void> DeleteBrandResponse;
-            BrandCreateEvent brandEvent;
+            BrandEvent brandEvent;
             CoreBrand brand;
         }
         final TestContext ctx = new TestContext();
@@ -110,8 +108,9 @@ class CreateBrandParameterizedTest extends BaseParameterizedTest {
             );
         });
 
-        step("3. Kafka: platform отправляет сообщение о создании бренда в Kafka", () -> {
-            ctx.brandEvent = kafkaClient.expect(BrandCreateEvent.class)
+        step("3. Kafka: platform отправляет сообщение о создании бренда в Kafka топик core.gambling.v1.Brand",
+                () -> {
+            ctx.brandEvent = kafkaClient.expect(BrandEvent.class)
                     .with("message.eventType", BrandEventType.BRAND_CREATED.getValue())
                     .with("brand.uuid", ctx.createBrandResponse.getBody().getId())
                     .fetch();
@@ -127,14 +126,14 @@ class CreateBrandParameterizedTest extends BaseParameterizedTest {
                             ctx.brandEvent.getBrand().getAlias(),
                             "Алиас в Kafka должен совпадать с алиасом из запроса"),
                     () -> assertEquals(ctx.createBrandRequest.getNames(),
-                            ctx.brandEvent.getBrand().getLocalized_names(),
+                            ctx.brandEvent.getBrand().getLocalizedNames(),
                             "Localized names в Kafka должны совпадать с запросом"),
-                    () -> assertEquals(ctx.brand.getCreatedAt(), ctx.brandEvent.getBrand().getCreated_at(),
+                    () -> assertEquals(ctx.brand.getCreatedAt(), ctx.brandEvent.getBrand().getCreatedAt(),
                             "Поле created_at как и в БД"),
                     () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                            ctx.brandEvent.getBrand().getProject_id(),
+                            ctx.brandEvent.getBrand().getProjectId(),
                             "project_id должен соответствовать с platform-nodeid из хедера запроса"),
-                    () -> assertFalse(ctx.brandEvent.getBrand().getStatus_enabled(),
+                    () -> assertFalse(ctx.brandEvent.getBrand().getStatusEnabled(),
                             "статус созданного бренда по умолчанию должен быть false")
             );
         });

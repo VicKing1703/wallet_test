@@ -3,8 +3,7 @@ package com.uplatform.wallet_tests.tests.platform.brands;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreBrand;
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
-import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandCreateEvent;
-import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandDeleteEvent;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandEvent;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.enums.BrandEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -57,7 +56,7 @@ class DeleteBrandTest extends BaseTest {
             ResponseEntity<CreateBrandResponse> createBrandResponse;
             DeleteBrandRequest deleteBrandRequest;
             ResponseEntity<Void> DeleteBrandResponse;
-            BrandDeleteEvent brandEvent;
+            BrandEvent brandEvent;
             CoreBrand brand;
 
         }
@@ -118,7 +117,7 @@ class DeleteBrandTest extends BaseTest {
         });
 
         step("5. Kafka: platform отправляет сообщение об удалении бренда в Kafka", () -> {
-            ctx.brandEvent = kafkaClient.expect(BrandDeleteEvent.class)
+            ctx.brandEvent = kafkaClient.expect(BrandEvent.class)
                     .with("message.eventType", BrandEventType.BRAND_DELETED.getValue())
                     .with("brand.uuid", ctx.createBrandResponse.getBody().getId())
                     .fetch();
@@ -130,7 +129,7 @@ class DeleteBrandTest extends BaseTest {
                     () -> assertEquals(ctx.createBrandResponse.getBody().getId(),
                             ctx.brandEvent.getBrand().getUuid(),
                             "UUID бренда в Kafka должен совпадать с UUID из ответа"),
-                    () -> assertEquals(ctx.brand.getDeletedAt(), ctx.brandEvent.getBrand().getDeleted_at(),
+                    () -> assertEquals(ctx.brand.getDeletedAt(), ctx.brandEvent.getBrand().getDeletedAt(),
                             "Поле created_at как и в БД")
             );
         });
