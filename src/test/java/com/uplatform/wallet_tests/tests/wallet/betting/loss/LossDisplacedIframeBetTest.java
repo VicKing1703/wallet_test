@@ -67,7 +67,7 @@ class LossDisplacedIframeBetTest extends BaseTest {
     @Test
     @DisplayName("API проигрыш iFrame ставки вытесненной из Redis")
     void testApiLossByModifyingOriginalRequestForDisplacedIframeBet() {
-        final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().getMaxIframeCount();
+        final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().maxIframeCount();
         final int currentTransactionCountToMake = maxIframeCountInRedis + 1;
 
         final class TestContext {

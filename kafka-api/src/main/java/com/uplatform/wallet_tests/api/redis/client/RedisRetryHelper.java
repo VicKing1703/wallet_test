@@ -3,7 +3,7 @@ package com.uplatform.wallet_tests.api.redis.client;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.api.redis.config.RedisConfigProvider;
 import com.uplatform.wallet_tests.config.RedisAggregateConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -32,19 +32,17 @@ public class RedisRetryHelper {
 
     public RedisRetryHelper(ObjectMapper objectMapper,
                            AllureAttachmentService attachmentService,
-                           EnvironmentConfigurationProvider configProvider) {
+                           RedisConfigProvider configProvider) {
         this.objectMapper = objectMapper;
         this.attachmentService = attachmentService;
 
         RedisAggregateConfig aggregateConfig = Optional.ofNullable(configProvider)
-                .map(EnvironmentConfigurationProvider::getEnvironmentConfig)
-                .map(com.uplatform.wallet_tests.config.EnvironmentConfig::getRedis)
-                .map(com.uplatform.wallet_tests.config.RedisConfig::getAggregate)
+                .map(RedisConfigProvider::getRedisAggregateConfig)
                 .orElseThrow(() -> new IllegalStateException(
-                        "RedisAggregateConfig not found in EnvironmentConfigurationProvider. Cannot initialize RedisRetryHelper."));
+                        "RedisAggregateConfig not found in RedisConfigProvider. Cannot initialize RedisRetryHelper."));
 
-        this.retryAttempts = aggregateConfig.getRetryAttempts();
-        this.retryDelayMs = aggregateConfig.getRetryDelayMs();
+        this.retryAttempts = aggregateConfig.retryAttempts();
+        this.retryDelayMs = aggregateConfig.retryDelayMs();
 
         log.info("RedisRetryHelper initialized with {} attempts and {}ms delay", retryAttempts, retryDelayMs);
     }

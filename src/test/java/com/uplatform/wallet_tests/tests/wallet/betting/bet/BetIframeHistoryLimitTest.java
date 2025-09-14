@@ -66,7 +66,7 @@ class BetIframeHistoryLimitTest extends BaseTest {
     @Test
     @DisplayName("Проверка лимита количества iFrame ставок (IFrameRecords) в Redis")
     void testIframeBetHistoryCountLimitInRedis() {
-        final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().getMaxIframeCount();
+        final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().maxIframeCount();
         final int currentTransactionCountToMake = maxIframeCountInRedis + 1;
 
         final class TestContext {

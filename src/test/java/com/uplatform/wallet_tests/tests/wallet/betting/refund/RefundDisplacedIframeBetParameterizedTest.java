@@ -77,7 +77,7 @@ class RefundDisplacedIframeBetParameterizedTest extends BaseParameterizedTest {
     @MethodSource("couponProvider")
     @DisplayName("API рефанд iFrame ставки вытесненной из Redis")
     void testApiRefundByModifyingOriginalRequestForDisplacedIframeBet(NatsBettingCouponType couponType, String description) {
-        final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().getMaxIframeCount();
+        final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().maxIframeCount();
         final int currentTransactionCountToMake = maxIframeCountInRedis + 1;
 
         final class TestContext {

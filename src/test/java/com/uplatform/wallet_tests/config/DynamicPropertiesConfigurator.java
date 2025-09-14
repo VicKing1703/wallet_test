@@ -69,10 +69,10 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
         if (redisFullConfig != null) {
             RedisAggregateConfig aggregateConfig = redisFullConfig.getAggregate();
             if (aggregateConfig != null) {
-                properties.add("app.redis.aggregate.max-gambling.count=" + aggregateConfig.getMaxGamblingCount());
-                properties.add("app.redis.aggregate.max-iframe.count=" + aggregateConfig.getMaxIframeCount());
-                properties.add("app.redis.retry-attempts=" + aggregateConfig.getRetryAttempts());
-                properties.add("app.redis.retry-delay-ms=" + aggregateConfig.getRetryDelayMs());
+                properties.add("app.redis.aggregate.max-gambling.count=" + aggregateConfig.maxGamblingCount());
+                properties.add("app.redis.aggregate.max-iframe.count=" + aggregateConfig.maxIframeCount());
+                properties.add("app.redis.retry-attempts=" + aggregateConfig.retryAttempts());
+                properties.add("app.redis.retry-delay-ms=" + aggregateConfig.retryDelayMs());
             }
 
             if (redisFullConfig.getInstances() != null) {
