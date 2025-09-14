@@ -50,37 +50,6 @@ public record WalletFullData(
                 false, false, false, null, null, null, null, null, null, null);
     }
 
-    public String getWalletUUID() { return walletUUID; }
-    public String getPlayerUUID() { return playerUUID; }
-    public String getPlayerBonusUUID() { return playerBonusUUID; }
-    public String getNodeUUID() { return nodeUUID; }
-    public int getType() { return type; }
-    public int getStatus() { return status; }
-    public boolean isValid() { return valid; }
-    public boolean getIsGamblingActive() { return isGamblingActive; }
-    public boolean getIsBettingActive() { return isBettingActive; }
-    public String getCurrency() { return currency; }
-    public BigDecimal getBalance() { return balance; }
-    public BigDecimal getAvailableWithdrawalBalance() { return availableWithdrawalBalance; }
-    public BigDecimal getBalanceBefore() { return balanceBefore; }
-    public long getCreatedAt() { return createdAt; }
-    public long getUpdatedAt() { return updatedAt; }
-    public long getBlockDate() { return blockDate; }
-    public long getSumSubBlockDate() { return sumSubBlockDate; }
-    public long getKycVerificationUpdateTo() { return kycVerificationUpdateTo; }
-    public int getLastSeqNumber() { return lastSeqNumber; }
-    public boolean getIsDefault() { return isDefault; }
-    public boolean isMain() { return main; }
-    public boolean getIsBlocked() { return isBlocked; }
-    public boolean getIsKYCUnverified() { return isKYCUnverified; }
-    public boolean getIsSumSubVerified() { return isSumSubVerified; }
-    public BonusInfo getBonusInfo() { return bonusInfo; }
-    public Map<String, Object> getBonusTransferTransactions() { return bonusTransferTransactions; }
-    public List<LimitData> getLimits() { return limits; }
-    public List<IFrameRecord> getIFrameRecords() { return iFrameRecords; }
-    public Map<String, GamblingTransaction> getGambling() { return gambling; }
-    public List<DepositData> getDeposits() { return deposits; }
-    public List<BlockedAmount> getBlockedAmounts() { return blockedAmounts; }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record BonusInfo(
