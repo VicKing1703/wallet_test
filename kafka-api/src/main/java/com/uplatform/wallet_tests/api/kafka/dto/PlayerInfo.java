@@ -1,7 +1,6 @@
 package com.uplatform.wallet_tests.api.kafka.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.uplatform.wallet_tests.api.http.fapi.dto.registration.enums.Gender;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -36,7 +35,7 @@ public class PlayerInfo {
     private String middleName;
 
     @JsonProperty("gender")
-    private Gender gender;
+    private String gender;
 
     @JsonProperty("birthday")
     private String birthday;

@@ -71,7 +71,7 @@ dependencies {
 	testImplementation 'com.mchange:c3p0:0.9.5.5'
 
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-        testImplementation project(':kafka-api')
+        implementation project(':kafka-api')
 }
 
 dependencyManagement {
