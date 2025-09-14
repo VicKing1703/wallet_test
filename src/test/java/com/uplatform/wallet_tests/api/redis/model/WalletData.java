@@ -2,24 +2,23 @@ package com.uplatform.wallet_tests.api.redis.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
-@NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class WalletData {
+public record WalletData(
+        @JsonProperty("wallet_uuid") String walletUUID,
+        @JsonProperty("currency") String currency,
+        @JsonProperty("type") int type,
+        @JsonProperty("status") int status
+) {
+    public WalletData() {
+        this(null, null, 0, 0);
+    }
 
-    @JsonProperty("wallet_uuid")
-    private String walletUUID;
+    public String getWalletUUID() { return walletUUID; }
 
-    @JsonProperty("currency")
-    private String currency;
+    public String getCurrency() { return currency; }
 
-    @JsonProperty("type")
-    private int type;
+    public int getType() { return type; }
 
-    @JsonProperty("status")
-    private int status;
-
+    public int getStatus() { return status; }
 }

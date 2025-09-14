@@ -180,11 +180,11 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Redis (Player): Получение основного кошелька игрока", () -> {
-            var criteria = WalletFilterCriteria.builder()
-                    .type(Optional.of(1))
-                    .status(Optional.of(1))
-                    .currency(Optional.of(this.defaultCurrency))
-                    .build();
+            var criteria = new WalletFilterCriteria(
+                    Optional.of(this.defaultCurrency),
+                    Optional.of(1),
+                    Optional.of(1)
+            );
             ctx.playerWalletData = this.playerRedisClient.getPlayerWalletByCriteria(
                     ctx.fullRegistrationMessage.player().externalId(),
                     criteria);
