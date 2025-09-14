@@ -51,21 +51,21 @@ public class KafkaPollingService {
         }
 
         Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.getBootstrapServers());
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, kafkaConfig.getGroupId());
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, kafkaConfig.getAutoOffsetReset());
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, kafkaConfig.isEnableAutoCommit());
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfig.bootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, kafkaConfig.groupId());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, kafkaConfig.autoOffsetReset());
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, kafkaConfig.enableAutoCommit());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_uncommitted");
 
         DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(props);
         ContainerProperties cp = new ContainerProperties(topicsToSubscribe.toArray(new String[0]));
-        cp.setGroupId(kafkaConfig.getGroupId());
-        cp.setPollTimeout(kafkaConfig.getPollDuration().toMillis());
+        cp.setGroupId(kafkaConfig.groupId());
+        cp.setPollTimeout(kafkaConfig.pollDuration().toMillis());
         cp.setMessageListener((MessageListener<String, String>) messageBuffer::addRecord);
 
-        if (kafkaConfig.isSeekToEndOnStart()) {
+        if (kafkaConfig.seekToEndOnStart()) {
             cp.setConsumerRebalanceListener(new ConsumerAwareRebalanceListener() {
                 @Override
                 public void onPartitionsAssigned(Consumer<?, ?> consumer, java.util.Collection<TopicPartition> partitions) {

@@ -49,7 +49,7 @@ public class KafkaBackgroundConsumer {
         this.messageFinder = messageFinder;
         this.allureReporter = allureReporter;
         this.topicPrefix = configProvider.getTopicPrefix();
-        this.findMessageSleepInterval = configProvider.getKafkaConfig().getFindMessageSleepInterval();
+        this.findMessageSleepInterval = configProvider.getKafkaConfig().findMessageSleepInterval();
         this.attachmentService = attachmentService;
     }
 

@@ -26,9 +26,9 @@ public class MessageBuffer {
     public MessageBuffer(
             KafkaConfigProvider configProvider
     ) {
-        this.bufferSize = configProvider.getKafkaConfig().getBufferSize();
+        this.bufferSize = configProvider.getKafkaConfig().bufferSize();
         this.topicPrefix = configProvider.getTopicPrefix();
-        this.listenTopicSuffixes = configProvider.getKafkaConfig().getListenTopicSuffixes();
+        this.listenTopicSuffixes = configProvider.getKafkaConfig().listenTopicSuffixes();
     }
 
     @PostConstruct

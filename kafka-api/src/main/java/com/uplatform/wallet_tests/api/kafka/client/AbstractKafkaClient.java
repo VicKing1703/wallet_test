@@ -16,7 +16,7 @@ public abstract class AbstractKafkaClient {
             KafkaConfigProvider configProvider
     ) {
         this.kafkaBackgroundConsumer = kafkaBackgroundConsumer;
-        this.defaultFindTimeout = configProvider.getKafkaConfig().getFindMessageTimeout();
+        this.defaultFindTimeout = configProvider.getKafkaConfig().findMessageTimeout();
     }
 
     public <T> KafkaExpectationBuilder<T> expect(Class<T> messageClass) {
