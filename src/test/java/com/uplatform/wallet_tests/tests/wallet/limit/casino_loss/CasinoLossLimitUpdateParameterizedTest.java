@@ -137,7 +137,7 @@ public class CasinoLossLimitUpdateParameterizedTest extends BaseParameterizedTes
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            ctx.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
+                            ctx.kafkaLimitMessage.id().equals(payload.getLimits().get(0).getExternalId());
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)

@@ -105,14 +105,14 @@ public class PlayerRegistrationStep {
                     .with("player.phone", ctx.verificationRequest.getContact().substring(1))
                     .fetch();
             assertNotNull(ctx.confirmationMessage, "kafka.phone_confirmation.message");
-            assertNotNull(ctx.confirmationMessage.getContext(), "kafka.phone_confirmation.context");
-            assertNotNull(ctx.confirmationMessage.getContext().getConfirmationCode(), "kafka.phone_confirmation.code");
+            assertNotNull(ctx.confirmationMessage.context(), "kafka.phone_confirmation.context");
+            assertNotNull(ctx.confirmationMessage.context().confirmationCode(), "kafka.phone_confirmation.code");
         });
 
         step("Public API: Подтверждение номера телефона", () -> {
             var request = VerifyContactRequest.builder()
                     .contact(ctx.verificationRequest.getContact().substring(1))
-                    .code(ctx.confirmationMessage.getContext().getConfirmationCode())
+                    .code(ctx.confirmationMessage.context().confirmationCode())
                     .build();
             ctx.verifyContactResponse = this.publicClient.verifyContact(request);
             assertEquals(HttpStatus.OK, ctx.verifyContactResponse.getStatusCode(), "fapi.verify_contact.status_code");
@@ -151,15 +151,15 @@ public class PlayerRegistrationStep {
                     .with("player.phone", ctx.verificationRequest.getContact().substring(1))
                     .fetch();
             assertNotNull(ctx.fullRegistrationMessage, "kafka.player_signup.message");
-            assertNotNull(ctx.fullRegistrationMessage.getPlayer(), "kafka.player_signup.player");
-            assertNotNull(ctx.fullRegistrationMessage.getPlayer().getExternalId(), "kafka.player_signup.player_external_id");
+            assertNotNull(ctx.fullRegistrationMessage.player(), "kafka.player_signup.player");
+            assertNotNull(ctx.fullRegistrationMessage.player().externalId(), "kafka.player_signup.player_external_id");
         });
         
         
 
         step("Public API: Авторизация", () -> {
             var tokenRequest = TokenCheckRequest.builder()
-                    .username(ctx.fullRegistrationMessage.getPlayer().getAccountId())
+                    .username(ctx.fullRegistrationMessage.player().accountId())
                     .password(ctx.fullRegistrationRequest.getPassword())
                     .build();
             ctx.authorizationResponse = this.publicClient.tokenCheck(tokenRequest);
@@ -175,7 +175,7 @@ public class PlayerRegistrationStep {
                     .currency(Optional.of(this.defaultCurrency))
                     .build();
             ctx.playerWalletData = this.playerRedisClient.getPlayerWalletByCriteria(
-                    ctx.fullRegistrationMessage.getPlayer().getExternalId(),
+                    ctx.fullRegistrationMessage.player().externalId(),
                     criteria);
             assertNotNull(ctx.playerWalletData, "redis.player.wallet.not_found");
             assertNotNull(ctx.playerWalletData.getWalletUUID(), "redis.player.wallet.uuid");
@@ -192,7 +192,7 @@ public class PlayerRegistrationStep {
                         .direction(DirectionType.INCREASE)
                         .build();
                 var response = capAdminClient.createBalanceAdjustment(
-                        ctx.fullRegistrationMessage.getPlayer().getExternalId(),
+                        ctx.fullRegistrationMessage.player().externalId(),
                         tokenStorage.getAuthorizationHeader(),
                         platformNodeId,
                         "6dfe249e-e967-477b-8a42-83efe85c7c3a",

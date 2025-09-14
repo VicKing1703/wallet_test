@@ -127,10 +127,10 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             assertNotNull(testData.kafkaLimitMessage, "kafka.limits_v2_event.message_not_null");
 
             assertAll("kafka.limits_v2_event.content_validation",
-                    () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), testData.kafkaLimitMessage.getLimitType(), "kafka.limits_v2_event.limitType"),
-                    () -> assertEquals(periodType.getValue(), testData.kafkaLimitMessage.getIntervalType(), "kafka.limits_v2_event.intervalType"),
-                    () -> assertEquals(0, limitAmount.compareTo(new BigDecimal(testData.kafkaLimitMessage.getAmount())), "kafka.limits_v2_event.amount"),
-                    () -> assertEquals(testData.registeredPlayer.getWalletData().getCurrency(), testData.kafkaLimitMessage.getCurrencyCode(), "kafka.limits_v2_event.currencyCode")
+                    () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), testData.kafkaLimitMessage.limitType(), "kafka.limits_v2_event.limitType"),
+                    () -> assertEquals(periodType.getValue(), testData.kafkaLimitMessage.intervalType(), "kafka.limits_v2_event.intervalType"),
+                    () -> assertEquals(0, limitAmount.compareTo(new BigDecimal(testData.kafkaLimitMessage.amount())), "kafka.limits_v2_event.amount"),
+                    () -> assertEquals(testData.registeredPlayer.getWalletData().getCurrency(), testData.kafkaLimitMessage.currencyCode(), "kafka.limits_v2_event.currencyCode")
             );
         });
 
@@ -142,7 +142,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            testData.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
+                            testData.kafkaLimitMessage.id().equals(payload.getLimits().get(0).getExternalId());
 
             testData.natsLimitChangeEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -155,12 +155,12 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             var natsLimit = testData.natsLimitChangeEvent.getPayload().getLimits().get(0);
             assertAll("nats.limit_changed_v2_event.content_validation",
                     () -> assertEquals(NatsLimitEventType.CREATED.getValue(), testData.natsLimitChangeEvent.getPayload().getEventType(), "nats.limit_changed_v2_event.payload.eventType"),
-                    () -> assertEquals(testData.kafkaLimitMessage.getId(), natsLimit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
+                    () -> assertEquals(testData.kafkaLimitMessage.id(), natsLimit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
                     () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), natsLimit.getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), natsLimit.getIntervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
                     () -> assertEquals(0, limitAmount.compareTo(natsLimit.getAmount()), "nats.limit_changed_v2_event.limit.amount"),
-                    () -> assertEquals(testData.kafkaLimitMessage.getCurrencyCode(), natsLimit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
-                    () -> assertEquals(testData.kafkaLimitMessage.getExpiresAt(), natsLimit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
+                    () -> assertEquals(testData.kafkaLimitMessage.currencyCode(), natsLimit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
+                    () -> assertEquals(testData.kafkaLimitMessage.expiresAt(), natsLimit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                     () -> assertTrue(natsLimit.getStatus(), "nats.limit_changed_v2_event.limit.status_is_true")
             );
         });
@@ -182,7 +182,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             assertFalse(aggregate.getLimits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");
 
             var redisLimitOpt = aggregate.getLimits().stream()
-                    .filter(l -> testData.kafkaLimitMessage.getId().equals(l.getExternalID()) &&
+                    .filter(l -> testData.kafkaLimitMessage.id().equals(l.getExternalID()) &&
                             NatsLimitType.DEPOSIT.getValue().equals(l.getLimitType()))
                     .findFirst();
 
@@ -190,15 +190,15 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             var redisLimit = redisLimitOpt.get();
 
             assertAll("redis.wallet_aggregate.limit_content_validation",
-                    () -> assertEquals(testData.kafkaLimitMessage.getId(), redisLimit.getExternalID(), "redis.wallet_aggregate.limit.externalId"),
+                    () -> assertEquals(testData.kafkaLimitMessage.id(), redisLimit.getExternalID(), "redis.wallet_aggregate.limit.externalId"),
                     () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), redisLimit.getLimitType(), "redis.wallet_aggregate.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), redisLimit.getIntervalType(), "redis.wallet_aggregate.limit.intervalType"),
                     () -> assertEquals(0, limitAmount.compareTo(redisLimit.getAmount()), "redis.wallet_aggregate.limit.amount"),
                     () -> assertEquals(0, BigDecimal.ZERO.compareTo(redisLimit.getSpent()), "redis.wallet_aggregate.limit.spent_is_zero"),
                     () -> assertEquals(0, limitAmount.compareTo(redisLimit.getRest()), "redis.wallet_aggregate.limit.rest_equals_amount"),
-                    () -> assertEquals(testData.kafkaLimitMessage.getCurrencyCode(), redisLimit.getCurrencyCode(), "redis.wallet_aggregate.limit.currencyCode"),
+                    () -> assertEquals(testData.kafkaLimitMessage.currencyCode(), redisLimit.getCurrencyCode(), "redis.wallet_aggregate.limit.currencyCode"),
                     () -> assertNotNull(redisLimit.getStartedAt(), "redis.wallet_aggregate.limit.startedAt"),
-                    () -> assertEquals(testData.kafkaLimitMessage.getExpiresAt(), redisLimit.getExpiresAt(), "redis.wallet_aggregate.limit.expiresAt"),
+                    () -> assertEquals(testData.kafkaLimitMessage.expiresAt(), redisLimit.getExpiresAt(), "redis.wallet_aggregate.limit.expiresAt"),
                     () -> assertTrue(redisLimit.isStatus(), "redis.wallet_aggregate.limit.status_is_true")
             );
         });
@@ -243,14 +243,14 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             assertFalse(response.getBody().isEmpty(), "fapi.get_deposit_limits.response_body_list_not_empty");
 
             var fapiLimitOpt = response.getBody().stream()
-                    .filter(l -> testData.kafkaLimitMessage.getId().equals(l.getId()))
+                    .filter(l -> testData.kafkaLimitMessage.id().equals(l.getId()))
                     .findFirst();
 
             assertTrue(fapiLimitOpt.isPresent(), "fapi.get_deposit_limits.deposit_limit_not_found");
             var fapiLimit = fapiLimitOpt.get();
 
             assertAll("fapi.get_deposit_limits.limit_content_validation",
-                    () -> assertEquals(testData.kafkaLimitMessage.getId(), fapiLimit.getId(), "fapi.get_deposit_limits.limit.id"),
+                    () -> assertEquals(testData.kafkaLimitMessage.id(), fapiLimit.getId(), "fapi.get_deposit_limits.limit.id"),
                     () -> assertEquals(periodType.getValue(), fapiLimit.getType(), "fapi.get_deposit_limits.limit.type"),
                     () -> assertEquals(testData.registeredPlayer.getWalletData().getCurrency(), fapiLimit.getCurrency(), "fapi.get_deposit_limits.limit.currency"),
                     () -> assertTrue(fapiLimit.isStatus(), "fapi.get_deposit_limits.limit.status_is_true"),

@@ -114,7 +114,7 @@ class DepositPositiveTest extends BaseTest {
 
             var actualPayload = ctx.depositEvent.getPayload();
             assertAll("Проверка полей события 'deposited_money' в NATS",
-                    () -> assertEquals(ctx.paymentTransactionMessage.getTransaction().getTransactionId(), actualPayload.getUuid(), "nats.payload.uuid"),
+                    () -> assertEquals(ctx.paymentTransactionMessage.transaction().transactionId(), actualPayload.getUuid(), "nats.payload.uuid"),
                     () -> assertEquals(ctx.depositRequest.getCurrency(), actualPayload.getCurrencyCode(), "nats.payload.currencyCode"),
                     () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(actualPayload.getAmount()), "nats.payload.amount"),
                     () -> assertEquals(NatsDepositStatus.SUCCESS, actualPayload.getStatus(), "nats.payload.status"),
@@ -148,7 +148,7 @@ class DepositPositiveTest extends BaseTest {
                     (int) ctx.depositEvent.getSequence());
 
             var deposit = aggregate.getDeposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.paymentTransactionMessage.getTransaction().getTransactionId()))
+                    .filter(d -> d.getUuid().equals(ctx.paymentTransactionMessage.transaction().transactionId()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка данных депозита в агрегате кошелька Redis",

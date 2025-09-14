@@ -157,7 +157,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            ctx.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
+                            ctx.kafkaLimitMessage.id().equals(payload.getLimits().get(0).getExternalId());
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -194,7 +194,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
                     .with("nodeId", platformNodeId)
                     .fetch();
 
-            ctx.transactionId = ctx.kafkaPaymentMessage.getTransaction().getTransactionId();
+            ctx.transactionId = ctx.kafkaPaymentMessage.transaction().transactionId();
 
             assertNotNull(ctx.transactionId, "kafka.transaction.id");
         });

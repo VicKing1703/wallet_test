@@ -131,13 +131,13 @@ public class TurnoverLimitCreateParameterizedTest extends BaseParameterizedTest 
 
             assertNotNull(ctx.kafkaLimitMessage, "kafka.limits_v2_event.message_not_null");
             assertAll("kafka.limits_v2_event.content_validation",
-                    () -> assertEquals(NatsLimitType.TURNOVER_FUNDS.getValue(), ctx.kafkaLimitMessage.getLimitType(), "kafka.limits_v2_event.limitType"),
-                    () -> assertEquals(periodType.getValue(), ctx.kafkaLimitMessage.getIntervalType(), "kafka.limits_v2_event.intervalType"),
-                    () -> assertEquals(0, limitAmountBase.compareTo(new BigDecimal(ctx.kafkaLimitMessage.getAmount())), "kafka.limits_v2_event.amount"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), ctx.kafkaLimitMessage.getCurrencyCode(), "kafka.limits_v2_event.currencyCode"),
-                    () -> assertNotNull(ctx.kafkaLimitMessage.getId(), "kafka.limits_v2_event.id"),
-                    () -> assertNotNull(ctx.kafkaLimitMessage.getStartedAt(), "kafka.limits_v2_event.startedAt"),
-                    () -> assertNotNull(ctx.kafkaLimitMessage.getExpiresAt(), "kafka.limits_v2_event.expiresAt")
+                    () -> assertEquals(NatsLimitType.TURNOVER_FUNDS.getValue(), ctx.kafkaLimitMessage.limitType(), "kafka.limits_v2_event.limitType"),
+                    () -> assertEquals(periodType.getValue(), ctx.kafkaLimitMessage.intervalType(), "kafka.limits_v2_event.intervalType"),
+                    () -> assertEquals(0, limitAmountBase.compareTo(new BigDecimal(ctx.kafkaLimitMessage.amount())), "kafka.limits_v2_event.amount"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), ctx.kafkaLimitMessage.currencyCode(), "kafka.limits_v2_event.currencyCode"),
+                    () -> assertNotNull(ctx.kafkaLimitMessage.id(), "kafka.limits_v2_event.id"),
+                    () -> assertNotNull(ctx.kafkaLimitMessage.startedAt(), "kafka.limits_v2_event.startedAt"),
+                    () -> assertNotNull(ctx.kafkaLimitMessage.expiresAt(), "kafka.limits_v2_event.expiresAt")
             );
         });
 
@@ -149,7 +149,7 @@ public class TurnoverLimitCreateParameterizedTest extends BaseParameterizedTest 
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
                             payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            ctx.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
+                            ctx.kafkaLimitMessage.id().equals(payload.getLimits().get(0).getExternalId());
 
             ctx.natsLimitChangeEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -163,13 +163,13 @@ public class TurnoverLimitCreateParameterizedTest extends BaseParameterizedTest 
             var natsLimit = ctx.natsLimitChangeEvent.getPayload().getLimits().get(0);
             assertAll("nats.limit_changed_v2_event.content_validation",
                     () -> assertEquals(NatsLimitEventType.CREATED.getValue(), ctx.natsLimitChangeEvent.getPayload().getEventType(), "nats.limit_changed_v2_event.payload.eventType"),
-                    () -> assertEquals(ctx.kafkaLimitMessage.getId(), natsLimit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
+                    () -> assertEquals(ctx.kafkaLimitMessage.id(), natsLimit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
                     () -> assertEquals(NatsLimitType.TURNOVER_FUNDS.getValue(), natsLimit.getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), natsLimit.getIntervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
                     () -> assertEquals(0, limitAmountBase.compareTo(natsLimit.getAmount()), "nats.limit_changed_v2_event.limit.amount"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), natsLimit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
                     () -> assertNotNull(natsLimit.getStartedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
-                    () -> assertEquals(ctx.kafkaLimitMessage.getExpiresAt(), natsLimit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
+                    () -> assertEquals(ctx.kafkaLimitMessage.expiresAt(), natsLimit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                     () -> assertTrue(natsLimit.getStatus(), "nats.limit_changed_v2_event.limit.status_is_true")
             );
         });

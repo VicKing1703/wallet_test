@@ -171,7 +171,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
                     .with("nodeId", nodeId)
                     .fetch();
 
-            ctx.transactionId = ctx.kafkaPaymentMessage.getTransaction().getTransactionId();
+            ctx.transactionId = ctx.kafkaPaymentMessage.transaction().transactionId();
 
             assertNotNull(ctx.transactionId, "kafka.transaction.id");
         });

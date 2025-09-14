@@ -84,7 +84,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                            ctx.kafkaLimitMessage.getId().equals(payload.getLimits().get(0).getExternalId());
+                            ctx.kafkaLimitMessage.id().equals(payload.getLimits().get(0).getExternalId());
 
             ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -93,11 +93,11 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
             assertAll("nats.limit_changed_v2_event.content_validation",
                     () -> assertEquals(NatsLimitEventType.CREATED.getValue(), ctx.limitCreateEvent.getPayload().getEventType(), "nats.limit_changed_v2_event.payload.eventType"),
-                    () -> assertEquals(ctx.kafkaLimitMessage.getId(), ctx.limitCreateEvent.getPayload().getLimits().get(0).getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
-                    () -> assertEquals(ctx.kafkaLimitMessage.getLimitType(), ctx.limitCreateEvent.getPayload().getLimits().get(0).getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
+                    () -> assertEquals(ctx.kafkaLimitMessage.id(), ctx.limitCreateEvent.getPayload().getLimits().get(0).getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
+                    () -> assertEquals(ctx.kafkaLimitMessage.limitType(), ctx.limitCreateEvent.getPayload().getLimits().get(0).getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
                     () -> assertTrue(ctx.limitCreateEvent.getPayload().getLimits().get(0).getIntervalType().isEmpty(), "nats.limit_changed_v2_event.limit.intervalType_empty"),
-                    () -> assertEquals(ctx.kafkaLimitMessage.getAmount(), ctx.limitCreateEvent.getPayload().getLimits().get(0).getAmount().toString(), "nats.limit_changed_v2_event.limit.amount"),
-                    () -> assertEquals(ctx.kafkaLimitMessage.getCurrencyCode(), ctx.limitCreateEvent.getPayload().getLimits().get(0).getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
+                    () -> assertEquals(ctx.kafkaLimitMessage.amount(), ctx.limitCreateEvent.getPayload().getLimits().get(0).getAmount().toString(), "nats.limit_changed_v2_event.limit.amount"),
+                    () -> assertEquals(ctx.kafkaLimitMessage.currencyCode(), ctx.limitCreateEvent.getPayload().getLimits().get(0).getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
                     () -> assertNotNull(ctx.limitCreateEvent.getPayload().getLimits().get(0).getStartedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
                     () -> assertEquals(0, ctx.limitCreateEvent.getPayload().getLimits().get(0).getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                     () -> assertTrue(ctx.limitCreateEvent.getPayload().getLimits().get(0).getStatus(), "nats.limit_changed_v2_event.limit.status")

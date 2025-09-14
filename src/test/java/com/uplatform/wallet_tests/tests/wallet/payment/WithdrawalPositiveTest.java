@@ -136,7 +136,7 @@ class WithdrawalPositiveTest extends BaseTest {
                         .with("playerId", ctx.player.getWalletData().getPlayerUUID())
                         .fetch();
 
-                ctx.transactionId = paymentMessage.getTransaction().getTransactionId();
+                ctx.transactionId = paymentMessage.transaction().transactionId();
                 assertNotNull(ctx.transactionId, "kafka.payment_transaction.id_not_found");
             });
         });

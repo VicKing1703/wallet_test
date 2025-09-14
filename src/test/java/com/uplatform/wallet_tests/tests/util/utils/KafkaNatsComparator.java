@@ -22,13 +22,13 @@ public class KafkaNatsComparator {
             return false;
         }
 
-        long kafkaSeq = kafkaMessage.getSeqNumber();
+        long kafkaSeq = kafkaMessage.seqNumber();
         long natsSeq = natsMessage.getSequence();
         if (kafkaSeq != natsSeq) {
             return false;
         }
 
-        String kafkaType = kafkaMessage.getType();
+        String kafkaType = kafkaMessage.type();
         String natsType = natsMessage.getType();
         if (!Objects.equals(kafkaType, natsType)) {
             return false;
@@ -47,14 +47,14 @@ public class KafkaNatsComparator {
         if (natsSubjectInfo == null) {
             return false;
         }
-        if (!Objects.equals(kafkaMessage.getPlayerUuid(), natsSubjectInfo.playerUuid())) {
+        if (!Objects.equals(kafkaMessage.playerUuid(), natsSubjectInfo.playerUuid())) {
             return false;
         }
-        if (!Objects.equals(kafkaMessage.getWalletUuid(), natsSubjectInfo.walletUuid())) {
+        if (!Objects.equals(kafkaMessage.walletUuid(), natsSubjectInfo.walletUuid())) {
             return false;
         }
 
-        String kafkaPayloadString = kafkaMessage.getPayload();
+        String kafkaPayloadString = kafkaMessage.payload();
         if (kafkaPayloadString == null || kafkaPayloadString.trim().isEmpty()) {
             return false;
         }
