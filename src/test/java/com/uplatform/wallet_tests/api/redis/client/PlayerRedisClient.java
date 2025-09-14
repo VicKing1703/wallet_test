@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.StringJoiner;
 
 @Slf4j
 public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletData>> {
@@ -34,6 +35,17 @@ public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletDat
         return criteria.getCurrency().map(c -> Objects.equals(c, wallet.getCurrency())).orElse(true)
                 && criteria.getType().map(t -> Objects.equals(t, wallet.getType())).orElse(true)
                 && criteria.getStatus().map(s -> Objects.equals(s, wallet.getStatus())).orElse(true);
+    }
+
+    private String describeCriteria(WalletFilterCriteria criteria) {
+        if (criteria == null) {
+            return "[null criteria]";
+        }
+        StringJoiner joiner = new StringJoiner(", ", "[", "]");
+        criteria.getCurrency().ifPresent(c -> joiner.add("currency=" + c));
+        criteria.getType().ifPresent(t -> joiner.add("type=" + t));
+        criteria.getStatus().ifPresent(s -> joiner.add("status=" + s));
+        return joiner.length() <= 2 ? "[no specific criteria]" : joiner.toString();
     }
 
     public WalletData getPlayerWalletByCriteria(String playerId, WalletFilterCriteria criteria) {

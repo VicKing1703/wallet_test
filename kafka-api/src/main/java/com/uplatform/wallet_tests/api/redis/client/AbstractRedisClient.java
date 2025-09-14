@@ -2,14 +2,12 @@ package com.uplatform.wallet_tests.api.redis.client;
 
 import com.uplatform.wallet_tests.api.redis.exceptions.RedisConnectionException;
 import com.uplatform.wallet_tests.api.redis.exceptions.RedisRetryExhaustedException;
-import com.uplatform.wallet_tests.api.redis.model.WalletFilterCriteria;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.Optional;
-import java.util.StringJoiner;
 import java.util.function.BiFunction;
 
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
@@ -125,14 +123,4 @@ public abstract class AbstractRedisClient<T> {
                 timeoutMs)));
     }
 
-    public String describeCriteria(WalletFilterCriteria criteria) {
-        if (criteria == null) {
-            return "[null criteria]";
-        }
-        StringJoiner joiner = new StringJoiner(", ", "[", "]");
-        criteria.getCurrency().ifPresent(c -> joiner.add("currency=" + c));
-        criteria.getType().ifPresent(t -> joiner.add("type=" + t));
-        criteria.getStatus().ifPresent(s -> joiner.add("status=" + s));
-        return joiner.length() <= 2 ? "[no specific criteria]" : joiner.toString();
-    }
 }
