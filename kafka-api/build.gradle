@@ -15,6 +15,7 @@ java {
 dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.4"
+        mavenBom "io.qameta.allure:allure-bom:${rootProject.ext.allureVersion}"
     }
 }
 
@@ -27,6 +28,7 @@ dependencies {
     implementation 'org.slf4j:slf4j-api'
     implementation 'jakarta.annotation:jakarta.annotation-api'
     implementation 'com.jayway.jsonpath:json-path:2.9.0'
+    implementation 'io.qameta.allure:allure-java-commons'
     compileOnly "org.projectlombok:lombok:${rootProject.ext.lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${rootProject.ext.lombokVersion}"
 }
