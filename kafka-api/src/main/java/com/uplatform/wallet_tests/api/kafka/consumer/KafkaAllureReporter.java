@@ -2,7 +2,7 @@ package com.uplatform.wallet_tests.api.kafka.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.attachment.AttachmentService;
 import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 public class KafkaAllureReporter {
 
     private final ObjectMapper objectMapper;
-    private final AllureAttachmentService attachmentService;
+    private final AttachmentService attachmentService;
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     public void addSearchInfoAttachment(

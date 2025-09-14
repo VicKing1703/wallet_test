@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.api.kafka.client;
 
 import com.uplatform.wallet_tests.api.kafka.consumer.KafkaBackgroundConsumer;
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
 import com.uplatform.wallet_tests.api.kafka.client.KafkaExpectationBuilder;
 
 import java.time.Duration;
@@ -13,7 +13,7 @@ public abstract class AbstractKafkaClient {
 
     protected AbstractKafkaClient(
             KafkaBackgroundConsumer kafkaBackgroundConsumer,
-            EnvironmentConfigurationProvider configProvider
+            KafkaConfigProvider configProvider
     ) {
         this.kafkaBackgroundConsumer = kafkaBackgroundConsumer;
         this.defaultFindTimeout = configProvider.getKafkaConfig().getFindMessageTimeout();

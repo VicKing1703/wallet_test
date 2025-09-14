@@ -1,8 +1,8 @@
 package com.uplatform.wallet_tests.api.kafka.consumer;
 
 import com.uplatform.wallet_tests.api.kafka.config.KafkaTopicMappingRegistry;
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
-import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
+import com.uplatform.wallet_tests.api.attachment.AttachmentService;
 import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -30,7 +30,7 @@ public class KafkaBackgroundConsumer {
     private final MessageBuffer messageBuffer;
     private final MessageFinder messageFinder;
     private final KafkaAllureReporter allureReporter;
-    private final AllureAttachmentService attachmentService;
+    private final AttachmentService attachmentService;
     private final String topicPrefix;
     private final Duration findMessageSleepInterval;
 
@@ -40,15 +40,15 @@ public class KafkaBackgroundConsumer {
             MessageBuffer messageBuffer,
             MessageFinder messageFinder,
             KafkaAllureReporter allureReporter,
-            AllureAttachmentService attachmentService,
-            EnvironmentConfigurationProvider configProvider
+            AttachmentService attachmentService,
+            KafkaConfigProvider configProvider
     ) {
         this.topicMappingRegistry = topicMappingRegistry;
         this.pollingService = pollingService;
         this.messageBuffer = messageBuffer;
         this.messageFinder = messageFinder;
         this.allureReporter = allureReporter;
-        this.topicPrefix = configProvider.getEnvironmentConfig().getTopicPrefix();
+        this.topicPrefix = configProvider.getTopicPrefix();
         this.findMessageSleepInterval = configProvider.getKafkaConfig().getFindMessageSleepInterval();
         this.attachmentService = attachmentService;
     }

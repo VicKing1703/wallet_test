@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class AllureAttachmentService {
+public class AllureAttachmentService implements AttachmentService {
     private final ObjectMapper objectMapper;
 
     public void attachJson(String name, Object data) {
@@ -29,10 +29,12 @@ public class AllureAttachmentService {
         Allure.addAttachment(name, "text/plain", content, ".txt");
     }
 
+    @Override
     public void attachJson(AttachmentType type, String name, Object data) {
         attachJson(type.getPrefix() + ": " + name, data);
     }
 
+    @Override
     public void attachText(AttachmentType type, String name, String content) {
         attachText(type.getPrefix() + ": " + name, content);
     }

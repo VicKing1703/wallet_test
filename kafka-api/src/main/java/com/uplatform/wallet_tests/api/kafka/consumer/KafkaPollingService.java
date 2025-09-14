@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.api.kafka.consumer;
 
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
 import com.uplatform.wallet_tests.config.KafkaConfig;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +34,7 @@ public class KafkaPollingService {
 
     public KafkaPollingService(
             MessageBuffer messageBuffer,
-            EnvironmentConfigurationProvider configProvider
+            KafkaConfigProvider configProvider
     ) {
         this.messageBuffer = messageBuffer;
         this.kafkaConfig = configProvider.getKafkaConfig();
