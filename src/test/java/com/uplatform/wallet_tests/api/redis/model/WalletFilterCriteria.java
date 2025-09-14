@@ -10,11 +10,5 @@ public record WalletFilterCriteria(
     public WalletFilterCriteria() {
         this(Optional.empty(), Optional.empty(), Optional.empty());
     }
-
-    public Optional<String> getCurrency() { return currency; }
-
-    public Optional<Integer> getType() { return type; }
-
-    public Optional<Integer> getStatus() { return status; }
 }
 

@@ -178,14 +178,14 @@ public class PlayerRegistrationStep {
                     ctx.fullRegistrationMessage.player().externalId(),
                     criteria);
             assertNotNull(ctx.playerWalletData, "redis.player.wallet.not_found");
-            assertNotNull(ctx.playerWalletData.getWalletUUID(), "redis.player.wallet.uuid");
-            assertNotNull(ctx.playerWalletData.getCurrency(), "redis.player.wallet.currency");
+            assertNotNull(ctx.playerWalletData.walletUUID(), "redis.player.wallet.uuid");
+            assertNotNull(ctx.playerWalletData.currency(), "redis.player.wallet.currency");
         });
 
         if (adjustmentAmount != null && adjustmentAmount.compareTo(BigDecimal.ZERO) > 0) {
-            step("CAP API: Корректировка баланса на " + adjustmentAmount + " " + ctx.playerWalletData.getCurrency(), () -> {
+            step("CAP API: Корректировка баланса на " + adjustmentAmount + " " + ctx.playerWalletData.currency(), () -> {
                 var request = CreateBalanceAdjustmentRequest.builder()
-                        .currency(ctx.playerWalletData.getCurrency())
+                        .currency(ctx.playerWalletData.currency())
                         .amount(adjustmentAmount)
                         .reason(ReasonType.MALFUNCTION)
                         .operationType(OperationType.CORRECTION)
@@ -203,9 +203,9 @@ public class PlayerRegistrationStep {
 
         step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
             ctx.updatedWalletData = this.walletRedisClient.getWithRetry(
-                    ctx.playerWalletData.getWalletUUID());
+                    ctx.playerWalletData.walletUUID());
             assertNotNull(ctx.updatedWalletData, "redis.wallet.full_data_not_found");
-            assertNotNull(ctx.updatedWalletData.getPlayerUUID(), "redis.wallet.player_uuid");
+            assertNotNull(ctx.updatedWalletData.playerUUID(), "redis.wallet.player_uuid");
         });
 
         return new RegisteredPlayerData(

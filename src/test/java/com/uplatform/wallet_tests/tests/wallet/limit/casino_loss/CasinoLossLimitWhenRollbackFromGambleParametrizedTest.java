@@ -112,7 +112,7 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
 
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
@@ -126,8 +126,8 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
@@ -162,13 +162,13 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
         step("Manager API: Получение роллбэка", () -> {
             ctx.rollbackRequestBody = RollbackRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
                     .amount(ctx.rollbackAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
                     .roundId(ctx.betRequestBody.getRoundId())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .roundClosed(true)
                     .build();
 
@@ -181,8 +181,8 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
 
             step("Sub-step NATS: Проверка поступления события rollbacked_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -199,13 +199,13 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.rollbackEvent.getSequence());
 
             assertAll(
-                    () -> assertEquals(0, ctx.expectedRestAmountAfterRollback.compareTo(aggregate.getLimits().get(0).getRest()), "redis.limit.rest"),
-                    () -> assertEquals(0, ctx.expectedSpentAmountAfterRollback.compareTo(aggregate.getLimits().get(0).getSpent()), "redis.limit.spent"),
-                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.getLimits().get(0).getAmount()), "redis.limit.amount")
+                    () -> assertEquals(0, ctx.expectedRestAmountAfterRollback.compareTo(aggregate.limits().get(0).getRest()), "redis.limit.rest"),
+                    () -> assertEquals(0, ctx.expectedSpentAmountAfterRollback.compareTo(aggregate.limits().get(0).getSpent()), "redis.limit.spent"),
+                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.limits().get(0).getAmount()), "redis.limit.amount")
             );
         });
     }

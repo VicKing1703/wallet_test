@@ -39,7 +39,7 @@ public class CreateGameSessionStep {
         Objects.requireNonNull(playerData.getAuthorizationResponse().getBody(), "AuthorizationResponse body in RegisteredPlayerData cannot be null");
         Objects.requireNonNull(playerData.getAuthorizationResponse().getBody().getToken(), "Token in RegisteredPlayerData cannot be null");
         Objects.requireNonNull(playerData.getWalletData(), "WalletData in RegisteredPlayerData cannot be null");
-        Objects.requireNonNull(playerData.getWalletData().getPlayerUUID(), "PlayerUUID in WalletData cannot be null");
+        Objects.requireNonNull(playerData.getWalletData().playerUUID(), "PlayerUUID in WalletData cannot be null");
 
         final TestContext ctx = new TestContext();
 
@@ -72,7 +72,7 @@ public class CreateGameSessionStep {
         });
 
         step("3. DB Wallet: Получение данных игровой сессии из БД", () -> {
-            var playerUuid = playerData.getWalletData().getPlayerUUID();
+            var playerUuid = playerData.getWalletData().playerUUID();
             ctx.dbGameSession = this.walletDatabaseClient.findSingleGameSessionByPlayerUuidOrFail(playerUuid);
             assertNotNull(ctx.dbGameSession, "db.wallet.game_session.not_found");
             assertNotNull(ctx.dbGameSession.getGameSessionUuid(), "db.wallet.game_session.uuid");

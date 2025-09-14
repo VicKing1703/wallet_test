@@ -132,7 +132,7 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            ctx.currentCalculatedBalance = ctx.registeredPlayer.getWalletData().getBalance();
+            ctx.currentCalculatedBalance = ctx.registeredPlayer.getWalletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -185,8 +185,8 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события betted_from_gamble для последней транзакции", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, natsTypeHeader) ->
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(natsTypeHeader) &&
@@ -202,10 +202,10 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
         step("Redis: Определение вытесненной транзакции", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.lastBetNatsEvent.getSequence());
 
-            var gamblingTransactionsInRedis = aggregate.getGambling();
+            var gamblingTransactionsInRedis = aggregate.gambling();
             var transactionIdsCurrentlyInRedis = gamblingTransactionsInRedis.keySet();
             var displacedTransactionIds = ctx.madeBetsRequests.stream()
                     .map(BetRequestBody::getTransactionId).collect(Collectors.toCollection(HashSet::new));
@@ -232,8 +232,8 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
                     .rollbackTransactionId(ctx.betToRollbackRequest.getTransactionId())
                     .roundId(ctx.betToRollbackRequest.getRoundId())
                     .roundClosed(true)
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
                     .build();
 

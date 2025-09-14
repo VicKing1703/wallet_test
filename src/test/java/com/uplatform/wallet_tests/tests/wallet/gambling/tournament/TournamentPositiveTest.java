@@ -68,7 +68,7 @@ class TournamentPositiveTest extends BaseTest {
         step("Manager API: Начисление турнирного выигрыша", () -> {
             ctx.tournamentRequestBody = TournamentRequestBody.builder()
                     .amount(tournamentAmount)
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
                     .transactionId(UUID.randomUUID().toString())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
@@ -91,8 +91,8 @@ class TournamentPositiveTest extends BaseTest {
 
         step("NATS: Проверка поступления события tournament_won_from_gamble", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -108,7 +108,7 @@ class TournamentPositiveTest extends BaseTest {
                     () -> assertEquals(new UUID(0L, 0L).toString(), ctx.tournamentEvent.getPayload().getBetUuid(), "nats.payload.bet_uuid"),
                     () -> assertEquals(ctx.tournamentRequestBody.getSessionToken(), ctx.tournamentEvent.getPayload().getGameSessionUuid(), "nats.payload.game_session_uuid"),
                     () -> assertEquals(ctx.tournamentRequestBody.getRoundId(), ctx.tournamentEvent.getPayload().getProviderRoundId(), "nats.payload.provider_round_id"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), ctx.tournamentEvent.getPayload().getCurrency(), "nats.payload.currency"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.tournamentEvent.getPayload().getCurrency(), "nats.payload.currency"),
                     () -> assertEquals(0, tournamentAmount.compareTo(ctx.tournamentEvent.getPayload().getAmount()), "nats.payload.amount"),
                     () -> assertEquals(NatsGamblingTransactionType.TYPE_TOURNAMENT, ctx.tournamentEvent.getPayload().getType(), "nats.payload.type"),
                     () -> assertFalse(ctx.tournamentEvent.getPayload().isProviderRoundClosed(), "nats.payload.provider_round_closed"),
@@ -121,9 +121,9 @@ class TournamentPositiveTest extends BaseTest {
                     () -> assertEquals(ctx.tournamentRequestBody.getProviderUuid(), ctx.tournamentEvent.getPayload().getProviderUuid(), "nats.payload.provider_uuid"),
                     () -> assertTrue(ctx.tournamentEvent.getPayload().getWageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info"),
                     () -> assertEquals(0, tournamentAmount.compareTo(ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getGameAmount()), "nats.payload.currency_conversion.game_amount"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getGameCurrency(), "nats.payload.currency_conversion.game_currency"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getBaseCurrency(), "nats.payload.currency_conversion.base_currency"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getQuoteCurrency(), "nats.payload.currency_conversion.quote_currency"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getGameCurrency(), "nats.payload.currency_conversion.game_currency"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getBaseCurrency(), "nats.payload.currency_conversion.base_currency"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getQuoteCurrency(), "nats.payload.currency_conversion.quote_currency"),
                     () -> assertEquals(expectedCurrencyRates, ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getValue(), "nats.payload.currency_conversion.rate_value"),
                     () -> assertNotNull(ctx.tournamentEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getUpdatedAt(), "nats.payload.currency_conversion.updated_at")
             );
@@ -135,7 +135,7 @@ class TournamentPositiveTest extends BaseTest {
 
             assertAll(
                     () -> assertEquals(ctx.tournamentEvent.getPayload().getUuid(), transaction.getUuid(), "db.transaction.uuid"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getPlayerUUID(), transaction.getPlayerUuid(), "db.transaction.player_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.transaction.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.transaction.date"),
                     () -> assertEquals(ctx.tournamentEvent.getPayload().getType(), transaction.getType(), "db.transaction.type"),
                     () -> assertEquals(ctx.tournamentEvent.getPayload().getOperation(), transaction.getOperation(), "db.transaction.operation"),
@@ -151,10 +151,10 @@ class TournamentPositiveTest extends BaseTest {
 
         step("DB Wallet: Проверка записи порога выигрыша в player_threshold_win", () -> {
             var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID());
 
             assertAll(
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getPlayerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
                     () -> assertEquals(0, BigDecimal.ZERO.add(tournamentAmount).compareTo(threshold.getAmount()), "db.threshold.amount"),
                     () -> assertNotNull(threshold.getUpdatedAt(), "db.threshold.updated_at")
             );
@@ -162,15 +162,15 @@ class TournamentPositiveTest extends BaseTest {
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька после турнирного выигрыша", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(), (int) ctx.tournamentEvent.getSequence());
+                    ctx.registeredPlayer.getWalletData().walletUUID(), (int) ctx.tournamentEvent.getSequence());
 
             assertAll(
-                    () -> assertEquals(ctx.tournamentEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.aggregate.last_seq_number"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.getAvailableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
-                    () -> assertTrue(aggregate.getGambling().containsKey(ctx.tournamentEvent.getPayload().getUuid()), "redis.aggregate.gambling.contains"),
-                    () -> assertEquals(0, tournamentAmount.compareTo(aggregate.getGambling().get(ctx.tournamentEvent.getPayload().getUuid()).getAmount()), "redis.aggregate.gambling.amount"),
-                    () -> assertNotNull(aggregate.getGambling().get(ctx.tournamentEvent.getPayload().getUuid()).getCreatedAt(), "redis.aggregate.gambling.created_at")
+                    () -> assertEquals(ctx.tournamentEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.balance()), "redis.aggregate.balance"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
+                    () -> assertTrue(aggregate.gambling().containsKey(ctx.tournamentEvent.getPayload().getUuid()), "redis.aggregate.gambling.contains"),
+                    () -> assertEquals(0, tournamentAmount.compareTo(aggregate.gambling().get(ctx.tournamentEvent.getPayload().getUuid()).getAmount()), "redis.aggregate.gambling.amount"),
+                    () -> assertNotNull(aggregate.gambling().get(ctx.tournamentEvent.getPayload().getUuid()).getCreatedAt(), "redis.aggregate.gambling.created_at")
             );
         });
 

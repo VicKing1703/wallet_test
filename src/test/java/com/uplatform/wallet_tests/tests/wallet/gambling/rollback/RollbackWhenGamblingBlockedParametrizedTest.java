@@ -146,7 +146,7 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
@@ -160,8 +160,8 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)

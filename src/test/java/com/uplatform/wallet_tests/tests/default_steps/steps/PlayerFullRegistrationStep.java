@@ -189,8 +189,8 @@ public class PlayerFullRegistrationStep {
                     ctx.fullRegistrationMessage.player().externalId(),
                     criteria);
             assertNotNull(ctx.playerWalletData, "redis.player.wallet.not_found");
-            assertNotNull(ctx.playerWalletData.getWalletUUID(), "redis.player.wallet.uuid");
-            assertNotNull(ctx.playerWalletData.getCurrency(), "redis.player.wallet.currency");
+            assertNotNull(ctx.playerWalletData.walletUUID(), "redis.player.wallet.uuid");
+            assertNotNull(ctx.playerWalletData.currency(), "redis.player.wallet.currency");
         });
 
         step("Public API: Создание запроса на подтверждение личности", () -> {
@@ -275,7 +275,7 @@ public class PlayerFullRegistrationStep {
         step("Public API: Установка лимита на одиночную ставку", () -> {
             var amount = new BigDecimal("100000.00");
             var request = SetSingleBetLimitRequest.builder()
-                    .currency(ctx.playerWalletData.getCurrency())
+                    .currency(ctx.playerWalletData.currency())
                     .amount(amount.toString())
                     .build();
             var response = publicClient.setSingleBetLimit(
@@ -287,7 +287,7 @@ public class PlayerFullRegistrationStep {
         step("Public API: Установка лимита на оборот средств", () -> {
             var amount = new BigDecimal("100000.00");
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.playerWalletData.getCurrency())
+                    .currency(ctx.playerWalletData.currency())
                     .type(NatsLimitIntervalType.DAILY)
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .amount(amount.toString())
@@ -312,14 +312,14 @@ public class PlayerFullRegistrationStep {
 
         step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
             ctx.updatedWalletData = this.walletRedisClient.getWithRetry(
-                    ctx.playerWalletData.getWalletUUID());
+                    ctx.playerWalletData.walletUUID());
             assertNotNull(ctx.updatedWalletData, "redis.wallet.full_data_not_found");
-            assertNotNull(ctx.updatedWalletData.getPlayerUUID(), "redis.wallet.player_uuid");
+            assertNotNull(ctx.updatedWalletData.playerUUID(), "redis.wallet.player_uuid");
         });
 
         step("DB (Player): Получение статусов свойств аккаунта", () -> {
             var property = playerDatabaseClient.waitForAccountPropertyStatus(
-                    ctx.updatedWalletData.getPlayerUUID(),
+                    ctx.updatedWalletData.playerUUID(),
                     "REQUIRED_LIMITS_SET",
                     1,
                     Duration.ofMinutes(2));

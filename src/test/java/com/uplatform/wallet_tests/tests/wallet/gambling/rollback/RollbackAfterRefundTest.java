@@ -113,8 +113,8 @@ class RollbackAfterRefundTest extends BaseTest {
                     .betTransactionId(ctx.betRequestBody.getTransactionId())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
                     .build();
 
@@ -132,8 +132,8 @@ class RollbackAfterRefundTest extends BaseTest {
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)

@@ -146,7 +146,7 @@ class RefundWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
@@ -162,8 +162,8 @@ class RefundWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest {
                     .betTransactionId(ctx.betRequestBody.getTransactionId())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
                     .build();
 

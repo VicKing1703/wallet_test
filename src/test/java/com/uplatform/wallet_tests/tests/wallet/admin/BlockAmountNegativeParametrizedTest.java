@@ -229,14 +229,14 @@ class BlockAmountNegativeParametrizedTest extends BaseParameterizedTest {
             ctx.request = CreateBlockAmountRequest.builder()
                     .reason("Test block amount negative")
                     .amount(validBlockAmount.toString())
-                    .currency(registeredPlayer.getWalletData().getCurrency())
+                    .currency(registeredPlayer.getWalletData().currency())
                     .build();
 
             requestModifier.accept(ctx.request);
 
             ctx.playerUuid = (customPlayerUuid != null)
                     ? customPlayerUuid
-                    : registeredPlayer.getWalletData().getPlayerUUID();
+                    : registeredPlayer.getWalletData().playerUUID();
 
             ctx.authHeader = (customAuthHeader != null)
                     ? customAuthHeader

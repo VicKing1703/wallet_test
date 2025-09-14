@@ -84,7 +84,7 @@ class RefundAfterTournamentTest extends BaseTest {
         step("Manager API: Начисление турнирного выигрыша", () -> {
             ctx.tournamentRequest = TournamentRequestBody.builder()
                     .amount(tournamentAmount)
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
                     .transactionId(UUID.randomUUID().toString())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())

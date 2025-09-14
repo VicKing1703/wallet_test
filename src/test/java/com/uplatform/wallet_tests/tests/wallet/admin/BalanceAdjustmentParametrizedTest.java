@@ -103,7 +103,7 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.createBalanceAdjustment(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     "6dfe249e-e967-477b-8a42-83efe85c7c3a",
@@ -113,8 +113,8 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Проверка поступления события balance_adjusted", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             var filter = (BiPredicate<NatsBalanceAdjustedPayload, String>) (payload, typeHeader) -> {
                 if (!NatsEventType.BALANCE_ADJUSTED.getHeaderValue().equals(typeHeader)) {
@@ -146,10 +146,10 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
 
         step("Redis: Проверка данных кошелька после корректировки", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.balanceAdjustedEvent.getSequence());
             assertAll(
-                    () -> assertEquals(0, ctx.expectedBalanceAfterAdjustment.compareTo(aggregate.getBalance()), "redis.wallet.balance")
+                    () -> assertEquals(0, ctx.expectedBalanceAfterAdjustment.compareTo(aggregate.balance()), "redis.wallet.balance")
             );
         });
 

@@ -107,10 +107,10 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
         step("WHEN: Игрок совершает ставку на спорт через manager_api", () -> {
             var betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.player.getWalletData().getPlayerUUID())
+                    .playerId(ctx.player.getWalletData().playerUUID())
                     .summ(BET_AMOUNT.toPlainString())
                     .couponType(couponType)
-                    .currency(ctx.player.getWalletData().getCurrency())
+                    .currency(ctx.player.getWalletData().currency())
                     .build();
 
             ctx.betRequest = generateRequest(betInputData);
@@ -125,8 +125,8 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
         step("THEN: Система корректно обрабатывает ставку во всех компонентах", () -> {
             step("wallet-manager отправляет событие `betted_from_iframe` в NATS", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
+                        ctx.player.getWalletData().playerUUID(),
+                        ctx.player.getWalletData().walletUUID());
 
                 BiPredicate<NatsBettingEventPayload, String> filter = (payload, type) ->
                         NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(type) &&
@@ -160,10 +160,10 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
             step("AND: В БД обновляется порог выигрыша", () -> {
                 var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
-                        ctx.player.getWalletData().getPlayerUUID());
+                        ctx.player.getWalletData().playerUUID());
 
                 assertAll("Проверка записи в таблице порогов (thresholds)",
-                        () -> assertEquals(ctx.player.getWalletData().getPlayerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
+                        () -> assertEquals(ctx.player.getWalletData().playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
                         () -> assertEquals(0, BET_AMOUNT.negate().compareTo(threshold.getAmount()), "db.threshold.amount"),
                         () -> assertNotNull(threshold.getUpdatedAt(), "db.threshold.updated_at")
                 );
@@ -181,8 +181,8 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
                 assertAll("Проверка записи в таблице истории (iframe_history)",
                         () -> assertEquals(betEventPayload.getUuid(), dbTransaction.getUuid(), "db.history.uuid"),
-                        () -> assertEquals(playerData.getWalletUUID(), dbTransaction.getWalletUuid(), "db.history.wallet_uuid"),
-                        () -> assertEquals(playerData.getPlayerUUID(), dbTransaction.getPlayerUuid(), "db.history.player_uuid"),
+                        () -> assertEquals(playerData.walletUUID(), dbTransaction.getWalletUuid(), "db.history.wallet_uuid"),
+                        () -> assertEquals(playerData.playerUUID(), dbTransaction.getPlayerUuid(), "db.history.player_uuid"),
                         () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.getCouponType(), "db.history.coupon_type"),
                         () -> assertEquals(CouponStatus.ACCEPTED, dbTransaction.getCouponStatus(), "db.history.coupon_status"),
                         () -> assertEquals(CouponCalcStatus.NO, dbTransaction.getCouponCalcStatus(), "db.history.coupon_calc_status"),
@@ -194,16 +194,16 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
             step("AND: В Redis обновляется агрегат кошелька", () -> {
                 var aggregate = redisClient.getWalletDataWithSeqCheck(
-                        ctx.player.getWalletData().getWalletUUID(),
+                        ctx.player.getWalletData().walletUUID(),
                         (int) ctx.betEvent.getSequence());
 
-                var iframeRecord = aggregate.getIFrameRecords().stream()
+                var iframeRecord = aggregate.iFrameRecords().stream()
                         .filter(r -> r.getUuid().equals(ctx.betEvent.getPayload().getUuid()))
                         .findFirst().orElse(null);
 
                 assertAll("Проверка агрегата кошелька в Redis после ставки",
-                        () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.aggregate.last_seq_number"),
-                        () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
+                        () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                        () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                         () -> assertNotNull(iframeRecord, "redis.aggregate.iframe_record_not_found"),
                         () -> assertEquals(ctx.betEvent.getPayload().getBetId(), iframeRecord.getBetID(), "redis.aggregate.iframe_record.bet_id"),
                         () -> assertEquals(IFrameRecordType.BET, iframeRecord.getType(), "redis.aggregate.iframe_record.type")

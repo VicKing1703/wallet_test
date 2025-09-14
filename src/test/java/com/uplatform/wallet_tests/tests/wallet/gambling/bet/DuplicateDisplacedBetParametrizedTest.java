@@ -140,8 +140,8 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события betted_from_gamble для последней ставки", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
                             ctx.lastMadeBetTransactionId.equals(payload.getUuid());
@@ -156,9 +156,9 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
 
         step("Redis: Определение вытесненной ставки", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.lastBetNatsEvent.getSequence());
-            var transactionIdsCurrentlyInRedis = aggregate.getGambling().keySet();
+            var transactionIdsCurrentlyInRedis = aggregate.gambling().keySet();
 
             var allMadeTransactionIds = ctx.allMadeBetRequests.stream()
                     .map(BetRequestBody::getTransactionId)

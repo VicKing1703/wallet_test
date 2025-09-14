@@ -555,7 +555,7 @@ step("Default Step: регистрация", () -> {
 });
 
 step("Manager API: ставка", () -> {
-    ctx.betRequest = generateRequest(ctx.registeredPlayer.getWalletData().getWalletUUID());
+    ctx.betRequest = generateRequest(ctx.registeredPlayer.getWalletData().walletUUID());
     managerClient.makePayment(ctx.betRequest);
 });
 ```
@@ -590,10 +590,10 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
     step("Manager API: Совершение ставки на спорт", () -> {
         ctx.betInputData = MakePaymentData.builder()
                 .type(NatsBettingTransactionOperation.BET)
-                .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
                 .summ(betAmount.toPlainString())
                 .couponType(NatsBettingCouponType.SINGLE)
-                .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                .currency(ctx.registeredPlayer.getWalletData().currency())
                 .build();
 
         ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -608,8 +608,8 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
 
     step("NATS: Проверка события", () -> {
         var subject = natsClient.buildWalletSubject(
-                ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                ctx.registeredPlayer.getWalletData().getWalletUUID());
+                ctx.registeredPlayer.getWalletData().playerUUID(),
+                ctx.registeredPlayer.getWalletData().walletUUID());
         ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
                 .from(subject)
                 .fetch();
@@ -628,7 +628,7 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
 
     step("Redis(Wallet): Проверка агрегата", () -> {
         redisClient.getWalletDataWithSeqCheck(
-                ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                ctx.registeredPlayer.getWalletData().walletUUID(),
                 (int) ctx.winEvent.getSequence());
     });
 }

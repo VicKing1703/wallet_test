@@ -285,7 +285,7 @@ class BalanceAdjustmentNegativeParametrizedTest extends BaseParameterizedTest {
 
         step("Подготовка параметров запроса", () -> {
             ctx.request = CreateBalanceAdjustmentRequest.builder()
-                    .currency(registeredPlayer.getWalletData().getCurrency())
+                    .currency(registeredPlayer.getWalletData().currency())
                     .amount(validAdjustmentAmount)
                     .reason(ReasonType.MALFUNCTION)
                     .operationType(OperationType.CORRECTION)
@@ -296,7 +296,7 @@ class BalanceAdjustmentNegativeParametrizedTest extends BaseParameterizedTest {
 
             ctx.playerUuid = (customPlayerUuid != null)
                     ? customPlayerUuid
-                    : registeredPlayer.getWalletData().getPlayerUUID();
+                    : registeredPlayer.getWalletData().playerUUID();
 
             ctx.authHeader = (customAuthHeader != null)
                     ? customAuthHeader

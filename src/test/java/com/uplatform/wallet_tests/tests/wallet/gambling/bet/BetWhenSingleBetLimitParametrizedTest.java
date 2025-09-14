@@ -81,7 +81,7 @@ class BetWhenSingleBetLimitParametrizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на одиночную ставку", () -> {
             var singleBetLimitRequest = SetSingleBetLimitRequest.builder()
-                    .currency(registeredPlayer.getWalletData().getCurrency())
+                    .currency(registeredPlayer.getWalletData().currency())
                     .amount(limitAmount.toString())
                     .build();
 
@@ -95,8 +95,8 @@ class BetWhenSingleBetLimitParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    registeredPlayer.getWalletData().getPlayerUUID(),
-                    registeredPlayer.getWalletData().getWalletUUID());
+                    registeredPlayer.getWalletData().playerUUID(),
+                    registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);

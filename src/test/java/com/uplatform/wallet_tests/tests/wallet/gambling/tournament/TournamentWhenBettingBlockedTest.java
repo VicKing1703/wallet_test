@@ -60,7 +60,7 @@ class TournamentWhenBettingBlockedTest extends BaseTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
@@ -72,7 +72,7 @@ class TournamentWhenBettingBlockedTest extends BaseTest {
         step("Manager API: Начисление турнирного выигрыша", () -> {
             var request = TournamentRequestBody.builder()
                     .amount(ctx.tournamentAmount)
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
                     .transactionId(UUID.randomUUID().toString())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())

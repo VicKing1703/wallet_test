@@ -82,7 +82,7 @@ class LossDisplacedIframeBetTest extends BaseTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            ctx.currentCalculatedBalance = ctx.registeredPlayer.getWalletData().getBalance();
+            ctx.currentCalculatedBalance = ctx.registeredPlayer.getWalletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -90,10 +90,10 @@ class LossDisplacedIframeBetTest extends BaseTest {
             for (int i = 0; i < currentTransactionCountToMake; i++) {
                 var betInputData = MakePaymentData.builder()
                         .type(NatsBettingTransactionOperation.BET)
-                        .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                        .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
                         .summ(singleBetAmount.toPlainString())
                         .couponType(NatsBettingCouponType.SINGLE)
-                        .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                        .currency(ctx.registeredPlayer.getWalletData().currency())
                         .totalCoef(new BigDecimal("2.0").toString())
                         .build();
                 var betRequestBody = MakePaymentRequestGenerator.generateRequest(betInputData);
@@ -123,8 +123,8 @@ class LossDisplacedIframeBetTest extends BaseTest {
 
         step("NATS: Ожидание NATS-события betted_from_iframe для последней ставки (для sequence)", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
@@ -139,10 +139,10 @@ class LossDisplacedIframeBetTest extends BaseTest {
 
         step("Определение вытесненных iFrame ставок из Redis", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.lastBetNatsEvent.getSequence());
 
-            var iFrameRecordsInRedis = aggregate.getIFrameRecords();
+            var iFrameRecordsInRedis = aggregate.iFrameRecords();
             var allMadeBetIds = ctx.madeBetsRequests.stream()
                     .map(MakePaymentRequest::getBetId)
                     .collect(Collectors.toSet());

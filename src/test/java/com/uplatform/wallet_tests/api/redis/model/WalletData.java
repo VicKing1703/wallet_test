@@ -13,12 +13,4 @@ public record WalletData(
     public WalletData() {
         this(null, null, 0, 0);
     }
-
-    public String getWalletUUID() { return walletUUID; }
-
-    public String getCurrency() { return currency; }
-
-    public int getType() { return type; }
-
-    public int getStatus() { return status; }
 }

@@ -91,7 +91,7 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
         step("Default Step: Регистрация нового пользователя с нулевым балансом", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialBalance);
-            ctx.currentBalance = ctx.registeredPlayer.getWalletData().getBalance();
+            ctx.currentBalance = ctx.registeredPlayer.getWalletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -109,7 +109,7 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
                 var tournamentRequestBody = TournamentRequestBody.builder()
                         .amount(operationAmount)
-                        .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
+                        .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
                         .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
                         .transactionId(transactionId)
                         .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
@@ -140,8 +140,8 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
         step(String.format("NATS: Ожидание NATS-события tournament_won_from_gamble для последней операции (ID: %s)", ctx.lastTransactionId), () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -158,14 +158,14 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
         step("Redis(Wallet): Получение и проверка данных кошелька после серии турнирных выигрышей", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.lastTournamentEvent.getSequence());
-            var gamblingTransactionsInRedis = aggregate.getGambling();
+            var gamblingTransactionsInRedis = aggregate.gambling();
 
             assertAll("Проверка данных в Redis",
                     () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
-                    () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.getBalance()), "redis.wallet.balance"),
-                    () -> assertEquals((int) ctx.lastTournamentEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number")
+                    () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
+                    () -> assertEquals((int) ctx.lastTournamentEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
             );
         });
     }

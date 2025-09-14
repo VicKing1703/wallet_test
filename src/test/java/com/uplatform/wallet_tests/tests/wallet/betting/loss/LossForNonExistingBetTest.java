@@ -66,8 +66,8 @@ class LossForNonExistingBetTest extends BaseTest {
         step("Manager API: Попытка зарегистрировать проигрыш для несуществующей ставки", () -> {
             var lossInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.LOSS)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .summ(lossAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
                     .betId(nonExistingBetId)

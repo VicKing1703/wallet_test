@@ -83,7 +83,7 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
 
         step("Manager API: Совершение первого (успешного) турнирного выигрыша", () -> {
             ctx.firstTournamentRequest = TournamentRequestBody.builder()
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
+                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
                     .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
                     .amount(singleTournamentAmount)
                     .transactionId(UUID.randomUUID().toString())
@@ -102,8 +102,8 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
 
         step("NATS: Ожидание NATS-события tournament_won_from_gamble для первого турнирного выигрыша", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&

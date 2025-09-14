@@ -32,9 +32,9 @@ public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletDat
         if (wallet == null || criteria == null) {
             return false;
         }
-        return criteria.getCurrency().map(c -> Objects.equals(c, wallet.getCurrency())).orElse(true)
-                && criteria.getType().map(t -> Objects.equals(t, wallet.getType())).orElse(true)
-                && criteria.getStatus().map(s -> Objects.equals(s, wallet.getStatus())).orElse(true);
+        return criteria.currency().map(c -> Objects.equals(c, wallet.currency())).orElse(true)
+                && criteria.type().map(t -> Objects.equals(t, wallet.type())).orElse(true)
+                && criteria.status().map(s -> Objects.equals(s, wallet.status())).orElse(true);
     }
 
     private String describeCriteria(WalletFilterCriteria criteria) {
@@ -42,9 +42,9 @@ public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletDat
             return "[null criteria]";
         }
         StringJoiner joiner = new StringJoiner(", ", "[", "]");
-        criteria.getCurrency().ifPresent(c -> joiner.add("currency=" + c));
-        criteria.getType().ifPresent(t -> joiner.add("type=" + t));
-        criteria.getStatus().ifPresent(s -> joiner.add("status=" + s));
+        criteria.currency().ifPresent(c -> joiner.add("currency=" + c));
+        criteria.type().ifPresent(t -> joiner.add("type=" + t));
+        criteria.status().ifPresent(s -> joiner.add("status=" + s));
         return joiner.length() <= 2 ? "[no specific criteria]" : joiner.toString();
     }
 
@@ -76,7 +76,7 @@ public class PlayerRedisClient extends AbstractRedisClient<Map<String, WalletDat
                 "[PLAYER] Internal error: Wallet matching criteria %s for player '%s' found during check but lost afterwards.",
                 criteriaDesc, playerId)));
 
-        log.info("<<< Found wallet {} matching criteria {} for player {} >>>", wallet.getWalletUUID(), criteriaDesc, playerId);
+        log.info("<<< Found wallet {} matching criteria {} for player {} >>>", wallet.walletUUID(), criteriaDesc, playerId);
         attachmentService.attachText(
                 AttachmentType.REDIS,
                 "Found Player Wallet",

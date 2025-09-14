@@ -108,7 +108,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("Public API: Установка лимита на депозит", () -> {
             ctx.limitRequest = SetDepositLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
@@ -124,8 +124,8 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, header) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(header) &&
@@ -148,7 +148,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
             ctx.depositRequest = DepositRequestBody.builder()
                     .amount(depositAmount.toPlainString())
                     .paymentMethodId(PaymentMethodId.FAKE)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .redirect(DepositRequestBody.RedirectUrls.builder()
                             .failed(DepositRedirect.FAILED.url())
@@ -167,7 +167,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("Kafka: Получение transactionId", () -> {
             ctx.kafkaPaymentMessage = kafkaClient.expect(PaymentTransactionMessage.class)
-                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("playerId", ctx.registeredPlayer.getWalletData().playerUUID())
                     .with("nodeId", nodeId)
                     .fetch();
 
@@ -178,8 +178,8 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("NATS: Проверка события deposited_money", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, header) ->
                     NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(header);
@@ -203,10 +203,10 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("Redis(Wallet): Проверка изменений лимита", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.depositEvent.getSequence());
 
-            var redisLimit = aggregate.getLimits().stream()
+            var redisLimit = aggregate.limits().stream()
                     .filter(l -> NatsLimitType.DEPOSIT.getValue().equals(l.getLimitType()) &&
                             ctx.limitEvent.getPayload().getLimits().get(0).getExternalId().equals(l.getExternalID()))
                     .findFirst().orElse(null);

@@ -90,7 +90,7 @@ class DepositWageringBetRefundFromIframeTest extends BaseTest {
                 var depositRequest = DepositRequestBody.builder()
                         .amount(DEPOSIT_AMOUNT.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().getCurrency())
+                        .currency(ctx.player.getWalletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -104,8 +104,8 @@ class DepositWageringBetRefundFromIframeTest extends BaseTest {
 
             step("Проверка получения подтверждающего события о депозите в NATS", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
+                        ctx.player.getWalletData().playerUUID(),
+                        ctx.player.getWalletData().walletUUID());
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class).from(subject)
                         .matching((p, t) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(t))
@@ -117,17 +117,17 @@ class DepositWageringBetRefundFromIframeTest extends BaseTest {
             step("Совершение ставки для начала отыгрыша", () -> {
                 var betInput = MakePaymentData.builder()
                         .type(NatsBettingTransactionOperation.BET)
-                        .playerId(ctx.player.getWalletData().getPlayerUUID())
+                        .playerId(ctx.player.getWalletData().playerUUID())
                         .summ(BET_AMOUNT.toPlainString())
                         .couponType(NatsBettingCouponType.SINGLE)
-                        .currency(ctx.player.getWalletData().getCurrency())
+                        .currency(ctx.player.getWalletData().currency())
                         .build();
                 ctx.betRequest = generateRequest(betInput);
                 managerClient.makePayment(ctx.betRequest);
 
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
+                        ctx.player.getWalletData().playerUUID(),
+                        ctx.player.getWalletData().walletUUID());
 
                 var betEvent = natsClient.expect(NatsBettingEventPayload.class).from(subject)
                         .matching((p, t) -> NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(t))
@@ -154,8 +154,8 @@ class DepositWageringBetRefundFromIframeTest extends BaseTest {
 
         step("THEN: wallet-manager отправляет событие `refunded_from_iframe` в NATS без wager_info", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().getPlayerUUID(),
-                    ctx.player.getWalletData().getWalletUUID());
+                    ctx.player.getWalletData().playerUUID(),
+                    ctx.player.getWalletData().walletUUID());
 
             BiPredicate<NatsBettingEventPayload, String> filter = (payload, type) ->
                     NatsEventType.REFUNDED_FROM_IFRAME.getHeaderValue().equals(type) &&
@@ -177,20 +177,20 @@ class DepositWageringBetRefundFromIframeTest extends BaseTest {
 
         step("THEN: wallet_wallet_redis восстанавливает баланс, но не меняет сумму отыгрыша", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().getWalletUUID(),
+                    ctx.player.getWalletData().walletUUID(),
                     (int) ctx.refundEvent.getSequence());
 
-            var depositData = aggregate.getDeposits().stream()
+            var depositData = aggregate.deposits().stream()
                     .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после рефанда",
-                    () -> assertEquals((int) ctx.refundEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.aggregate.last_seq_number"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
+                    () -> assertEquals((int) ctx.refundEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertNotNull(depositData, "redis.aggregate.deposit_not_found"),
-                    () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.getWageringAmount()), "redis.aggregate.deposit.wagering_amount_unchanged"),
-                    () -> assertEquals(2, aggregate.getIFrameRecords().size(), "redis.aggregate.iframe_records.count"),
-                    () -> assertEquals(IFrameRecordType.REFUND, aggregate.getIFrameRecords().get(1).getType(), "redis.aggregate.iframe_records.refund_type")
+                    () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.wageringAmount()), "redis.aggregate.deposit.wagering_amount_unchanged"),
+                    () -> assertEquals(2, aggregate.iFrameRecords().size(), "redis.aggregate.iframe_records.count"),
+                    () -> assertEquals(IFrameRecordType.REFUND, aggregate.iFrameRecords().get(1).type(), "redis.aggregate.iframe_records.refund_type")
             );
         });
     }
