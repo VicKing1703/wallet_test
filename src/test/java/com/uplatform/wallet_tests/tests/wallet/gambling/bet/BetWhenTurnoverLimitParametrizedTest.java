@@ -82,7 +82,7 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(registeredPlayer.getWalletData().getCurrency())
+                    .currency(registeredPlayer.getWalletData().currency())
                     .type(NatsLimitIntervalType.DAILY)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
@@ -97,8 +97,8 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    registeredPlayer.getWalletData().getPlayerUUID(),
-                    registeredPlayer.getWalletData().getWalletUUID());
+                    registeredPlayer.getWalletData().playerUUID(),
+                    registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);

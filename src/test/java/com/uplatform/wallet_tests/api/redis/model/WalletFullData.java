@@ -5,165 +5,200 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.deser.std.NumberDeserializers;
 import com.uplatform.wallet_tests.api.redis.model.enums.IFrameRecordType;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
-@Data
-@NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class WalletFullData {
-    @JsonProperty("WalletUUID")
-    private String walletUUID;
-    @JsonProperty("PlayerUUID")
-    private String playerUUID;
-    @JsonProperty("PlayerBonusUUID")
-    private String playerBonusUUID;
-    @JsonProperty("NodeUUID")
-    private String nodeUUID;
-    @JsonProperty("Type")
-    private int type;
-    @JsonProperty("Status")
-    private int status;
-    @JsonProperty("Valid")
-    private boolean valid;
-    @JsonProperty("IsGamblingActive")
-    private boolean isGamblingActive;
-    @JsonProperty("IsBettingActive")
-    private boolean isBettingActive;
-    @JsonProperty("Currency")
-    private String currency;
-    @JsonProperty("Balance")
-    @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class)
-    private BigDecimal balance;
-    @JsonProperty("AvailableWithdrawalBalance")
-    @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class)
-    private BigDecimal availableWithdrawalBalance;
-    @JsonProperty("BalanceBefore")
-    @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class)
-    private BigDecimal balanceBefore;
-    @JsonProperty("CreatedAt")
-    private long createdAt;
-    @JsonProperty("UpdatedAt")
-    private long updatedAt;
-    @JsonProperty("BlockDate")
-    private long blockDate;
-    @JsonProperty("SumSubBlockDate")
-    private long sumSubBlockDate;
-    @JsonProperty("KYCVerificationUpdateTo")
-    private long kycVerificationUpdateTo;
-    @JsonProperty("LastSeqNumber")
-    private int lastSeqNumber;
-    @JsonProperty("Default")
-    private boolean isDefault;
-    @JsonProperty("Main")
-    private boolean main;
-    @JsonProperty("IsBlocked")
-    private boolean isBlocked;
-    @JsonProperty("IsKYCUnverified")
-    private boolean isKYCUnverified;
-    @JsonProperty("IsSumSubVerified")
-    private boolean isSumSubVerified;
-    @JsonProperty("BonusInfo")
-    private BonusInfo bonusInfo;
-    @JsonProperty("BonusTransferTransactions")
-    private Map<String, Object> bonusTransferTransactions;
-    @JsonProperty("Limits")
-    private List<LimitData> limits;
-    @JsonProperty("IFrameRecords")
-    private List<IFrameRecord> iFrameRecords;
-    @JsonProperty("Gambling")
-    private Map<String, GamblingTransaction> gambling;
-    @JsonProperty("Deposits")
-    private List<DepositData> deposits;
-    @JsonProperty("BlockedAmounts")
-    private List<BlockedAmount> blockedAmounts;
-
-    @Data
-    @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class BonusInfo {
-        @JsonProperty("BonusUUID") private String bonusUUID;
-        @JsonProperty("BonusCategory") private String bonusCategory;
-        @JsonProperty("PlayerBonusUUID") private String playerBonusUUID;
-        @JsonProperty("NodeUUID") private String nodeUUID;
-        @JsonProperty("Wager") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal wager;
-        @JsonProperty("Threshold") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal threshold;
-        @JsonProperty("TransferValue") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal transferValue;
-        @JsonProperty("BetMin") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal betMin;
-        @JsonProperty("BetMax") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal betMax;
-        @JsonProperty("TransferType") private int transferType;
-        @JsonProperty("RealPercent") private int realPercent;
-        @JsonProperty("BonusPercent") private int bonusPercent;
+public record WalletFullData(
+        @JsonProperty("WalletUUID") String walletUUID,
+        @JsonProperty("PlayerUUID") String playerUUID,
+        @JsonProperty("PlayerBonusUUID") String playerBonusUUID,
+        @JsonProperty("NodeUUID") String nodeUUID,
+        @JsonProperty("Type") int type,
+        @JsonProperty("Status") int status,
+        @JsonProperty("Valid") boolean valid,
+        @JsonProperty("IsGamblingActive") boolean isGamblingActive,
+        @JsonProperty("IsBettingActive") boolean isBettingActive,
+        @JsonProperty("Currency") String currency,
+        @JsonProperty("Balance") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal balance,
+        @JsonProperty("AvailableWithdrawalBalance") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal availableWithdrawalBalance,
+        @JsonProperty("BalanceBefore") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal balanceBefore,
+        @JsonProperty("CreatedAt") long createdAt,
+        @JsonProperty("UpdatedAt") long updatedAt,
+        @JsonProperty("BlockDate") long blockDate,
+        @JsonProperty("SumSubBlockDate") long sumSubBlockDate,
+        @JsonProperty("KYCVerificationUpdateTo") long kycVerificationUpdateTo,
+        @JsonProperty("LastSeqNumber") int lastSeqNumber,
+        @JsonProperty("Default") boolean isDefault,
+        @JsonProperty("Main") boolean main,
+        @JsonProperty("IsBlocked") boolean isBlocked,
+        @JsonProperty("IsKYCUnverified") boolean isKYCUnverified,
+        @JsonProperty("IsSumSubVerified") boolean isSumSubVerified,
+        @JsonProperty("BonusInfo") BonusInfo bonusInfo,
+        @JsonProperty("BonusTransferTransactions") Map<String, Object> bonusTransferTransactions,
+        @JsonProperty("Limits") List<LimitData> limits,
+        @JsonProperty("IFrameRecords") List<IFrameRecord> iFrameRecords,
+        @JsonProperty("Gambling") Map<String, GamblingTransaction> gambling,
+        @JsonProperty("Deposits") List<DepositData> deposits,
+        @JsonProperty("BlockedAmounts") List<BlockedAmount> blockedAmounts
+) {
+    public WalletFullData() {
+        this(null, null, null, null, 0, 0, false, false, false, null,
+                null, null, null, 0L, 0L, 0L, 0L, 0L, 0, false, false,
+                false, false, false, null, null, null, null, null, null, null);
     }
 
-    @Data
-    @NoArgsConstructor
+
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class LimitData {
-        @JsonProperty("ExternalID") private String externalID;
-        @JsonProperty("LimitType") private String limitType;
-        @JsonProperty("IntervalType") private String intervalType;
-        @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal amount;
-        @JsonProperty("Spent") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal spent;
-        @JsonProperty("Rest") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal rest;
-        @JsonProperty("CurrencyCode") private String currencyCode;
-        @JsonProperty("StartedAt") private Long startedAt;
-        @JsonProperty("ExpiresAt") private Long expiresAt;
-        @JsonProperty("Status") private boolean status;
+    public record BonusInfo(
+            @JsonProperty("BonusUUID") String bonusUUID,
+            @JsonProperty("BonusCategory") String bonusCategory,
+            @JsonProperty("PlayerBonusUUID") String playerBonusUUID,
+            @JsonProperty("NodeUUID") String nodeUUID,
+            @JsonProperty("Wager") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal wager,
+            @JsonProperty("Threshold") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal threshold,
+            @JsonProperty("TransferValue") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal transferValue,
+            @JsonProperty("BetMin") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal betMin,
+            @JsonProperty("BetMax") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal betMax,
+            @JsonProperty("TransferType") int transferType,
+            @JsonProperty("RealPercent") int realPercent,
+            @JsonProperty("BonusPercent") int bonusPercent
+    ) {
+        public BonusInfo() {
+            this(null, null, null, null, null, null, null, null, null, 0, 0, 0);
+        }
+
+        public String getBonusUUID() { return bonusUUID; }
+        public String getBonusCategory() { return bonusCategory; }
+        public String getPlayerBonusUUID() { return playerBonusUUID; }
+        public String getNodeUUID() { return nodeUUID; }
+        public BigDecimal getWager() { return wager; }
+        public BigDecimal getThreshold() { return threshold; }
+        public BigDecimal getTransferValue() { return transferValue; }
+        public BigDecimal getBetMin() { return betMin; }
+        public BigDecimal getBetMax() { return betMax; }
+        public int getTransferType() { return transferType; }
+        public int getRealPercent() { return realPercent; }
+        public int getBonusPercent() { return bonusPercent; }
     }
 
-    @Data
-    @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class IFrameRecord {
-        @JsonProperty("UUID") private String uuid;
-        @JsonProperty("BetID") private long betID;
-        @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal amount;
-        @JsonProperty("TotalCoeff") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal totalCoeff;
-        @JsonProperty("Time") private Long time;
-        @JsonProperty("CreatedAt") private Long createdAt;
-        @JsonProperty("Type")
-        private IFrameRecordType type;
+    public record LimitData(
+            @JsonProperty("ExternalID") String externalID,
+            @JsonProperty("LimitType") String limitType,
+            @JsonProperty("IntervalType") String intervalType,
+            @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal amount,
+            @JsonProperty("Spent") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal spent,
+            @JsonProperty("Rest") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal rest,
+            @JsonProperty("CurrencyCode") String currencyCode,
+            @JsonProperty("StartedAt") Long startedAt,
+            @JsonProperty("ExpiresAt") Long expiresAt,
+            @JsonProperty("Status") boolean status
+    ) {
+        public LimitData() {
+            this(null, null, null, null, null, null, null, null, null, false);
+        }
+
+        public String getExternalID() { return externalID; }
+        public String getLimitType() { return limitType; }
+        public String getIntervalType() { return intervalType; }
+        public BigDecimal getAmount() { return amount; }
+        public BigDecimal getSpent() { return spent; }
+        public BigDecimal getRest() { return rest; }
+        public String getCurrencyCode() { return currencyCode; }
+        public Long getStartedAt() { return startedAt; }
+        public Long getExpiresAt() { return expiresAt; }
+        public boolean isStatus() { return status; }
     }
 
-    @Data
-    @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class GamblingTransaction {
-        @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal amount;
-        @JsonProperty("CreatedAt") private Long createdAt;
+    public record IFrameRecord(
+            @JsonProperty("UUID") String uuid,
+            @JsonProperty("BetID") long betID,
+            @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal amount,
+            @JsonProperty("TotalCoeff") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal totalCoeff,
+            @JsonProperty("Time") Long time,
+            @JsonProperty("CreatedAt") Long createdAt,
+            @JsonProperty("Type") IFrameRecordType type
+    ) {
+        public IFrameRecord() {
+            this(null, 0L, null, null, null, null, null);
+        }
+
+        public String getUuid() { return uuid; }
+        public long getBetID() { return betID; }
+        public BigDecimal getAmount() { return amount; }
+        public BigDecimal getTotalCoeff() { return totalCoeff; }
+        public Long getTime() { return time; }
+        public Long getCreatedAt() { return createdAt; }
+        public IFrameRecordType getType() { return type; }
     }
 
-    @Data
-    @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class DepositData {
-        @JsonProperty("UUID") private String uuid;
-        @JsonProperty("NodeUUID") private String nodeUUID;
-        @JsonProperty("BonusID") private String bonusID;
-        @JsonProperty("CurrencyCode") private String currencyCode;
-        @JsonProperty("Status") private int status;
-        @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal amount;
-        @JsonProperty("WageringAmount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal wageringAmount;
+    public record GamblingTransaction(
+            @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal amount,
+            @JsonProperty("CreatedAt") Long createdAt
+    ) {
+        public GamblingTransaction() {
+            this(null, null);
+        }
+
+        public BigDecimal getAmount() { return amount; }
+        public Long getCreatedAt() { return createdAt; }
     }
 
-    @Data
-    @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class BlockedAmount {
-        @JsonProperty("UUID") private String uuid;
-        @JsonProperty("UserUUID") private String userUUID;
-        @JsonProperty("Type") private int type;
-        @JsonProperty("Status") private int status;
-        @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal amount;
-        @JsonProperty("DeltaAvailableWithdrawalBalance") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) private BigDecimal deltaAvailableWithdrawalBalance;
-        @JsonProperty("Reason") private String reason;
-        @JsonProperty("UserName") private String userName;
-        @JsonProperty("CreatedAt") private Long createdAt;
-        @JsonProperty("ExpiredAt") private Long expiredAt;
+    public record DepositData(
+            @JsonProperty("UUID") String uuid,
+            @JsonProperty("NodeUUID") String nodeUUID,
+            @JsonProperty("BonusID") String bonusID,
+            @JsonProperty("CurrencyCode") String currencyCode,
+            @JsonProperty("Status") int status,
+            @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal amount,
+            @JsonProperty("WageringAmount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal wageringAmount
+    ) {
+        public DepositData() {
+            this(null, null, null, null, 0, null, null);
+        }
+
+        public String getUuid() { return uuid; }
+        public String getNodeUUID() { return nodeUUID; }
+        public String getBonusID() { return bonusID; }
+        public String getCurrencyCode() { return currencyCode; }
+        public int getStatus() { return status; }
+        public BigDecimal getAmount() { return amount; }
+        public BigDecimal getWageringAmount() { return wageringAmount; }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record BlockedAmount(
+            @JsonProperty("UUID") String uuid,
+            @JsonProperty("UserUUID") String userUUID,
+            @JsonProperty("Type") int type,
+            @JsonProperty("Status") int status,
+            @JsonProperty("Amount") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal amount,
+            @JsonProperty("DeltaAvailableWithdrawalBalance") @JsonDeserialize(using = NumberDeserializers.BigDecimalDeserializer.class) BigDecimal deltaAvailableWithdrawalBalance,
+            @JsonProperty("Reason") String reason,
+            @JsonProperty("UserName") String userName,
+            @JsonProperty("CreatedAt") Long createdAt,
+            @JsonProperty("ExpiredAt") Long expiredAt
+    ) {
+        public BlockedAmount() {
+            this(null, null, 0, 0, null, null, null, null, null, null);
+        }
+
+        public String getUuid() { return uuid; }
+        public String getUserUUID() { return userUUID; }
+        public int getType() { return type; }
+        public int getStatus() { return status; }
+        public BigDecimal getAmount() { return amount; }
+        public BigDecimal getDeltaAvailableWithdrawalBalance() { return deltaAvailableWithdrawalBalance; }
+        public String getReason() { return reason; }
+        public String getUserName() { return userName; }
+        public Long getCreatedAt() { return createdAt; }
+        public Long getExpiredAt() { return expiredAt; }
     }
 }
+

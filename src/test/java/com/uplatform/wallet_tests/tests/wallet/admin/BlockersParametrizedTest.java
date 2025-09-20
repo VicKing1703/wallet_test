@@ -72,7 +72,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     ctx.updateBlockersRequest
@@ -82,8 +82,8 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Проверка поступления события setting_prevent_gamble_setted", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID()
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID()
             );
 
             var filter = (BiPredicate<NatsPreventGambleSettedPayload, String>) (payload, typeHeader) ->
@@ -105,7 +105,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
 
         step("DB Wallet: Проверка флагов в таблице wallet", () -> {
             var wallet = walletDatabaseClient.findWalletByUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID()
+                    ctx.registeredPlayer.getWalletData().walletUUID()
             );
             assertAll(
                     () -> assertEquals(gamblingEnabled, wallet.isGamblingActive(), "db.wallet.gambling_active"),
@@ -115,7 +115,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Проверка флагов активности в Redis", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.updateBlockersEvent.getSequence()
             );
             assertAll(
@@ -126,7 +126,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
 
         step("CAP API: Проверка получения блокировок", () -> {
             var response = capAdminClient.getBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId);
             assertNotNull(response.getBody(), "cap_api.get_blockers.body_not_null");

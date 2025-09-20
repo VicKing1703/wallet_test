@@ -141,8 +141,8 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события won_from_gamble для первого выигрыша", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&

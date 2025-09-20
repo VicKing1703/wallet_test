@@ -100,7 +100,7 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
 
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .type(periodType)
                     .amount(limitAmountBase.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
@@ -113,8 +113,8 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
@@ -134,10 +134,10 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
         step("Manager API: Совершение ставки на спорт (BET)", () -> {
             ctx.betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .build();
 
             ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -160,8 +160,8 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
 
             step("Sub-step NATS: Проверка поступления события recalculated_from_iframe", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.RECALCULATED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
@@ -183,17 +183,17 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
 
         step("Redis(Wallet): Проверка состояния лимита в агрегате после всех операций", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.recalculatedEvent.getSequence());
 
             assertAll("redis.wallet.limit_data_validation",
-                    () -> assertEquals((int) ctx.recalculatedEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
-                    () -> assertFalse(aggregate.getLimits().isEmpty(), "redis.wallet.limits_list_not_empty"),
+                    () -> assertEquals((int) ctx.recalculatedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_list_not_empty"),
                     () -> {
-                        var limitOpt = aggregate.getLimits().stream()
+                        var limitOpt = aggregate.limits().stream()
                                 .filter(l -> NatsLimitType.CASINO_LOSS.getValue().equals(l.getLimitType()) &&
                                         periodType.getValue().equals(l.getIntervalType()) &&
-                                        ctx.registeredPlayer.getWalletData().getCurrency().equals(l.getCurrencyCode()))
+                                        ctx.registeredPlayer.getWalletData().currency().equals(l.getCurrencyCode()))
                                 .findFirst();
                         assertTrue(limitOpt.isPresent(), "redis.wallet.casino_loss_limit_present");
                         var limit = limitOpt.get();

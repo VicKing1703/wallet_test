@@ -106,7 +106,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
         step("Public API: Установка лимита на проигрыш", () -> {
             int startedAt = (int) (System.currentTimeMillis() / 1000 - periodSeconds + 10);
             ctx.createRequest = SetDepositLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .amount(LIMIT_AMOUNT.toString())
                     .type(periodType)
                     .startedAt(startedAt)
@@ -122,8 +122,8 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
 
         step("NATS: получение события limit_changed_v2 о создании", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID()
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID()
             );
 
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
@@ -146,7 +146,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
 
         step("CAP API: Корректировка баланса после истечения периода", () -> {
             ctx.adjustmentRequest = CreateBalanceAdjustmentRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .amount(ADJUSTMENT_AMOUNT)
                     .reason(ReasonType.MALFUNCTION)
                     .operationType(OperationType.CORRECTION)
@@ -155,7 +155,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
                     .build();
 
             var response = capAdminClient.createBalanceAdjustment(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     "6dfe249e-e967-477b-8a42-83efe85c7c3a",
@@ -167,8 +167,8 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
 
         step("NATS: событие limit_changed_v2 о сбросе потраченной суммы", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID()
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID()
             );
 
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
@@ -190,7 +190,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
                     () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), limit.getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), limit.getIntervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
                     () -> assertEquals(0, LIMIT_AMOUNT.compareTo(limit.getAmount()), "nats.limit_changed_v2_event.limit.amount"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), limit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), limit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
                     () -> assertNotNull(limit.getStartedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
                     () -> assertNotNull(limit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                     () -> assertTrue(limit.getStatus(), "nats.limit_changed_v2_event.limit.status")
@@ -207,10 +207,10 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
 
         step("Redis(Wallet): Проверка данных лимита в агрегате", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.resetEvent.getSequence());
 
-            var redisLimitOpt = aggregate.getLimits().stream()
+            var redisLimitOpt = aggregate.limits().stream()
                     .filter(l -> ctx.resetEvent.getPayload().getLimits().get(0).getExternalId().equals(l.getExternalID()))
                     .findFirst();
 
@@ -230,7 +230,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
 
         step("CAP: Получение лимитов игрока", () -> {
             var response = capAdminClient.getPlayerLimits(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId
             );
@@ -249,7 +249,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
             assertAll("cap.get_player_limits.limit_content_validation",
                     () -> assertTrue(capLimit.isStatus(), "cap.get_player_limits.limit.status_is_true"),
                     () -> assertEquals(periodType.getValue(), capLimit.getPeriod().toString().toLowerCase(), "cap.get_player_limits.limit.intervalType"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), capLimit.getCurrency(), "cap.get_player_limits.limit.currency"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), capLimit.getCurrency(), "cap.get_player_limits.limit.currency"),
                     () -> assertEquals(0, LIMIT_AMOUNT.compareTo(capLimit.getAmount()), "cap.get_player_limits.limit.amount"),
                     () -> assertEquals(0, LIMIT_AMOUNT.compareTo(capLimit.getRest()), "cap.get_player_limits.limit.rest_equals_amount"),
                     () -> {
@@ -281,7 +281,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
             assertAll("fapi.get_deposit_limits.limit_content_validation",
                     () -> assertEquals(ctx.resetEvent.getPayload().getLimits().get(0).getExternalId(), fapiLimit.getId(), "fapi.get_deposit_limits.limit.id"),
                     () -> assertEquals(periodType.getValue(), fapiLimit.getType(), "fapi.get_deposit_limits.limit.type"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getCurrency(), fapiLimit.getCurrency(), "fapi.get_deposit_limits.limit.currency"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), fapiLimit.getCurrency(), "fapi.get_deposit_limits.limit.currency"),
                     () -> assertTrue(fapiLimit.isStatus(), "fapi.get_deposit_limits.limit.status_is_true"),
                     () -> assertEquals(0, LIMIT_AMOUNT.compareTo(fapiLimit.getAmount()), "fapi.get_deposit_limits.limit.amount"),
                     () -> assertEquals(0, LIMIT_AMOUNT.compareTo(fapiLimit.getRest()), "fapi.get_deposit_limits.limit.rest_equals_amount"),

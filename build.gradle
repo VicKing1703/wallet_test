@@ -70,7 +70,8 @@ dependencies {
 	testImplementation 'com.oracle.database.jdbc:ucp:21.15.0.0'
 	testImplementation 'com.mchange:c3p0:0.9.5.5'
 
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        implementation project(':kafka-api')
 }
 
 dependencyManagement {

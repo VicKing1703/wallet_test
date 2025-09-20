@@ -110,7 +110,7 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
@@ -124,8 +124,8 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
@@ -160,8 +160,8 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
 
             step("Sub-step NATS: Проверка поступления события tournament_won_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -177,14 +177,14 @@ class TurnoverLimitWhenTournamentTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.tournamentEvent.getSequence());
 
             assertAll("redis.wallet.limit_data_validation",
-                    () -> assertEquals((int) ctx.tournamentEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
-                    () -> assertFalse(aggregate.getLimits().isEmpty(), "redis.wallet.limits"),
+                    () -> assertEquals((int) ctx.tournamentEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits"),
                     () -> {
-                        var turnoverLimitOpt = aggregate.getLimits().stream()
+                        var turnoverLimitOpt = aggregate.limits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
                                         periodType.getValue().equals(l.getIntervalType()))
                                 .findFirst();

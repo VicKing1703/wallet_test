@@ -82,7 +82,7 @@ class WinWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    registeredPlayer.getWalletData().getPlayerUUID(),
+                    registeredPlayer.getWalletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request

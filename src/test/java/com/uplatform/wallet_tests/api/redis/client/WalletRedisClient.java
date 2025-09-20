@@ -23,7 +23,7 @@ public class WalletRedisClient extends AbstractRedisClient<WalletFullData> {
 
     public WalletFullData getWalletDataWithSeqCheck(String key, int expectedSeq) {
         if (key == null) { throw new RedisRetryExhaustedException("[WALLET] Cannot check wallet sequence: key is null."); }
-        Function<WalletFullData, Integer> seqExtractor = WalletFullData::getLastSeqNumber;
+        Function<WalletFullData, Integer> seqExtractor = WalletFullData::lastSeqNumber;
         BiFunction<WalletFullData, String, CheckResult> checkFunc = (data, rawJson) -> {
             if (data == null) {
                 return new CheckResult(false, "Deserialized data is null");

@@ -154,7 +154,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                 var depositRequest = DepositRequestBody.builder()
                         .amount(DEPOSIT_AMOUNT.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().getCurrency())
+                        .currency(ctx.player.getWalletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -168,8 +168,8 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
             step("Проверка получения подтверждающего события о депозите в NATS", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
+                        ctx.player.getWalletData().playerUUID(),
+                        ctx.player.getWalletData().walletUUID());
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
@@ -207,8 +207,8 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
         step("THEN: wallet-manager отправляет событие `betted_from_gamble` в NATS", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().getPlayerUUID(),
-                    ctx.player.getWalletData().getWalletUUID());
+                    ctx.player.getWalletData().playerUUID(),
+                    ctx.player.getWalletData().walletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, type) ->
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(type) &&
@@ -236,18 +236,18 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
         step("THEN: wallet_wallet_redis обновляет баланс и сумму отыгрыша в агрегате Redis", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().getWalletUUID(),
+                    ctx.player.getWalletData().walletUUID(),
                     (int) ctx.betEvent.getSequence());
 
-            var depositData = aggregate.getDeposits().stream()
+            var depositData = aggregate.deposits().stream()
                     .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после ставки",
-                    () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertNotNull(depositData, "redis.aggregate.deposit_not_found"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
-                    () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.getWageringAmount()), "redis.aggregate.deposit.wagering_amount")
+                    () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.balance()), "redis.aggregate.balance"),
+                    () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.wageringAmount()), "redis.aggregate.deposit.wagering_amount")
             );
         });
     }

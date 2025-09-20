@@ -95,7 +95,7 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
 
         step("Public API: Установка лимита на депозит", () -> {
             ctx.limitRequest = SetDepositLimitRequest.builder()
-                    .currency(ctx.player.getWalletData().getCurrency())
+                    .currency(ctx.player.getWalletData().currency())
                     .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
@@ -111,8 +111,8 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().getPlayerUUID(),
-                    ctx.player.getWalletData().getWalletUUID());
+                    ctx.player.getWalletData().playerUUID(),
+                    ctx.player.getWalletData().walletUUID());
 
             BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, header) ->
                     NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(header) &&
@@ -131,7 +131,7 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
             ctx.depositRequest = DepositRequestBody.builder()
                     .amount(exceedAmount.toPlainString())
                     .paymentMethodId(PaymentMethodId.FAKE)
-                    .currency(ctx.player.getWalletData().getCurrency())
+                    .currency(ctx.player.getWalletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .redirect(DepositRequestBody.RedirectUrls.builder()
                             .failed(DepositRedirect.FAILED.url())

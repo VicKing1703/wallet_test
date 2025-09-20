@@ -162,7 +162,7 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                 ctx.depositRequest = DepositRequestBody.builder()
                         .amount(depositAmount.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().getCurrency())
+                        .currency(ctx.player.getWalletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -180,8 +180,8 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
             step("NATS: Проверка события deposited_money", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
+                        ctx.player.getWalletData().playerUUID(),
+                        ctx.player.getWalletData().walletUUID());
 
                 BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
@@ -214,8 +214,8 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
             step("NATS: Проверка события betted_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
+                        ctx.player.getWalletData().playerUUID(),
+                        ctx.player.getWalletData().walletUUID());
 
                 BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -236,8 +236,8 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequest.getTransactionId())
-                    .currency(ctx.player.getWalletData().getCurrency())
-                    .playerId(ctx.player.getWalletData().getWalletUUID())
+                    .currency(ctx.player.getWalletData().currency())
+                    .playerId(ctx.player.getWalletData().walletUUID())
                     .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
                     .roundId(ctx.betRequest.getRoundId())
                     .roundClosed(true)
@@ -258,8 +258,8 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
         step("THEN: Состояние систем корректно обновлено", () -> {
             step("NATS: Проверка события rollbacked_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
+                        ctx.player.getWalletData().playerUUID(),
+                        ctx.player.getWalletData().walletUUID());
 
                 BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -285,23 +285,23 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
             step("Redis: Проверка агрегата кошелька после роллбэка", () -> {
                 var aggregate = redisClient.getWalletDataWithSeqCheck(
-                        ctx.player.getWalletData().getWalletUUID(),
+                        ctx.player.getWalletData().walletUUID(),
                         (int) ctx.rollbackEvent.getSequence());
 
-                var depositData = aggregate.getDeposits().stream()
+                var depositData = aggregate.deposits().stream()
                         .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
                         .findFirst().orElse(null);
 
-                var betData = aggregate.getGambling().get(ctx.betEvent.getPayload().getUuid());
-                var rollbackData = aggregate.getGambling().get(ctx.rollbackEvent.getPayload().getUuid());
+                var betData = aggregate.gambling().get(ctx.betEvent.getPayload().getUuid());
+                var rollbackData = aggregate.gambling().get(ctx.rollbackEvent.getPayload().getUuid());
 
                 assertAll("Проверка финального состояния агрегата кошелька в Redis",
-                        () -> assertEquals((int) ctx.rollbackEvent.getSequence(), aggregate.getLastSeqNumber(), "then.redis.wallet.last_seq_number"),
-                        () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(aggregate.getBalance()), "then.redis.wallet.balance"),
+                        () -> assertEquals((int) ctx.rollbackEvent.getSequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),
+                        () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(aggregate.balance()), "then.redis.wallet.balance"),
                         () -> assertNotNull(depositData, "then.redis.wallet.deposit.not_null"),
-                        () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.getStatus(), "then.redis.wallet.deposit.status"),
+                        () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.status(), "then.redis.wallet.deposit.status"),
                         // TODO: уточнить у пеймента, корректное ли отсутствие изменений wagering_amount после rollback
-                        () -> assertEquals(0, ctx.expectedWagerAmountAfterBet.compareTo(depositData.getWageringAmount()), "then.redis.wallet.deposit.wagering_amount"),
+                        () -> assertEquals(0, ctx.expectedWagerAmountAfterBet.compareTo(depositData.wageringAmount()), "then.redis.wallet.deposit.wagering_amount"),
                         () -> assertNotNull(betData, "then.redis.wallet.bet_data.not_null"),
                         () -> assertNotNull(rollbackData, "then.redis.wallet.rollback_data.not_null")
                 );

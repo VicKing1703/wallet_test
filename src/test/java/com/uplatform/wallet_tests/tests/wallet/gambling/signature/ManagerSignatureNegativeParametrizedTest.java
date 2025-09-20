@@ -108,8 +108,8 @@ class ManagerSignatureNegativeParametrizedTest extends BaseParameterizedTest {
                 .betTransactionId(UUID.randomUUID().toString())
                 .roundId(UUID.randomUUID().toString())
                 .roundClosed(true)
-                .playerId(registeredPlayer.getWalletData().getPlayerUUID())
-                .currency(registeredPlayer.getWalletData().getCurrency())
+                .playerId(registeredPlayer.getWalletData().playerUUID())
+                .currency(registeredPlayer.getWalletData().currency())
                 .gameUuid(gameLaunchData.getDbGameSession().getGameUuid())
                 .build();
     }
@@ -122,8 +122,8 @@ class ManagerSignatureNegativeParametrizedTest extends BaseParameterizedTest {
                 .rollbackTransactionId(UUID.randomUUID().toString())
                 .roundId(UUID.randomUUID().toString())
                 .roundClosed(true)
-                .playerId(registeredPlayer.getWalletData().getPlayerUUID())
-                .currency(registeredPlayer.getWalletData().getCurrency())
+                .playerId(registeredPlayer.getWalletData().playerUUID())
+                .currency(registeredPlayer.getWalletData().currency())
                 .gameUuid(gameLaunchData.getDbGameSession().getGameUuid())
                 .build();
     }
@@ -131,7 +131,7 @@ class ManagerSignatureNegativeParametrizedTest extends BaseParameterizedTest {
     private TournamentRequestBody createValidTournamentRequestBody() {
         return TournamentRequestBody.builder()
                 .amount(defaultAmount)
-                .playerId(registeredPlayer.getWalletData().getPlayerUUID())
+                .playerId(registeredPlayer.getWalletData().playerUUID())
                 .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
                 .transactionId(UUID.randomUUID().toString())
                 .gameUuid(gameLaunchData.getDbGameSession().getGameUuid())

@@ -103,7 +103,7 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialBalance);
-            ctx.currentBalance = ctx.registeredPlayer.getWalletData().getBalance();
+            ctx.currentBalance = ctx.registeredPlayer.getWalletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -150,8 +150,8 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
         step(String.format("NATS: Ожидание NATS-события won_from_gamble для последней операции %s (ID: %s)", operationParam, ctx.lastTransactionId), () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -167,14 +167,14 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
         step(String.format("Redis(Wallet): Получение и проверка данных кошелька для операции %s", operationParam), () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.lastWinEvent.getSequence());
-            var gamblingTransactionsInRedis = aggregate.getGambling();
+            var gamblingTransactionsInRedis = aggregate.gambling();
 
             assertAll("Проверка данных в Redis",
                     () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
-                    () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.getBalance()), "redis.wallet.balance"),
-                    () -> assertEquals((int) ctx.lastWinEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number")
+                    () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
+                    () -> assertEquals((int) ctx.lastWinEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
             );
         });
     }

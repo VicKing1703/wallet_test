@@ -118,7 +118,7 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .type(periodType)
                     .amount(limitAmountBase.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
@@ -132,8 +132,8 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
@@ -174,8 +174,8 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
 
             step("Sub-step NATS: Проверка поступления события betted_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -213,8 +213,8 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
 
             step("Sub-step NATS: Проверка поступления события refunded_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -231,15 +231,15 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате ПОСЛЕ РЕФАНДА", () -> {
             var expectedSequence = (int) ctx.refundEvent.getSequence();
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     expectedSequence);
 
             assertAll("redis.wallet.limit_balance_after_refund",
-                    () -> assertEquals(expectedSequence, aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
-                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterRefund.compareTo(aggregate.getBalance()), "redis.wallet.balance"),
-                    () -> assertFalse(aggregate.getLimits().isEmpty(), "redis.wallet.limits_not_empty"),
+                    () -> assertEquals(expectedSequence, aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterRefund.compareTo(aggregate.balance()), "redis.wallet.balance"),
+                    () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_not_empty"),
                     () -> {
-                        var turnoverLimitOpt = aggregate.getLimits().stream()
+                        var turnoverLimitOpt = aggregate.limits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
                                         periodType.getValue().equals(l.getIntervalType()))
                                 .findFirst();

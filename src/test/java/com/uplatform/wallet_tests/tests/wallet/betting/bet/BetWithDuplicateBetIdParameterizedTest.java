@@ -80,8 +80,8 @@ class BetWithDuplicateBetIdParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение первой (успешной) ставки на спорт с уникальным betId", () -> {
             var firstBetInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .summ(betAmount.toPlainString())
                     .couponType(couponType)
                     .betId(sharedBetId)
@@ -102,8 +102,8 @@ class BetWithDuplicateBetIdParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Попытка совершения второй ставки с тем же betId", () -> {
             var secondBetInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .summ(betAmount.toPlainString())
                     .couponType(couponType)
                     .betId(sharedBetId)

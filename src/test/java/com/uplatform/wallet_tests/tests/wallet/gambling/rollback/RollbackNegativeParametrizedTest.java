@@ -163,8 +163,8 @@ class RollbackNegativeParametrizedTest extends BaseParameterizedTest {
                 .rollbackTransactionId(this.betRequestBody.getTransactionId())
                 .roundId(this.betRequestBody.getRoundId())
                 .roundClosed(true)
-                .playerId(this.registeredPlayer.getWalletData().getWalletUUID())
-                .currency(this.registeredPlayer.getWalletData().getCurrency())
+                .playerId(this.registeredPlayer.getWalletData().walletUUID())
+                .currency(this.registeredPlayer.getWalletData().currency())
                 .gameUuid(this.gameLaunchData.getDbGameSession().getGameUuid())
                 .build();
 

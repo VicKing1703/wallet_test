@@ -67,8 +67,8 @@ class WinForNonExistingBetTest extends BaseTest {
         step("Manager API: Попытка зарегистрировать выигрыш для несуществующей ставки", () -> {
             var winInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.WIN)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .summ(winAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
                     .betId(nonExistingBetId)

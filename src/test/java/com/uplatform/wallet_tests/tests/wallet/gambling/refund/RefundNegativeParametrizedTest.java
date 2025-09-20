@@ -189,8 +189,8 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
                 .betTransactionId(this.precedingBetRequestBody.getTransactionId())
                 .roundId(this.precedingBetRequestBody.getRoundId())
                 .roundClosed(true)
-                .playerId(this.registeredPlayer.getWalletData().getWalletUUID())
-                .currency(this.registeredPlayer.getWalletData().getCurrency())
+                .playerId(this.registeredPlayer.getWalletData().walletUUID())
+                .currency(this.registeredPlayer.getWalletData().currency())
                 .gameUuid(this.gameLaunchData.getDbGameSession().getGameUuid())
                 .build();
 

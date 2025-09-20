@@ -3,6 +3,9 @@ package com.uplatform.wallet_tests.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.PostConstruct;
+import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
+import com.uplatform.wallet_tests.api.redis.config.RedisConfigProvider;
+import com.uplatform.wallet_tests.config.RedisAggregateConfig;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,7 +16,7 @@ import java.io.InputStream;
 @Service
 @Slf4j
 @Getter
-public class EnvironmentConfigurationProvider {
+public class EnvironmentConfigurationProvider implements KafkaConfigProvider, RedisConfigProvider {
 
     private EnvironmentConfig environmentConfig;
 
@@ -40,11 +43,23 @@ public class EnvironmentConfigurationProvider {
         log.info("Successfully loaded configuration for environment '{}'", environmentConfig.getName());
     }
 
+    @Override
     public KafkaConfig getKafkaConfig() {
         return environmentConfig.getKafka();
     }
 
+
+    @Override
+    public String getTopicPrefix() {
+        return environmentConfig.getTopicPrefix();
+    }
+
     public NatsConfig getNatsConfig() {
         return environmentConfig.getNats();
+    }
+
+    @Override
+    public RedisAggregateConfig getRedisAggregateConfig() {
+        return environmentConfig.getRedis().getAggregate();
     }
 }

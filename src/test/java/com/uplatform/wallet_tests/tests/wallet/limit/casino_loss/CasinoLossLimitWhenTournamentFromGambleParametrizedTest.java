@@ -108,7 +108,7 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
 
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.getWalletData().currency())
                     .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
@@ -122,8 +122,8 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
                         NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
@@ -154,8 +154,8 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
 
             step("Sub-step NATS: Проверка поступления события tournament_won_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.getWalletData().playerUUID(),
+                        ctx.registeredPlayer.getWalletData().walletUUID());
 
                 BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                         NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -172,13 +172,13 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
             var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID(),
                     (int) ctx.tournamentEvent.getSequence());
 
             assertAll(
-                    () -> assertEquals(0, ctx.expectedRestAmountAfterTournament.compareTo(aggregate.getLimits().get(0).getRest()), "redis.wallet.limit.rest"),
-                    () -> assertEquals(0, ctx.expectedSpentAmountAfterTournament.compareTo(aggregate.getLimits().get(0).getSpent()), "redis.wallet.limit.spent"),
-                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.getLimits().get(0).getAmount()), "redis.wallet.limit.amount")
+                    () -> assertEquals(0, ctx.expectedRestAmountAfterTournament.compareTo(aggregate.limits().get(0).getRest()), "redis.wallet.limit.rest"),
+                    () -> assertEquals(0, ctx.expectedSpentAmountAfterTournament.compareTo(aggregate.limits().get(0).getSpent()), "redis.wallet.limit.spent"),
+                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.limits().get(0).getAmount()), "redis.wallet.limit.amount")
             );
         });
     }

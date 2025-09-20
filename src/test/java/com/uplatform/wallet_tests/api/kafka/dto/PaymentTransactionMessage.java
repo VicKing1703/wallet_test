@@ -2,27 +2,15 @@ package com.uplatform.wallet_tests.api.kafka.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
-@NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class PaymentTransactionMessage {
-    @JsonProperty("playerId")
-    private String playerId;
-
-    @JsonProperty("nodeId")
-    private String nodeId;
-
-    @JsonProperty("transaction")
-    private Transaction transaction;
-
-    @Data
-    @NoArgsConstructor
+public record PaymentTransactionMessage(
+        @JsonProperty("playerId") String playerId,
+        @JsonProperty("nodeId") String nodeId,
+        @JsonProperty("transaction") Transaction transaction
+) {
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Transaction {
-        @JsonProperty("transactionId")
-        private String transactionId;
-    }
+    public record Transaction(
+            @JsonProperty("transactionId") String transactionId
+    ) {}
 }

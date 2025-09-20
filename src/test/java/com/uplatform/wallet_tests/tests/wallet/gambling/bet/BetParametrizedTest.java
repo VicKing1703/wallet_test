@@ -185,8 +185,8 @@ class BetParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Проверка поступления события betted_from_gamble", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.getWalletData().walletUUID());
 
             BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
                     NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
@@ -206,7 +206,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(new UUID(0L, 0L).toString(), betEvent.getBetUuid(), "nats.payload.bet_uuid"),
                     () -> assertEquals(session.getGameSessionUuid(), betEvent.getGameSessionUuid(), "nats.payload.game_session_uuid"),
                     () -> assertEquals(betRequest.getRoundId(), betEvent.getProviderRoundId(), "nats.payload.provider_round_id"),
-                    () -> assertEquals(player.getCurrency(), betEvent.getCurrency(), "nats.payload.currency"),
+                    () -> assertEquals(player.currency(), betEvent.getCurrency(), "nats.payload.currency"),
                     () -> assertEquals(0, amountParam.negate().compareTo(betEvent.getAmount()), "nats.payload.amount"),
                     () -> assertEquals(transactionTypeParam, betEvent.getType(), "nats.payload.type"),
                     () -> assertFalse(betEvent.isProviderRoundClosed(), "nats.payload.provider_round_closed"),
@@ -225,8 +225,8 @@ class BetParametrizedTest extends BaseParameterizedTest {
             assertAll("Проверка полей внутри currency_conversion_info NATS payload",
                     () -> assertEquals(0, amountParam.negate().compareTo(conversionInfo.getGameAmount()), "currency_conversion_info.game_amount"),
                     () -> assertFalse(conversionInfo.getGameCurrency().isEmpty(), "currency_conversion_info.game_currency"),
-                    () -> assertEquals(player.getCurrency(), currencyRates.getBaseCurrency(), "currency_conversion_info.currency_rates.base_currency"),
-                    () -> assertEquals(player.getCurrency(), currencyRates.getQuoteCurrency(), "currency_conversion_info.currency_rates.quote_currency"),
+                    () -> assertEquals(player.currency(), currencyRates.getBaseCurrency(), "currency_conversion_info.currency_rates.base_currency"),
+                    () -> assertEquals(player.currency(), currencyRates.getQuoteCurrency(), "currency_conversion_info.currency_rates.quote_currency"),
                     () -> assertEquals(expectedCurrencyRates, currencyRates.getValue(), "currency_conversion_info.currency_rates.value"),
                     () -> assertNotNull(currencyRates.getUpdatedAt(), "currency_conversion_info.currency_rates.updated_at")
             );
@@ -237,7 +237,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
             var payload = ctx.betEvent.getPayload();
             assertAll("Проверка полей gambling_projection_transaction_history",
                     () -> assertEquals(payload.getUuid(), transaction.getUuid(), "db.gpth.uuid"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getPlayerUUID(), transaction.getPlayerUuid(), "db.gpth.player_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.gpth.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.gpth.date"),
                     () -> assertEquals(payload.getType(), transaction.getType(), "db.gpth.type"),
                     () -> assertEquals(payload.getOperation(), transaction.getOperation(), "db.gpth.operation"),
@@ -253,7 +253,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
         });
 
         step("DB Wallet: Проверка записи порога выигрыша в player_threshold_win", () -> {
-            var playerUuid = ctx.registeredPlayer.getWalletData().getPlayerUUID();
+            var playerUuid = ctx.registeredPlayer.getWalletData().playerUUID();
             var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(playerUuid);
             assertAll("Проверка полей player_threshold_win",
                     () -> assertEquals(playerUuid, threshold.getPlayerUuid(), "db.ptw.player_uuid"),
@@ -263,19 +263,19 @@ class BetParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
-            var walletUuid = ctx.registeredPlayer.getWalletData().getWalletUUID();
+            var walletUuid = ctx.registeredPlayer.getWalletData().walletUUID();
             int sequence = (int) ctx.betEvent.getSequence();
             var transactionUuid = ctx.betEvent.getPayload().getUuid();
 
             var aggregate = redisClient.getWalletDataWithSeqCheck(walletUuid, sequence);
 
             assertAll("Проверка данных в Redis",
-                    () -> assertEquals(sequence, aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
-                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.getBalance()), "redis.wallet.balance"),
-                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.getAvailableWithdrawalBalance()), "redis.wallet.availableWithdrawalBalance"),
-                    () -> assertTrue(aggregate.getGambling().containsKey(transactionUuid), "redis.wallet.gambling.containsKey"),
-                    () -> assertEquals(0, amountParam.negate().compareTo(aggregate.getGambling().get(transactionUuid).getAmount()), "redis.wallet.gambling.amount"),
-                    () -> assertNotNull(aggregate.getGambling().get(transactionUuid).getCreatedAt(), "redis.wallet.gambling.createdAt")
+                    () -> assertEquals(sequence, aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
+                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.availableWithdrawalBalance()), "redis.wallet.availableWithdrawalBalance"),
+                    () -> assertTrue(aggregate.gambling().containsKey(transactionUuid), "redis.wallet.gambling.containsKey"),
+                    () -> assertEquals(0, amountParam.negate().compareTo(aggregate.gambling().get(transactionUuid).amount()), "redis.wallet.gambling.amount"),
+                    () -> assertNotNull(aggregate.gambling().get(transactionUuid).createdAt(), "redis.wallet.gambling.createdAt")
             );
         });
 

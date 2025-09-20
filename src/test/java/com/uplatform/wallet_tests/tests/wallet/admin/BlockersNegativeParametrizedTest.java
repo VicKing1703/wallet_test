@@ -181,7 +181,7 @@ class BlockersNegativeParametrizedTest extends BaseParameterizedTest {
 
             ctx.playerUuid = (customPlayerUuid != null)
                     ? customPlayerUuid
-                    : registeredPlayer.getWalletData().getPlayerUUID();
+                    : registeredPlayer.getWalletData().playerUUID();
 
             ctx.authHeader = (customAuthHeader != null)
                     ? customAuthHeader

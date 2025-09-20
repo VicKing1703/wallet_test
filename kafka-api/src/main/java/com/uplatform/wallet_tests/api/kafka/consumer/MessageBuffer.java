@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.api.kafka.consumer;
 
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -24,11 +24,11 @@ public class MessageBuffer {
     private List<String> fullListeningTopics;
 
     public MessageBuffer(
-            EnvironmentConfigurationProvider configProvider
+            KafkaConfigProvider configProvider
     ) {
-        this.bufferSize = configProvider.getKafkaConfig().getBufferSize();
-        this.topicPrefix = configProvider.getEnvironmentConfig().getTopicPrefix();
-        this.listenTopicSuffixes = configProvider.getKafkaConfig().getListenTopicSuffixes();
+        this.bufferSize = configProvider.getKafkaConfig().bufferSize();
+        this.topicPrefix = configProvider.getTopicPrefix();
+        this.listenTopicSuffixes = configProvider.getKafkaConfig().listenTopicSuffixes();
     }
 
     @PostConstruct
