@@ -224,7 +224,6 @@ public class PlayerRegistrationStep {
                 ctx.authorizationResponse,
                 ctx.updatedWalletData);
     }
-}
 
     private boolean containsWalletMatchingCriteria(Object value, WalletFilterCriteria criteria) {
         if (!(value instanceof Map<?, ?> map)) {
