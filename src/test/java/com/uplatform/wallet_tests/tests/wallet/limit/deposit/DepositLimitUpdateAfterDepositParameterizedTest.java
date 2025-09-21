@@ -273,7 +273,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
         step("Redis(Wallet): Проверка данных лимита в агрегате", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.updateEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.updateEvent.getSequence())
                     .fetch();
 
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");

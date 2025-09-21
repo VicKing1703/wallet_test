@@ -165,7 +165,7 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.winEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.winEvent.getSequence())
                     .fetch();
 
             assertAll("redis.wallet.limit_data_validation",

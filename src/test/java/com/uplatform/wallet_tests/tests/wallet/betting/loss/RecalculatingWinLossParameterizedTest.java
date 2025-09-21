@@ -259,7 +259,7 @@ class RecalculatingWinLossParameterizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
                     .fetch();
 
             var actualBetInfo = aggregate.iFrameRecords().get(2);

@@ -310,7 +310,7 @@ class RefundParametrizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька после рефанда", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.refundEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.getSequence())
                     .fetch();
 
             assertNotNull(aggregate, "redis.aggregate");

@@ -183,7 +183,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
         step("THEN: wallet_wallet_redis сохраняет сумму отыгрыша, баланс не меняется", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.player.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.lossEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.getSequence())
                     .fetch();
 
             var depositData = aggregate.deposits().stream()

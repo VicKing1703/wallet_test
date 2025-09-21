@@ -185,7 +185,7 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
         step("Redis(Wallet): Проверка изменений лимита в агрегате после всех операций", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.lossEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.getSequence())
                     .fetch();
 
             assertAll("redis.wallet.limit_data_validation",

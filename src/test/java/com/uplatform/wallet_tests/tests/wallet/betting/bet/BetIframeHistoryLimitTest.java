@@ -136,17 +136,19 @@ class BetIframeHistoryLimitTest extends BaseTest {
         });
 
         step("Redis(Wallet): Получение и проверка данных кошелька (лимит iFrame ставок)", () -> {
-            var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.lastBetEvent.getSequence())
-                    .fetch();
+            step("Redis(Wallet): Получение и проверка данных кошелька (лимит iFrame ставок)", () -> {
+                var aggregate = redisWalletClient
+                        .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                        .withAtLeast("LastSeqNumber", (int) ctx.lastBetEvent.getSequence())
+                        .fetch();
 
-            var iFrameRecordsInRedis = aggregate.iFrameRecords();
+                var iFrameRecordsInRedis = aggregate.iFrameRecords();
 
-            assertAll("Проверка данных iFrame в Redis",
-                    () -> assertEquals(maxIframeCountInRedis - 1, iFrameRecordsInRedis.size(),"redis.wallet.gambling.count"),
-                    () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()),"redis.wallet.balance")
-            );
+                assertAll("Проверка данных iFrame в Redis",
+                        () -> assertEquals(maxIframeCountInRedis - 1, iFrameRecordsInRedis.size(),"redis.wallet.gambling.count"),
+                        () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()),"redis.wallet.balance")
+                );
+            });
         });
     }
 }

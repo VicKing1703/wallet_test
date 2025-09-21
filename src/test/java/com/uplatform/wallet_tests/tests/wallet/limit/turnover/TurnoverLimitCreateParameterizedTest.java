@@ -185,7 +185,7 @@ public class TurnoverLimitCreateParameterizedTest extends BaseParameterizedTest 
         step("Redis (Wallet Aggregate): Проверка данных лимита в агрегате кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.natsLimitChangeEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.natsLimitChangeEvent.getSequence())
                     .fetch();
 
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");

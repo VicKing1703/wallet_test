@@ -199,7 +199,7 @@ class TurnoverLimitWhenRecalculateLossToWinParameterizedTest extends BaseParamet
         step("Redis(Wallet): Проверка состояния лимита в агрегате после всех операций", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
                     .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
