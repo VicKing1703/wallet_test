@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.api.redis.config;
 
 import com.uplatform.wallet_tests.config.RedisAggregateConfig;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,7 +10,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 @Configuration
-@ConditionalOnProperty(prefix = "redis", name = "instances")
+@Conditional(RedisInstancesConfiguredCondition.class)
 public class RedisApiAutoConfiguration {
 
     @Bean
