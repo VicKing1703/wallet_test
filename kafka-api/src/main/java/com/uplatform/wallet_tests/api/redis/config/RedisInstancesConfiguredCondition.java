@@ -10,9 +10,6 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 import java.util.Collections;
 import java.util.Map;
 
-/**
- * Activates Redis auto-configuration only when at least one Redis instance is configured.
- */
 public class RedisInstancesConfiguredCondition implements Condition {
 
     @Override

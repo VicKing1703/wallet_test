@@ -5,10 +5,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.EnumMap;
 import java.util.Map;
 
-/**
- * Registry that maps logical {@link RedisDataType} values to Jackson {@link TypeReference}s.
- * It allows the fluent Redis client to work with complex generic payload types.
- */
 public class RedisTypeMappingRegistry {
 
     private final Map<RedisDataType, TypeReference<?>> mappings = new EnumMap<>(RedisDataType.class);

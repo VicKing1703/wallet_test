@@ -8,11 +8,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.Objects;
 
-/**
- * Type-safe fluent Redis client that is instantiated dynamically based on configuration.
- *
- * @param <T> type of the aggregate returned from Redis.
- */
 public class GenericRedisClient<T> {
 
     private final String beanName;
