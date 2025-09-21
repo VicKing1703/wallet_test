@@ -94,11 +94,17 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
                 return;
             }
 
+            String templateBeanName = templateBeanName(props.getInstanceRef());
+            if (!registry.containsBeanDefinition(templateBeanName)) {
+                throw new IllegalStateException("Redis client '" + name + "' references unknown instance '"
+                        + props.getInstanceRef() + "'");
+            }
+
             BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(GenericRedisClient.class);
             builder.setAutowireMode(GenericBeanDefinition.AUTOWIRE_CONSTRUCTOR);
             builder.addConstructorArgValue(beanName);
             builder.addConstructorArgValue(props.getInstanceRef());
-            builder.addConstructorArgReference(templateBeanName(props.getInstanceRef()));
+            builder.addConstructorArgReference(templateBeanName);
             builder.addConstructorArgValue(props.getDataType());
             builder.addConstructorArgReference("redisTypeMappingRegistry");
             builder.addConstructorArgReference("objectMapper");
@@ -106,7 +112,7 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
             builder.addConstructorArgReference("redisAwaitilityProperties");
 
             RootBeanDefinition beanDefinition = (RootBeanDefinition) builder.getBeanDefinition();
-            beanDefinition.setTargetType(ResolvableType.forClassWithGenerics(GenericRedisClient.class, Object.class));
+            beanDefinition.setTargetType(ResolvableType.forClass(GenericRedisClient.class));
             registry.registerBeanDefinition(beanName, beanDefinition);
         });
     }
@@ -182,12 +188,30 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
     }
 
     private String clientBeanName(String clientName) {
-        String capitalized = StringUtils.capitalize(clientName.toLowerCase(Locale.ROOT));
-        return "redis" + capitalized + "Client";
+        String normalized = normalizeClientName(clientName);
+        return "redis" + normalized + "Client";
+    }
+
+    private String normalizeClientName(String clientName) {
+        if (!StringUtils.hasText(clientName)) {
+            return "Client";
+        }
+        String[] parts = clientName.toLowerCase(Locale.ROOT).split("[^a-z0-9]+");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (!part.isEmpty()) {
+                builder.append(StringUtils.capitalize(part));
+            }
+        }
+        if (builder.length() == 0) {
+            builder.append(StringUtils.capitalize(clientName));
+        }
+        return builder.toString();
     }
 
     @Override
-    public void postProcessBeanFactory(org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory) throws BeansException {
+    public void postProcessBeanFactory(
+            org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory) throws BeansException {
         // no-op
     }
 }
