@@ -2,11 +2,11 @@ package com.uplatform.wallet_tests.api.redis.config;
 
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.beans.factory.support.GenericBeanDefinition;
-import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.boot.context.properties.bind.BindException;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -111,7 +111,7 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
             builder.addConstructorArgReference("allureAttachmentService");
             builder.addConstructorArgReference("redisAwaitilityProperties");
 
-            RootBeanDefinition beanDefinition = (RootBeanDefinition) builder.getBeanDefinition();
+            AbstractBeanDefinition beanDefinition = builder.getBeanDefinition();
             beanDefinition.setTargetType(ResolvableType.forClass(GenericRedisClient.class));
             registry.registerBeanDefinition(beanName, beanDefinition);
         });
