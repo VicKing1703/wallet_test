@@ -25,10 +25,6 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Dynamically registers Redis infrastructure beans (connection factories, templates and fluent clients)
- * based on the declarative configuration located under {@code redis.*} properties.
- */
 public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistryPostProcessor, EnvironmentAware {
 
     private Environment environment;

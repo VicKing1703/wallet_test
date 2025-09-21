@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Betting")
 @Feature("MakePayment")
 @Suite("Позитивные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet1")
+@Tag("Betting") @Tag("Wallet")
 class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal INITIAL_BALANCE = new BigDecimal("150.00");
