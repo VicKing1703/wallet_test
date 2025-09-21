@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
 import lombok.Data;
 
 import java.util.Map;
@@ -12,7 +13,7 @@ public class EnvironmentConfig {
     private ApiConfig api;
     private PlatformConfig platform;
     private Map<String, DatabaseInstanceConfig> databases;
-    private RedisConfig redis;
+    private RedisModuleProperties redis;
     private KafkaConfig kafka;
     private NatsConfig nats;
 

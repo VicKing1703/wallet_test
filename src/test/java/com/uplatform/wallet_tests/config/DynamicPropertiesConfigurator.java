@@ -1,9 +1,12 @@
 package com.uplatform.wallet_tests.config;
 
+import com.uplatform.wallet_tests.api.redis.config.RedisInstanceProperties;
+import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.support.TestPropertySourceUtils;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,35 +67,69 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
             });
         }
 
-        RedisConfig redisFullConfig = config.getRedis();
+        RedisModuleProperties redisProperties = config.getRedis();
 
-        if (redisFullConfig != null) {
-            RedisAggregateConfig aggregateConfig = redisFullConfig.getAggregate();
+        if (redisProperties != null) {
+            RedisAggregateConfig aggregateConfig = redisProperties.getAggregate();
             if (aggregateConfig != null) {
                 properties.add("app.redis.aggregate.max-gambling.count=" + aggregateConfig.maxGamblingCount());
                 properties.add("app.redis.aggregate.max-iframe.count=" + aggregateConfig.maxIframeCount());
                 properties.add("app.redis.retry-attempts=" + aggregateConfig.retryAttempts());
                 properties.add("app.redis.retry-delay-ms=" + aggregateConfig.retryDelayMs());
+
+                properties.add("redis.aggregate.max-gambling-count=" + aggregateConfig.maxGamblingCount());
+                properties.add("redis.aggregate.max-iframe-count=" + aggregateConfig.maxIframeCount());
+                properties.add("redis.aggregate.retry-attempts=" + aggregateConfig.retryAttempts());
+                properties.add("redis.aggregate.retry-delay-ms=" + aggregateConfig.retryDelayMs());
             }
 
-            if (redisFullConfig.getInstances() != null) {
-                redisFullConfig.getInstances().forEach((instanceName, instanceConfig) -> {
-                    properties.add("redis.instances." + instanceName + ".host=" + instanceConfig.getHost());
+            if (redisProperties.getInstances() != null) {
+                redisProperties.getInstances().forEach((instanceName, instanceConfig) -> {
+                    if (instanceConfig.getHost() != null) {
+                        properties.add("redis.instances." + instanceName + ".host=" + instanceConfig.getHost());
+                    }
                     properties.add("redis.instances." + instanceName + ".port=" + instanceConfig.getPort());
                     properties.add("redis.instances." + instanceName + ".database=" + instanceConfig.getDatabase());
 
-                    if (instanceConfig.getTimeout() != null && !instanceConfig.getTimeout().isEmpty()) {
-                        properties.add("redis.instances." + instanceName + ".timeout=" + instanceConfig.getTimeout());
+                    if (instanceConfig.getPassword() != null) {
+                        properties.add("redis.instances." + instanceName + ".password=" + instanceConfig.getPassword());
                     }
 
-                    LettucePoolConfig poolConfig = instanceConfig.getLettucePool();
+                    Duration timeout = instanceConfig.getTimeout();
+                    if (timeout != null) {
+                        properties.add("redis.instances." + instanceName + ".timeout=" + formatDuration(timeout));
+                    }
+
+                    RedisInstanceProperties.LettucePoolProperties poolConfig = instanceConfig.getLettucePool();
                     if (poolConfig != null) {
-                        properties.add("redis.instances." + instanceName + ".lettuce-pool.max-active=" + poolConfig.getMaxActive());
-                        properties.add("redis.instances." + instanceName + ".lettuce-pool.max-idle=" + poolConfig.getMaxIdle());
-                        properties.add("redis.instances." + instanceName + ".lettuce-pool.min-idle=" + poolConfig.getMinIdle());
-                        if (poolConfig.getShutdownTimeout() != null && !poolConfig.getShutdownTimeout().isEmpty()) {
-                            properties.add("redis.instances." + instanceName + ".lettuce-pool.shutdown-timeout=" + poolConfig.getShutdownTimeout());
+                        if (poolConfig.getMaxActive() != null) {
+                            properties.add("redis.instances." + instanceName + ".lettuce-pool.max-active=" + poolConfig.getMaxActive());
                         }
+                        if (poolConfig.getMaxIdle() != null) {
+                            properties.add("redis.instances." + instanceName + ".lettuce-pool.max-idle=" + poolConfig.getMaxIdle());
+                        }
+                        if (poolConfig.getMinIdle() != null) {
+                            properties.add("redis.instances." + instanceName + ".lettuce-pool.min-idle=" + poolConfig.getMinIdle());
+                        }
+                        Duration maxWait = poolConfig.getMaxWait();
+                        if (maxWait != null) {
+                            properties.add("redis.instances." + instanceName + ".lettuce-pool.max-wait=" + formatDuration(maxWait));
+                        }
+                        Duration shutdownTimeout = poolConfig.getShutdownTimeout();
+                        if (shutdownTimeout != null) {
+                            properties.add("redis.instances." + instanceName + ".lettuce-pool.shutdown-timeout=" + formatDuration(shutdownTimeout));
+                        }
+                    }
+                });
+            }
+
+            if (redisProperties.getClients() != null) {
+                redisProperties.getClients().forEach((clientName, clientConfig) -> {
+                    if (clientConfig.getInstanceRef() != null) {
+                        properties.add("redis.clients." + clientName + ".instance-ref=" + clientConfig.getInstanceRef());
+                    }
+                    if (clientConfig.getDataType() != null) {
+                        properties.add("redis.clients." + clientName + ".data-type=" + clientConfig.getDataType());
                     }
                 });
             }
@@ -101,5 +138,9 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
         if (!properties.isEmpty()) {
             TestPropertySourceUtils.addInlinedPropertiesToEnvironment(applicationContext, properties.toArray(new String[0]));
         }
+    }
+
+    private static String formatDuration(Duration duration) {
+        return duration.toMillis() + "ms";
     }
 }

@@ -1,10 +1,12 @@
 package com.uplatform.wallet_tests.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.PostConstruct;
 import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
 import com.uplatform.wallet_tests.api.redis.config.RedisConfigProvider;
+import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
 import com.uplatform.wallet_tests.config.RedisAggregateConfig;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
 
 @Service
 @Slf4j
@@ -34,6 +37,9 @@ public class EnvironmentConfigurationProvider implements KafkaConfigProvider, Re
 
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+        SimpleModule durationModule = new SimpleModule();
+        durationModule.addDeserializer(Duration.class, new SpringDurationDeserializer());
+        objectMapper.registerModule(durationModule);
         try (InputStream configFileStream = getClass().getClassLoader().getResourceAsStream(configFileName)) {
             if (configFileStream == null) {
                 throw new IOException("Configuration file not found in classpath: " + configFileName);
@@ -60,6 +66,7 @@ public class EnvironmentConfigurationProvider implements KafkaConfigProvider, Re
 
     @Override
     public RedisAggregateConfig getRedisAggregateConfig() {
-        return environmentConfig.getRedis().getAggregate();
+        RedisModuleProperties redis = environmentConfig.getRedis();
+        return redis != null ? redis.getAggregate() : null;
     }
 }

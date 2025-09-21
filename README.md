@@ -286,6 +286,11 @@ var aggregate = redisWalletClient
 о поиске, найденное значение либо причины таймаута, а также ошибки
 десериализации. JSONPath-фильтры поддерживаются из коробки.
 
+Вся инфраструктура (connection factory, `RedisTemplate`, клиенты и настройки Awaitility)
+поднимается автоконфигурацией `RedisApiAutoConfiguration`. Она активируется только
+если в окружении присутствует раздел `redis.instances`, поэтому проекты, которым
+Redis не нужен, остаются нетронутыми.
+
 ### 2. Как настроить подключение
 
 Запускайте тесты с системным свойством `-Denv=<имя_окружения>`. В каталоге
@@ -333,7 +338,7 @@ var aggregate = redisWalletClient
 
 Все данные подключения располагаются в этом же конфигурационном файле в разделе
 `redis.instances`. `DynamicPropertiesConfigurator` переносит их в Spring Environment,
-после чего `RedisClientBeanDefinitionRegistrar` создает для каждого инстанса
+после чего автоконфигурация Redis автоматически создает для каждого инстанса
 подключение и `RedisTemplate`.
 
 ### 4. Как работает ожидание
@@ -344,25 +349,39 @@ var aggregate = redisWalletClient
 сопровождаются информативными аттачами в Allure, поэтому в тесте достаточно
 вызвать `fetch()` и проверить полученный DTO.
 
-### 5. Подключение нового клиента
+### 5. Минимальная конфигурация в тестовом проекте
 
-1. Добавьте параметры нового инстанса в `redis.instances` конфигурационного файла.
-2. Опишите клиента в `redis.clients` (например, в `application.yml`):
+1. Убедитесь, что в файле окружения заданы `redis.instances`, а в `application.yml`
+   перечислены клиенты:
 
    ```yaml
    redis:
      clients:
-       transactions:
+       wallet:
          instance-ref: wallet
          data-type: WALLET_AGGREGATE
+       player:
+         instance-ref: player
+         data-type: PLAYER_WALLETS
    ```
 
-3. Добавьте соответствующий `TypeReference` в `RedisTypeMappingRegistry`, если
-   еще не существует.
+2. Создайте конфигурационный класс с единственным бином `RedisTypeMappingRegistry`:
 
-После этого в тестах можно инжектить бин `redisTransactionsClient` и использовать
-его fluent-API. Никакого дополнительного кода создавать не нужно — клиент будет
-зарегистрирован автоматически при старте Spring-контекста.
+   ```java
+   @Configuration
+   public class RedisConfig {
+
+       @Bean
+       public RedisTypeMappingRegistry redisTypeMappingRegistry() {
+           return new RedisTypeMappingRegistry()
+                   .register(RedisDataType.WALLET_AGGREGATE, new TypeReference<WalletFullData>() {})
+                   .register(RedisDataType.PLAYER_WALLETS, new TypeReference<Map<String, WalletData>>() {});
+       }
+   }
+   ```
+
+На этом настройка завершена. Автоконфигурация сама создаст подключения, шаблоны
+и `GenericRedisClient`-бины для каждого описанного клиента.
 
 ### 6. Пример настройки и использования
 
