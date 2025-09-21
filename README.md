@@ -204,7 +204,7 @@ step("HTTP: отправка запроса Bet", () -> {
 
 При запуске тестов укажите системное свойство `-Denv=<имя_окружения>`.
 В каталоге `configs` хранятся json-файлы с настройками для разных окружений.
-В разделе `kafka` задаются `bootstrapServer`, `groupId`, список топиков и дополнительные параметры (тайм-ауты, размер пула и т. п.).
+В разделе `kafka` задаются `bootstrapServer`, `groupId` и дополнительные параметры (тайм-ауты, размер пула и т.п.).
 
 ### 3. Где прописать адрес брокера
 
@@ -213,14 +213,7 @@ step("HTTP: отправка запроса Bet", () -> {
 ```json
 "kafka": {
   "bootstrapServer": "kafka-development-01.b2bdev.pro:9092,kafka-development-02.b2bdev.pro:9092,kafka-development-03.b2bdev.pro:9092",
-  "groupId": "cb-wallet-test-consumer-beta-09",
-  "listenTopicSuffixes": [
-    "player.v1.account",
-    "wallet.v8.projectionSource",
-"core.gambling.v1.GameSessionStart",
-    "limits.v2",
-    "bonus.v1.award" // новый топик
-  ]
+  "groupId": "cb-wallet-test-consumer-beta-09"
 }
 ```
 
@@ -254,8 +247,7 @@ public KafkaTopicMappingRegistry kafkaTopicMappingRegistry() {
     return new SimpleKafkaTopicMappingRegistry(mappings);
 }
 ```
-3. Укажите этот суффикс в поле `listenTopicSuffixes` конфигурационного файла.
-После перезапуска тестов `MessageBuffer` начнёт слушать указанный топик.
+После перезапуска тестов `MessageBuffer` начнёт автоматически слушать указанный топик благодаря обновлённому реестру.
 
 ### 6. Использование в тестах
 

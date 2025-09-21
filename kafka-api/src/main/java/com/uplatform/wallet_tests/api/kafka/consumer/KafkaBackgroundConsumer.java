@@ -55,7 +55,7 @@ public class KafkaBackgroundConsumer {
 
     @PostConstruct
     public void initializeAndStart() {
-        pollingService.start(messageBuffer.getConfiguredTopics());
+        pollingService.start();
     }
 
     @PreDestroy
@@ -84,13 +84,13 @@ public class KafkaBackgroundConsumer {
         String fullTopicName = topicPrefix + topicSuffix;
 
         if (!messageBuffer.isTopicConfigured(fullTopicName)) {
-            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}.",
+            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}. Ensure the type is registered in KafkaTopicMappingRegistry.",
                     fullTopicName, targetClass.getName(), messageBuffer.getConfiguredTopics());
             allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type, but not listened)", targetClass, filterCriteria);
             attachmentService.attachText(
                     AttachmentType.KAFKA,
                     "Search Error - Topic Not Listened",
-                    String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s",
+                    String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s. Ensure the mapping is present in KafkaTopicMappingRegistry.",
                             fullTopicName, targetClass.getSimpleName(), messageBuffer.getConfiguredTopics()));
             return Optional.empty();
         }
@@ -136,13 +136,13 @@ public class KafkaBackgroundConsumer {
         String fullTopicName = topicPrefix + topicSuffix;
 
         if (!messageBuffer.isTopicConfigured(fullTopicName)) {
-            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}.",
+            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}. Ensure the type is registered in KafkaTopicMappingRegistry.",
                     fullTopicName, targetClass.getName(), messageBuffer.getConfiguredTopics());
             allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type, but not listened)", targetClass, filterCriteria);
             attachmentService.attachText(
                     AttachmentType.KAFKA,
                     "Search Error - Topic Not Listened",
-                    String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s",
+                    String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s. Ensure the mapping is present in KafkaTopicMappingRegistry.",
                             fullTopicName, targetClass.getSimpleName(), messageBuffer.getConfiguredTopics()));
             return new FindResult<>(Optional.empty(), List.of(), 0);
         }
@@ -193,7 +193,7 @@ public class KafkaBackgroundConsumer {
         String fullTopicName = topicPrefix + topicSuffix;
 
         if (!messageBuffer.isTopicConfigured(fullTopicName)) {
-            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}.",
+            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}. Ensure the type is registered in KafkaTopicMappingRegistry.",
                     fullTopicName, targetClass.getName(), messageBuffer.getConfiguredTopics());
             return 0;
         }
