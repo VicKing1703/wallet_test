@@ -24,6 +24,7 @@ import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.CapAdminTokenStorage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -56,15 +57,16 @@ public class PlayerRegistrationStep {
     private final String platformNodeId;
 
     @Autowired
-    public PlayerRegistrationStep(FapiClient publicClient,
-                                  CapAdminClient capAdminClient,
-                                  KafkaClient kafkaClient,
-                                  GenericRedisClient<Map<String, WalletData>> redisPlayerClient,
-                                  GenericRedisClient<WalletFullData> redisWalletClient,
-                                  CapAdminTokenStorage tokenStorage,
-                                  @Value("${app.settings.default.currency}") String defaultCurrency,
-                                  @Value("${app.settings.default.country}") String defaultCountry,
-                                  @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
+    public PlayerRegistrationStep(
+            FapiClient publicClient,
+            CapAdminClient capAdminClient,
+            KafkaClient kafkaClient,
+            @Qualifier("redisPlayerClient") GenericRedisClient<Map<String, WalletData>> redisPlayerClient,
+            @Qualifier("redisWalletClient") GenericRedisClient<WalletFullData> redisWalletClient,
+            CapAdminTokenStorage tokenStorage,
+            @Value("${app.settings.default.currency}") String defaultCurrency,
+            @Value("${app.settings.default.country}") String defaultCountry,
+            @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
         this.publicClient = Objects.requireNonNull(publicClient);
         this.capAdminClient = Objects.requireNonNull(capAdminClient);
         this.kafkaClient = Objects.requireNonNull(kafkaClient);

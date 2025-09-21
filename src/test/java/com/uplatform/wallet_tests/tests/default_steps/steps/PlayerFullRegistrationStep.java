@@ -29,13 +29,13 @@ import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.CapAdminTokenStorage;
 import com.uplatform.wallet_tests.api.db.PlayerDatabaseClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
@@ -62,16 +62,17 @@ public class PlayerFullRegistrationStep {
     private final String platformNodeId;
 
     @Autowired
-    public PlayerFullRegistrationStep(FapiClient publicClient,
-                                  CapAdminClient capAdminClient,
-                                  KafkaClient kafkaClient,
-                                  GenericRedisClient<Map<String, WalletData>> redisPlayerClient,
-                                  GenericRedisClient<WalletFullData> redisWalletClient,
-                                  CapAdminTokenStorage tokenStorage,
-                                  PlayerDatabaseClient playerDatabaseClient,
-                                  @Value("${app.settings.default.currency}") String defaultCurrency,
-                                  @Value("${app.settings.default.country}") String defaultCountry,
-                                  @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
+    public PlayerFullRegistrationStep(
+            FapiClient publicClient,
+            CapAdminClient capAdminClient,
+            KafkaClient kafkaClient,
+            @Qualifier("redisPlayerClient") GenericRedisClient<Map<String, WalletData>> redisPlayerClient,
+            @Qualifier("redisWalletClient") GenericRedisClient<WalletFullData> redisWalletClient,
+            CapAdminTokenStorage tokenStorage,
+            PlayerDatabaseClient playerDatabaseClient,
+            @Value("${app.settings.default.currency}") String defaultCurrency,
+            @Value("${app.settings.default.country}") String defaultCountry,
+            @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
         this.publicClient = Objects.requireNonNull(publicClient);
         this.capAdminClient = Objects.requireNonNull(capAdminClient);
         this.kafkaClient = Objects.requireNonNull(kafkaClient);
