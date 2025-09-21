@@ -286,7 +286,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
             step("Redis: Проверка агрегата кошелька после рефанда", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.player.getWalletData().walletUUID())
-                        .withAtLeast("lastSeqNumber", (int) ctx.refundEvent.getSequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.getSequence())
                         .fetch();
 
                 var depositData = aggregate.deposits().stream()

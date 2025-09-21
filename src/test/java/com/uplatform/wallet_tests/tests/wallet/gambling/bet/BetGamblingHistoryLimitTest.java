@@ -170,17 +170,20 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
         });
 
         step(String.format("Redis(Wallet): Получение и проверка данных кошелька для операции %s", operationParam), () -> {
-            var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.lastBetEvent.getSequence())
-                    .fetch();
-            var gamblingTransactionsInRedis = aggregate.gambling();
+            step("Redis(Wallet): Получение и проверка данных кошелька (лимит iFrame ставок)", () -> {
+                var aggregate = redisWalletClient
+                        .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                        .withAtLeast("LastSeqNumber", (int) ctx.lastBetEvent.getSequence())
+                        .fetch();
 
-            assertAll("Проверка данных в Redis",
-                    () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
-                    () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
-                    () -> assertEquals((int) ctx.lastBetEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
-            );
+                var gamblingTransactionsInRedis = aggregate.gambling();
+
+                assertAll("Проверка данных в Redis",
+                        () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
+                        () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
+                        () -> assertEquals((int) ctx.lastBetEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
+                );
+            });
         });
     }
 }

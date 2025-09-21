@@ -176,7 +176,7 @@ class DeleteBlockAmountTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.blockAmountRevokedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.blockAmountRevokedEvent.getSequence())
                     .fetch();
             assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null_for_redis_check");
 

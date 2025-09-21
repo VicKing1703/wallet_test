@@ -114,7 +114,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.limitCreateEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.limitCreateEvent.getSequence())
                     .fetch();
 
             assertAll("redis.wallet_aggregate.limit_content_validation",

@@ -232,7 +232,7 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
             var expectedSequence = (int) ctx.refundEvent.getSequence();
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", expectedSequence)
+                    .withAtLeast("LastSeqNumber", expectedSequence)
                     .fetch();
 
             assertAll("redis.wallet.limit_balance_after_refund",

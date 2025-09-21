@@ -269,7 +269,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
 
             var aggregate = redisWalletClient
                     .key(walletUuid)
-                    .withAtLeast("lastSeqNumber", sequence)
+                    .withAtLeast("LastSeqNumber", sequence)
                     .fetch();
 
             assertAll("Проверка данных в Redis",

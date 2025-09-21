@@ -197,7 +197,7 @@ class CasinoLossLimitWhenRefundFromGambleParametrizedTest extends BaseParameteri
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.refundEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.getSequence())
                     .fetch();
 
             assertAll(

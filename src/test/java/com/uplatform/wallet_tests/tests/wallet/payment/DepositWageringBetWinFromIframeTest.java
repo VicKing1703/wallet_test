@@ -175,7 +175,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
         step("THEN: wallet_wallet_redis обновляет баланс, но не сумму отыгрыша", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.player.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.winEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.winEvent.getSequence())
                     .fetch();
 
             var depositData = aggregate.deposits().stream()

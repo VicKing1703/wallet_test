@@ -286,7 +286,7 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
             step("Redis: Проверка агрегата кошелька после роллбэка", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.player.getWalletData().walletUUID())
-                        .withAtLeast("lastSeqNumber", (int) ctx.rollbackEvent.getSequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.rollbackEvent.getSequence())
                         .fetch();
 
                 var depositData = aggregate.deposits().stream()

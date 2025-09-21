@@ -145,7 +145,7 @@ class DepositPositiveTest extends BaseTest {
         step("THEN: wallet_wallet_redis обновляет агрегат кошелька в Redis", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.depositEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.getSequence())
                     .fetch();
 
             var deposit = aggregate.deposits().stream()

@@ -208,7 +208,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
         step("Redis(Wallet): Проверка данных лимита в агрегате", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.resetEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.resetEvent.getSequence())
                     .fetch();
 
             var redisLimitOpt = aggregate.limits().stream()

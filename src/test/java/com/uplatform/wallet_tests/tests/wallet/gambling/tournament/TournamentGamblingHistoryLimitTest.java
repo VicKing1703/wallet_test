@@ -159,7 +159,7 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка данных кошелька после серии турнирных выигрышей", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("lastSeqNumber", (int) ctx.lastTournamentEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lastTournamentEvent.getSequence())
                     .fetch();
             var gamblingTransactionsInRedis = aggregate.gambling();
 

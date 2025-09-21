@@ -276,7 +276,7 @@ step("Kafka: получение сообщения", () -> {
 ```java
 var aggregate = redisWalletClient
         .key(ctx.registeredPlayer.getWalletData().walletUUID())
-        .withAtLeast("lastSeqNumber", (int) ctx.betEvent.getSequence())
+        .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
         .with("isGamblingActive", true)
         .within(Duration.ofSeconds(10))
         .fetch();
@@ -614,7 +614,7 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
     step("Redis(Wallet): Проверка агрегата", () -> {
         redisWalletClient
                 .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                .withAtLeast("lastSeqNumber", (int) ctx.winEvent.getSequence())
+                .withAtLeast("LastSeqNumber", (int) ctx.winEvent.getSequence())
                 .fetch();
     });
 }
