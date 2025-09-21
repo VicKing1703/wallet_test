@@ -182,17 +182,8 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Redis (Player): Получение основного кошелька игрока", () -> {
-            String walletSelector = String.format(
-                    "$.*[?(@.currency == '%s' && @.type == %d && @.status == %d)]",
-                    this.defaultCurrency,
-                    1,
-                    1
-            );
-
             Map<String, WalletData> wallets = this.redisPlayerClient
                     .key(ctx.fullRegistrationMessage.player().externalId())
-                    .with(walletSelector, value -> value instanceof List<?> list && !list.isEmpty(),
-                            "contains wallet matching criteria")
                     .within(Duration.ofSeconds(30))
                     .fetch();
 

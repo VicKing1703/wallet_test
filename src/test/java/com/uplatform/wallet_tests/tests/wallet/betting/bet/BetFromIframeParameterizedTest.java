@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Betting")
 @Feature("MakePayment")
 @Suite("Позитивные сценарии: MakePayment")
-@Tag("Betting") @Tag("Wallet")
+@Tag("Betting") @Tag("Wallet1")
 class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal INITIAL_BALANCE = new BigDecimal("150.00");
@@ -195,7 +195,7 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
             step("AND: В Redis обновляется агрегат кошелька", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.player.getWalletData().walletUUID())
-                        .withAtLeast("lastSeqNumber", (int) ctx.betEvent.getSequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
                         .fetch();
 
                 var iframeRecord = aggregate.iFrameRecords().stream()
