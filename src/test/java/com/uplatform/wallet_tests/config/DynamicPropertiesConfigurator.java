@@ -117,6 +117,17 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
                     }
                 });
             }
+
+            if (redisProperties.getClients() != null) {
+                redisProperties.getClients().forEach((clientName, clientConfig) -> {
+                    if (clientConfig.getInstanceRef() != null) {
+                        properties.add("redis.clients." + clientName + ".instance-ref=" + clientConfig.getInstanceRef());
+                    }
+                    if (clientConfig.getDataType() != null) {
+                        properties.add("redis.clients." + clientName + ".data-type=" + clientConfig.getDataType());
+                    }
+                });
+            }
         }
 
         if (!properties.isEmpty()) {
