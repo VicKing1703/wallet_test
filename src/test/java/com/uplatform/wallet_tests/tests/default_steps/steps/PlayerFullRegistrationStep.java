@@ -23,7 +23,6 @@ import com.uplatform.wallet_tests.api.kafka.dto.PlayerAccountMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
 import com.uplatform.wallet_tests.api.redis.GenericRedisClient;
 import com.uplatform.wallet_tests.api.redis.model.WalletData;
-import com.uplatform.wallet_tests.api.redis.model.WalletFilterCriteria;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.CapAdminTokenStorage;
@@ -38,9 +37,9 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.*;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.*;
@@ -182,21 +181,26 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Redis (Player): Получение основного кошелька игрока", () -> {
-            var criteria = new WalletFilterCriteria(
-                    Optional.of(this.defaultCurrency),
-                    Optional.of(1),
-                    Optional.of(1)
+            String walletSelector = String.format(
+                    "$.*[?(@.currency == '%s' && @.type == %d && @.status == %d)]",
+                    this.defaultCurrency,
+                    1,
+                    1
             );
 
             Map<String, WalletData> wallets = this.redisPlayerClient
                     .key(ctx.fullRegistrationMessage.player().externalId())
-                    .with("$", value -> containsWalletMatchingCriteria(value, criteria),
-                            "contains wallet matching criteria")
+                    .with(walletSelector + ".currency", List.of(this.defaultCurrency))
+                    .with(walletSelector + ".type", List.of(1))
+                    .with(walletSelector + ".status", List.of(1))
                     .within(Duration.ofSeconds(30))
                     .fetch();
 
             ctx.playerWalletData = wallets.values().stream()
-                    .filter(wallet -> matchesCriteria(wallet, criteria))
+                    .filter(wallet -> wallet != null
+                            && Objects.equals(wallet.currency(), this.defaultCurrency)
+                            && Objects.equals(wallet.type(), 1)
+                            && Objects.equals(wallet.status(), 1))
                     .findFirst()
                     .orElse(null);
 
@@ -345,22 +349,4 @@ public class PlayerFullRegistrationStep {
                 ctx.updatedWalletData);
     }
 
-    private boolean containsWalletMatchingCriteria(Object value, WalletFilterCriteria criteria) {
-        if (!(value instanceof Map<?, ?> map)) {
-            return false;
-        }
-        return map.values().stream()
-                .filter(WalletData.class::isInstance)
-                .map(WalletData.class::cast)
-                .anyMatch(wallet -> matchesCriteria(wallet, criteria));
-    }
-
-    private boolean matchesCriteria(WalletData wallet, WalletFilterCriteria criteria) {
-        if (wallet == null || criteria == null) {
-            return false;
-        }
-        return criteria.currency().map(wallet.currency()::equals).orElse(true)
-                && criteria.type().map(type -> Objects.equals(type, wallet.type())).orElse(true)
-                && criteria.status().map(status -> Objects.equals(status, wallet.status())).orElse(true);
-    }
 }
