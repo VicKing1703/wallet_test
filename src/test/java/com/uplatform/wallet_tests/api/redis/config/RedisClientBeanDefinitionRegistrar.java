@@ -106,7 +106,7 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
             builder.addConstructorArgReference(templateBeanName);
             builder.addConstructorArgValue(props.getDataType());
             builder.addConstructorArgReference("redisTypeMappingRegistry");
-            builder.addConstructorArgReference("objectMapper");
+            builder.addConstructorArgReference("jacksonObjectMapper");
             builder.addConstructorArgReference("allureAttachmentService");
             builder.addConstructorArgReference("redisAwaitilityProperties");
 
