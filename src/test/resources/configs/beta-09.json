@@ -82,6 +82,16 @@
           "shutdownTimeout": "100ms"
         }
       }
+    },
+    "clients": {
+      "wallet": {
+        "instanceRef": "wallet",
+        "dataType": "WALLET_AGGREGATE"
+      },
+      "player": {
+        "instanceRef": "player",
+        "dataType": "PLAYER_WALLETS"
+      }
     }
   },
   "kafka": {
