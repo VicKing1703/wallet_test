@@ -1,11 +1,13 @@
 package com.uplatform.wallet_tests.api.kafka.consumer;
 
 import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
+import com.uplatform.wallet_tests.api.kafka.config.KafkaTopicMappingRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,25 +19,29 @@ import java.util.stream.Collectors;
 public class MessageBuffer {
 
     private final int bufferSize;
-    private final List<String> listenTopicSuffixes;
     private final String topicPrefix;
+    private final KafkaTopicMappingRegistry topicMappingRegistry;
 
     private final ConcurrentHashMap<String, LinkedBlockingDeque<ConsumerRecord<String, String>>> buffers = new ConcurrentHashMap<>();
     private List<String> fullListeningTopics;
 
     public MessageBuffer(
-            KafkaConfigProvider configProvider
+            KafkaConfigProvider configProvider,
+            KafkaTopicMappingRegistry topicMappingRegistry
     ) {
         this.bufferSize = configProvider.getKafkaConfig().bufferSize();
         this.topicPrefix = configProvider.getTopicPrefix();
-        this.listenTopicSuffixes = configProvider.getKafkaConfig().listenTopicSuffixes();
+        this.topicMappingRegistry = topicMappingRegistry;
     }
 
     @PostConstruct
     public void initialize() {
-        this.fullListeningTopics = listenTopicSuffixes.stream()
+        Collection<String> topicSuffixes = topicMappingRegistry.getAllTopicSuffixes();
+        this.fullListeningTopics = topicSuffixes.stream()
+                .filter(suffix -> suffix != null && !suffix.isBlank())
                 .map(suffix -> topicPrefix + suffix)
-                .collect(Collectors.toList());
+                .distinct()
+                .collect(Collectors.toUnmodifiableList());
         int capacity = bufferSize > 0 ? bufferSize : Integer.MAX_VALUE;
         this.fullListeningTopics.forEach(topic -> buffers.put(topic, new LinkedBlockingDeque<>(capacity)));
     }
@@ -56,7 +62,7 @@ public class MessageBuffer {
             }
             buffer.offerLast(record);
         } else {
-            log.error("Received message for unexpected/unconfigured topic buffer: {}. Message ignored. Ensure this topic is in 'listenTopicSuffixes'. Listening to: {}",
+            log.error("Received message for unexpected/unconfigured topic buffer: {}. Message ignored. Ensure this topic is registered in KafkaTopicMappingRegistry. Listening to: {}",
                     topic,
                     fullListeningTopics);
         }

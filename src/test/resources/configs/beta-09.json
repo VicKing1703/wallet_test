@@ -87,18 +87,10 @@
   "kafka": {
     "bootstrapServer": "kafka-development-01.b2bdev.pro:9092,kafka-development-02.b2bdev.pro:9092,kafka-development-03.b2bdev.pro:9092",
     "groupId": "cb-wallet-test-consumer-beta-09",
-    "listenTopicSuffixes": [
-      "player.v1.account",
-      "wallet.v8.projectionSource",
-      "core.gambling.v1.GameSessionStart",
-      "limits.v2",
-      "payment.v1.transaction"
-    ],
     "bufferSize": 500,
     "findMessageTimeout": "PT60S",
     "findMessageSleepInterval": "PT0.2S",
     "pollDuration": "PT1S",
-    "seekToEndOnStart": true,
     "shutdownTimeout": "PT5S",
     "autoOffsetReset": "latest",
     "enableAutoCommit": true

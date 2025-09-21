@@ -40,7 +40,8 @@ public class KafkaPollingService {
         this.kafkaConfig = configProvider.getKafkaConfig();
     }
 
-    public void start(List<String> topicsToSubscribe) {
+    public void start() {
+        List<String> topicsToSubscribe = messageBuffer.getConfiguredTopics();
         if (topicsToSubscribe == null || topicsToSubscribe.isEmpty()) {
             log.warn("KafkaPollingService: No topics to subscribe to. Service will not start.");
             return;
@@ -65,14 +66,12 @@ public class KafkaPollingService {
         cp.setPollTimeout(kafkaConfig.pollDuration().toMillis());
         cp.setMessageListener((MessageListener<String, String>) messageBuffer::addRecord);
 
-        if (kafkaConfig.seekToEndOnStart()) {
-            cp.setConsumerRebalanceListener(new ConsumerAwareRebalanceListener() {
-                @Override
-                public void onPartitionsAssigned(Consumer<?, ?> consumer, java.util.Collection<TopicPartition> partitions) {
-                    consumer.seekToEnd(partitions);
-                }
-            });
-        }
+        cp.setConsumerRebalanceListener(new ConsumerAwareRebalanceListener() {
+            @Override
+            public void onPartitionsAssigned(Consumer<?, ?> consumer, java.util.Collection<TopicPartition> partitions) {
+                consumer.seekToEnd(partitions);
+            }
+        });
 
         container = new KafkaMessageListenerContainer<>(cf, cp);
         container.start();
