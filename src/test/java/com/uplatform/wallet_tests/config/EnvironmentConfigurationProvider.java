@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.PostConstruct;
 import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
 
 @Service
 @Slf4j
@@ -35,6 +37,9 @@ public class EnvironmentConfigurationProvider implements KafkaConfigProvider, Re
 
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+        SimpleModule durationModule = new SimpleModule();
+        durationModule.addDeserializer(Duration.class, new SpringDurationDeserializer());
+        objectMapper.registerModule(durationModule);
         try (InputStream configFileStream = getClass().getClassLoader().getResourceAsStream(configFileName)) {
             if (configFileStream == null) {
                 throw new IOException("Configuration file not found in classpath: " + configFileName);
