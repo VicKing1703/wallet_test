@@ -76,6 +76,11 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
                 properties.add("app.redis.aggregate.max-iframe.count=" + aggregateConfig.maxIframeCount());
                 properties.add("app.redis.retry-attempts=" + aggregateConfig.retryAttempts());
                 properties.add("app.redis.retry-delay-ms=" + aggregateConfig.retryDelayMs());
+
+                properties.add("redis.aggregate.max-gambling-count=" + aggregateConfig.maxGamblingCount());
+                properties.add("redis.aggregate.max-iframe-count=" + aggregateConfig.maxIframeCount());
+                properties.add("redis.aggregate.retry-attempts=" + aggregateConfig.retryAttempts());
+                properties.add("redis.aggregate.retry-delay-ms=" + aggregateConfig.retryDelayMs());
             }
 
             if (redisProperties.getInstances() != null) {
