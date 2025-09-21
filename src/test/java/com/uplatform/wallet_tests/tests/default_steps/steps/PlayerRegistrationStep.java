@@ -35,12 +35,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.*;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.*;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Component
 public class PlayerRegistrationStep {
@@ -180,21 +182,21 @@ public class PlayerRegistrationStep {
 
             Map<String, WalletData> wallets = this.redisPlayerClient
                     .key(ctx.fullRegistrationMessage.player().externalId())
-                    .with(walletSelector + ".currency", List.of(this.defaultCurrency))
-                    .with(walletSelector + ".type", List.of(1))
-                    .with(walletSelector + ".status", List.of(1))
+                    .with(walletSelector, value -> value instanceof List<?> list && !list.isEmpty(),
+                            "contains wallet matching criteria")
                     .within(Duration.ofSeconds(30))
                     .fetch();
 
-            ctx.playerWalletData = wallets.values().stream()
+            Optional<WalletData> playerWallet = wallets.values().stream()
                     .filter(wallet -> wallet != null
                             && Objects.equals(wallet.currency(), this.defaultCurrency)
                             && Objects.equals(wallet.type(), 1)
                             && Objects.equals(wallet.status(), 1))
-                    .findFirst()
-                    .orElse(null);
+                    .findFirst();
 
-            assertNotNull(ctx.playerWalletData, "redis.player.wallet.not_found");
+            assertTrue(playerWallet.isPresent(), "redis.player.wallet.not_found");
+
+            ctx.playerWalletData = playerWallet.orElseThrow();
             assertNotNull(ctx.playerWalletData.walletUUID(), "redis.player.wallet.uuid");
             assertNotNull(ctx.playerWalletData.currency(), "redis.player.wallet.currency");
         });
