@@ -155,9 +155,10 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Redis: Определение вытесненной ставки", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.lastBetNatsEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
+                    .fetch();
             var transactionIdsCurrentlyInRedis = aggregate.gambling().keySet();
 
             var allMadeTransactionIds = ctx.allMadeBetRequests.stream()

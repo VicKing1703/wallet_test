@@ -171,9 +171,10 @@ class WithdrawalPositiveTest extends BaseTest {
         });
 
         step("THEN: wallet_wallet_redis обновляет баланс и создает блокировку", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().walletUUID(),
-                    (int) ctx.blockEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.player.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.blockEvent.getSequence())
+                    .fetch();
 
             var blockedAmountInfo = aggregate.blockedAmounts().stream()
                     .filter(b -> b.getUuid().equals(ctx.transactionId))

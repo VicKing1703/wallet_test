@@ -235,9 +235,10 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
         });
 
         step("THEN: wallet_wallet_redis обновляет баланс и сумму отыгрыша в агрегате Redis", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().walletUUID(),
-                    (int) ctx.betEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.player.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.betEvent.getSequence())
+                    .fetch();
 
             var depositData = aggregate.deposits().stream()
                     .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))

@@ -143,9 +143,10 @@ class DepositPositiveTest extends BaseTest {
         });
 
         step("THEN: wallet_wallet_redis обновляет агрегат кошелька в Redis", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.depositEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.depositEvent.getSequence())
+                    .fetch();
 
             var deposit = aggregate.deposits().stream()
                     .filter(d -> d.getUuid().equals(ctx.paymentTransactionMessage.transaction().transactionId()))

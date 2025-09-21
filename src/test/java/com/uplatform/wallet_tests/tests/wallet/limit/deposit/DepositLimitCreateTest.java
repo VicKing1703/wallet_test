@@ -175,9 +175,10 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
         });
 
         step("Redis (Wallet Aggregate): Проверка данных лимита в агрегате кошелька", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    testData.registeredPlayer.getWalletData().walletUUID(),
-                    (int) testData.natsLimitChangeEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(testData.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) testData.natsLimitChangeEvent.getSequence())
+                    .fetch();
 
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");
 

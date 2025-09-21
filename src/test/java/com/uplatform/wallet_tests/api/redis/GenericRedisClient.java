@@ -1,0 +1,59 @@
+package com.uplatform.wallet_tests.api.redis;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.uplatform.wallet_tests.api.redis.config.RedisAwaitilityProperties;
+import org.springframework.data.redis.core.RedisTemplate;
+
+import java.util.Objects;
+
+/**
+ * Type-safe fluent Redis client that is instantiated dynamically based on configuration.
+ *
+ * @param <T> type of the aggregate returned from Redis.
+ */
+public class GenericRedisClient<T> {
+
+    private final String beanName;
+    private final String instanceName;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final TypeReference<T> typeReference;
+    private final ObjectMapper objectMapper;
+    private final AllureAttachmentService attachmentService;
+    private final RedisAwaitilityProperties awaitilityProperties;
+    private final RedisDataType dataType;
+
+    public GenericRedisClient(String beanName,
+                              String instanceName,
+                              RedisTemplate<String, String> redisTemplate,
+                              RedisDataType dataType,
+                              RedisTypeMappingRegistry typeMappingRegistry,
+                              ObjectMapper objectMapper,
+                              AllureAttachmentService attachmentService,
+                              RedisAwaitilityProperties awaitilityProperties) {
+        this.beanName = Objects.requireNonNull(beanName, "beanName");
+        this.instanceName = Objects.requireNonNull(instanceName, "instanceName");
+        this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate");
+        this.dataType = Objects.requireNonNull(dataType, "dataType");
+        this.typeReference = typeMappingRegistry.resolve(dataType);
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.attachmentService = Objects.requireNonNull(attachmentService, "attachmentService");
+        this.awaitilityProperties = Objects.requireNonNull(awaitilityProperties, "awaitilityProperties");
+    }
+
+    public RedisExpectationBuilder<T> key(String key) {
+        return new RedisExpectationBuilder<>(
+                beanName,
+                instanceName,
+                key,
+                redisTemplate,
+                typeReference,
+                dataType,
+                objectMapper,
+                attachmentService,
+                awaitilityProperties
+        );
+    }
+}
+

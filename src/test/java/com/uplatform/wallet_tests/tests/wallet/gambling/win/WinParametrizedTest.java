@@ -297,7 +297,10 @@ class WinParametrizedTest extends BaseParameterizedTest {
             int sequence = (int) ctx.winEvent.getSequence();
             var transactionUuid = ctx.winEvent.getPayload().getUuid();
 
-            var aggregate = redisClient.getWalletDataWithSeqCheck(walletUuid, sequence);
+            var aggregate = redisWalletClient
+                    .key(walletUuid)
+                    .withAtLeast("lastSeqNumber", sequence)
+                    .fetch();
 
             assertAll("Проверка данных в Redis",
                     () -> assertEquals(sequence, aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),

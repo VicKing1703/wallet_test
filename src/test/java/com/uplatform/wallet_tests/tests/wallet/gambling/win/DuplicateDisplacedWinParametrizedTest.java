@@ -156,9 +156,10 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Redis: Определение вытесненной транзакции", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.lastWinNatsEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.lastWinNatsEvent.getSequence())
+                    .fetch();
 
             var transactionIdsCurrentlyInRedis = aggregate.gambling().keySet();
 

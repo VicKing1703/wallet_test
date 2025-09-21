@@ -269,14 +269,22 @@ step("Kafka: получение сообщения", () -> {
 
 ### 1. Как устроена работа с Redis
 
-Базовый класс `AbstractRedisClient` инкапсулирует логику общения с Redis:
-он проверяет соединение при старте, предоставляет методы `getWithRetry` и
-`getWithCheck` для извлечения данных с повторами через `RedisRetryHelper` и
-автоматически формирует аттачи в Allure при каждом обращении. Конкретные
-клиенты, например `PlayerRedisClient` и `WalletRedisClient`, лишь расширяют
-его и реализуют методы для своих ключей. Абстракция принимает тип значения
-как параметр и хранит `TypeReference<T>` в конструкторе, поэтому тип
-десериализации не нужно указывать при каждом вызове.
+Фреймворк автоматически регистрирует типизированные клиенты `GenericRedisClient<T>`
+на основе конфигурации. Каждый клиент предоставляет fluent-API через
+`RedisExpectationBuilder`, позволяющий декларативно описывать ожидания:
+
+```java
+var aggregate = redisWalletClient
+        .key(ctx.registeredPlayer.getWalletData().walletUUID())
+        .withAtLeast("lastSeqNumber", (int) ctx.betEvent.getSequence())
+        .with("isGamblingActive", true)
+        .within(Duration.ofSeconds(10))
+        .fetch();
+```
+
+В процессе ожидания автоматически прикладываются Allure-аттачи: информация
+о поиске, найденное значение либо причины таймаута, а также ошибки
+десериализации. JSONPath-фильтры поддерживаются из коробки.
 
 ### 2. Как настроить подключение
 
@@ -324,82 +332,67 @@ step("Kafka: получение сообщения", () -> {
 ### 3. Где прописать адрес сервера
 
 Все данные подключения располагаются в этом же конфигурационном файле в разделе
-`redis.instances`. Класс `DynamicPropertiesConfigurator` считывает значения и
-передает их в `RedisConfig`, который создает необходимые `RedisTemplate`.
+`redis.instances`. `DynamicPropertiesConfigurator` переносит их в Spring Environment,
+после чего `RedisClientBeanDefinitionRegistrar` создает для каждого инстанса
+подключение и `RedisTemplate`.
 
-### 4. Как работает абстрактный класс
+### 4. Как работает ожидание
 
-`AbstractRedisClient` инкапсулирует логику получения значения из Redis с
-повторами. Он использует `RedisRetryHelper` для ожидания появления ключа и
-формирует аттачи в Allure при каждой попытке. Детали каждой попытки
-прикладываются автоматически, отдельного флага управления не требуется.
+`RedisExpectationBuilder` использует Awaitility для повторных попыток чтения
+значения. Можно добавлять произвольное количество JSONPath-фильтров, переопределять
+таймаут (`within(...)`) и комбинировать их с кастомными предикатами. Все попытки
+сопровождаются информативными аттачами в Allure, поэтому в тесте достаточно
+вызвать `fetch()` и проверить полученный DTO.
 
-### 5. Подключение нового инстанса
+### 5. Подключение нового клиента
 
-1. Добавьте параметры нового инстанса в `redis.instances` конфигурационного
-   файла.
-2. В `RedisConfig` создайте только бин `RedisProperties` и вызовите метод
-   `createRedisInfrastructure("bonus", bonusRedisProperties())` для получения
-   `RedisTemplate` и соответствующего `LettuceConnectionFactory`.
-3. Создайте клиент, расширяющий `AbstractRedisClient`.
+1. Добавьте параметры нового инстанса в `redis.instances` конфигурационного файла.
+2. Опишите клиента в `redis.clients` (например, в `application.yml`):
 
-Пример фрагмента `RedisConfig` для инстанса `bonus`:
+   ```yaml
+   redis:
+     clients:
+       transactions:
+         instance-ref: wallet
+         data-type: WALLET_AGGREGATE
+   ```
 
-```java
-@Bean("bonusRedisProperties")
-@ConfigurationProperties(prefix = "spring.data.redis.bonus")
-public RedisProperties bonusRedisProperties() {
-    return new RedisProperties();
-}
+3. Добавьте соответствующий `TypeReference` в `RedisTypeMappingRegistry`, если
+   еще не существует.
 
-@Bean("bonusRedisTemplate")
-public RedisTemplate<String, String> bonusRedisTemplate(
-        @Qualifier("bonusRedisProperties") RedisProperties properties) {
-    return createRedisInfrastructure("bonus", properties);
-}
-```
+После этого в тестах можно инжектить бин `redisTransactionsClient` и использовать
+его fluent-API. Никакого дополнительного кода создавать не нужно — клиент будет
+зарегистрирован автоматически при старте Spring-контекста.
 
-### 6. Пример клиента для нового инстанса
+### 6. Пример настройки и использования
 
-```java
-package com.uplatform.wallet_tests.api.redis.client;
-
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.RedisTemplate;
-import com.fasterxml.jackson.core.type.TypeReference;
-import org.springframework.stereotype.Component;
-
-@Component
-public class BonusRedisClient extends AbstractRedisClient<BonusAggregate> {
-
-    public BonusRedisClient(
-            @Qualifier("bonusRedisTemplate") RedisTemplate<String, String> template,
-            RedisRetryHelper retryHelper,
-            AllureAttachmentService attachmentService
-    ) {
-        super("BONUS", template, retryHelper, attachmentService,
-                new TypeReference<BonusAggregate>() {});
-    }
-
-    public BonusAggregate getBonus(String key) {
-        return getWithRetry(key);
-    }
-}
-```
-
-### 7. Использование в тестах
-
-Инжектируйте нужный клиент и получайте данные в шаге `Allure.step`:
+Инжекция клиента в тестовый класс выглядит привычно:
 
 ```java
 @Autowired
-private BonusRedisClient bonusRedisClient;
+private GenericRedisClient<WalletFullData> redisWalletClient;
+```
 
-step("Redis: получение бонуса", () -> {
-    var aggregate = bonusRedisClient.getBonus(testData.bonusKey);
-    assertNotNull(aggregate, "redis.bonus.not_null");
+Далее можно гибко описывать ожидания напрямую в шаге:
+
+```java
+step("Redis: проверяем агрегат кошелька", () -> {
+    var aggregate = redisWalletClient
+            .key(testData.walletUuid())
+            .with("$.lastSeqNumber", testData.expectedSeq())
+            .with("$.isGamblingActive", true)
+            .within(Duration.ofSeconds(10))
+            .fetch();
+
+    assertThat(aggregate.getWallet().getBalance()).isEqualTo(testData.expectedBalance());
 });
 ```
+
+Для сложных случаев можно передавать дополнительные предикаты через
+перегрузку `with(jsonPath, predicate)`, использовать вспомогательные матчеры либо полностью
+положиться на JSONPath-фильтры. Все попытки чтения снабжаются Allure-аттачами,
+поэтому при падениях в отчёте будет детально видно, что именно искали и что
+оказалось в Redis.
 
 ## Работа с БД
 
@@ -619,9 +612,10 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
     });
 
     step("Redis(Wallet): Проверка агрегата", () -> {
-        redisClient.getWalletDataWithSeqCheck(
-                ctx.registeredPlayer.getWalletData().walletUUID(),
-                (int) ctx.winEvent.getSequence());
+        redisWalletClient
+                .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                .withAtLeast("lastSeqNumber", (int) ctx.winEvent.getSequence())
+                .fetch();
     });
 }
 ```

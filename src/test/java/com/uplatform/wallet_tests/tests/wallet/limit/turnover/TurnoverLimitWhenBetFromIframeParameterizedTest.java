@@ -166,9 +166,10 @@ class TurnoverLimitWhenBetFromIframeParameterizedTest extends BaseParameterizedT
         });
 
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.betEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.betEvent.getSequence())
+                    .fetch();
 
             assertAll("redis.wallet.limit_balance_validation",
                     () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),

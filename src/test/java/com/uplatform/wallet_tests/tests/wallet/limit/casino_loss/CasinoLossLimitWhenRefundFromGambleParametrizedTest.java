@@ -195,9 +195,10 @@ class CasinoLossLimitWhenRefundFromGambleParametrizedTest extends BaseParameteri
         });
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.refundEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.refundEvent.getSequence())
+                    .fetch();
 
             assertAll(
                     () -> assertEquals(0, ctx.expectedRestAmountAfterRefund.compareTo(aggregate.limits().get(0).getRest()), "redis.wallet.limit.rest"),

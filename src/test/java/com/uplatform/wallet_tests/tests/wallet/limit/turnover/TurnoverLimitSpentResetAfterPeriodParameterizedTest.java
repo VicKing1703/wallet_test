@@ -206,9 +206,10 @@ class TurnoverLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteri
         });
 
         step("Redis(Wallet): Проверка данных лимита в агрегате", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.resetEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.resetEvent.getSequence())
+                    .fetch();
 
             var redisLimitOpt = aggregate.limits().stream()
                     .filter(l -> ctx.resetEvent.getPayload().getLimits().get(0).getExternalId().equals(l.getExternalID()))

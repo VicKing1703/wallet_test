@@ -161,9 +161,10 @@ class TournamentPositiveTest extends BaseTest {
         });
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька после турнирного выигрыша", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(), (int) ctx.tournamentEvent.getSequence());
-
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID(), (int) ctx.tournamentEvent.getSequence());)
+                    .withAtLeast("lastSeqNumber", )
+                    .fetch()
             assertAll(
                     () -> assertEquals(ctx.tournamentEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.balance()), "redis.aggregate.balance"),

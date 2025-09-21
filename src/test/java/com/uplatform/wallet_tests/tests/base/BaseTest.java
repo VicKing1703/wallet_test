@@ -8,7 +8,8 @@ import com.uplatform.wallet_tests.tests.util.facade.TestUtils;
 import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.cap.client.CapAdminClient;
 import com.uplatform.wallet_tests.api.http.fapi.client.FapiClient;
-import com.uplatform.wallet_tests.api.redis.client.WalletRedisClient;
+import com.uplatform.wallet_tests.api.redis.GenericRedisClient;
+import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
 import com.uplatform.wallet_tests.api.nats.NatsClient;
 import com.uplatform.wallet_tests.api.kafka.client.KafkaClient;
 import com.uplatform.wallet_tests.api.db.WalletDatabaseClient;
@@ -43,7 +44,7 @@ public abstract class BaseTest {
     protected ManagerClient managerClient;
 
     @Autowired
-    protected WalletRedisClient redisClient;
+    protected GenericRedisClient<WalletFullData> redisWalletClient;
 
     @Autowired
     protected NatsClient natsClient;

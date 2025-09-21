@@ -267,7 +267,10 @@ class BetParametrizedTest extends BaseParameterizedTest {
             int sequence = (int) ctx.betEvent.getSequence();
             var transactionUuid = ctx.betEvent.getPayload().getUuid();
 
-            var aggregate = redisClient.getWalletDataWithSeqCheck(walletUuid, sequence);
+            var aggregate = redisWalletClient
+                    .key(walletUuid)
+                    .withAtLeast("lastSeqNumber", sequence)
+                    .fetch();
 
             assertAll("Проверка данных в Redis",
                     () -> assertEquals(sequence, aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),

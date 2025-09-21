@@ -166,9 +166,10 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
         });
 
         step(String.format("Redis(Wallet): Получение и проверка данных кошелька для операции %s", operationParam), () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.lastWinEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.lastWinEvent.getSequence())
+                    .fetch();
             var gamblingTransactionsInRedis = aggregate.gambling();
 
             assertAll("Проверка данных в Redis",

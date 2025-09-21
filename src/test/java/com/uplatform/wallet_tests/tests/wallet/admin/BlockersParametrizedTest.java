@@ -114,9 +114,10 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Redis(Wallet): Проверка флагов активности в Redis", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.updateBlockersEvent.getSequence()
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.updateBlockersEvent.getSequence()
+                    .fetch()
             );
             assertAll(
                     () -> assertEquals(gamblingEnabled, aggregate.isGamblingActive(), "redis.wallet.gambling_active"),

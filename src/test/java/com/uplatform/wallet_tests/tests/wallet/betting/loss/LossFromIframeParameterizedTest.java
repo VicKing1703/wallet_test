@@ -245,9 +245,10 @@ class LossFromIframeParameterizedTest extends BaseParameterizedTest {
         });
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.lossNatsEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.lossNatsEvent.getSequence())
+                    .fetch();
 
             var actualBetInfo = aggregate.iFrameRecords().get(1);
             var expectedBetInfo = ctx.lossNatsEvent.getPayload();

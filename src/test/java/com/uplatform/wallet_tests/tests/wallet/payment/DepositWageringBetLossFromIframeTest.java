@@ -181,9 +181,10 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
         });
 
         step("THEN: wallet_wallet_redis сохраняет сумму отыгрыша, баланс не меняется", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().walletUUID(),
-                    (int) ctx.lossEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.player.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.lossEvent.getSequence())
+                    .fetch();
 
             var depositData = aggregate.deposits().stream()
                     .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))

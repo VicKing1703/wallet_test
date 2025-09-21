@@ -141,9 +141,10 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
         });
 
         step("Redis: Определение вытесненного турнирного начисления", () -> {
-            WalletFullData aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.lastTournamentNatsEvent.getSequence());
+            WalletFullData aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.lastTournamentNatsEvent.getSequence())
+                    .fetch();
 
             var gamblingTransactionsInRedis = aggregate.gambling();
             var transactionIdsCurrentlyInRedis = gamblingTransactionsInRedis.keySet();

@@ -176,9 +176,10 @@ class DepositWageringBetRefundFromIframeTest extends BaseTest {
         });
 
         step("THEN: wallet_wallet_redis восстанавливает баланс, но не меняет сумму отыгрыша", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().walletUUID(),
-                    (int) ctx.refundEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.player.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.refundEvent.getSequence())
+                    .fetch();
 
             var depositData = aggregate.deposits().stream()
                     .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))

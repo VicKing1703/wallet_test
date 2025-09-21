@@ -77,21 +77,21 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
 
             if (redisFullConfig.getInstances() != null) {
                 redisFullConfig.getInstances().forEach((instanceName, instanceConfig) -> {
-                    properties.add("spring.data.redis." + instanceName + ".host=" + instanceConfig.getHost());
-                    properties.add("spring.data.redis." + instanceName + ".port=" + instanceConfig.getPort());
-                    properties.add("spring.data.redis." + instanceName + ".database=" + instanceConfig.getDatabase());
+                    properties.add("redis.instances." + instanceName + ".host=" + instanceConfig.getHost());
+                    properties.add("redis.instances." + instanceName + ".port=" + instanceConfig.getPort());
+                    properties.add("redis.instances." + instanceName + ".database=" + instanceConfig.getDatabase());
 
                     if (instanceConfig.getTimeout() != null && !instanceConfig.getTimeout().isEmpty()) {
-                        properties.add("spring.data.redis." + instanceName + ".timeout=" + instanceConfig.getTimeout());
+                        properties.add("redis.instances." + instanceName + ".timeout=" + instanceConfig.getTimeout());
                     }
 
                     LettucePoolConfig poolConfig = instanceConfig.getLettucePool();
                     if (poolConfig != null) {
-                        properties.add("spring.data.redis." + instanceName + ".lettuce.pool.max-active=" + poolConfig.getMaxActive());
-                        properties.add("spring.data.redis." + instanceName + ".lettuce.pool.max-idle=" + poolConfig.getMaxIdle());
-                        properties.add("spring.data.redis." + instanceName + ".lettuce.pool.min-idle=" + poolConfig.getMinIdle());
+                        properties.add("redis.instances." + instanceName + ".lettuce-pool.max-active=" + poolConfig.getMaxActive());
+                        properties.add("redis.instances." + instanceName + ".lettuce-pool.max-idle=" + poolConfig.getMaxIdle());
+                        properties.add("redis.instances." + instanceName + ".lettuce-pool.min-idle=" + poolConfig.getMinIdle());
                         if (poolConfig.getShutdownTimeout() != null && !poolConfig.getShutdownTimeout().isEmpty()) {
-                            properties.add("spring.data.redis." + instanceName + ".lettuce.shutdown-timeout=" + poolConfig.getShutdownTimeout());
+                            properties.add("redis.instances." + instanceName + ".lettuce-pool.shutdown-timeout=" + poolConfig.getShutdownTimeout());
                         }
                     }
                 });

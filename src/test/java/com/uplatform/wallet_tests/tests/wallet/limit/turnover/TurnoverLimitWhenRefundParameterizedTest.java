@@ -230,9 +230,10 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате ПОСЛЕ РЕФАНДА", () -> {
             var expectedSequence = (int) ctx.refundEvent.getSequence();
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    expectedSequence);
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", expectedSequence)
+                    .fetch();
 
             assertAll("redis.wallet.limit_balance_after_refund",
                     () -> assertEquals(expectedSequence, aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),

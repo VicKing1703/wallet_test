@@ -173,9 +173,10 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
         });
 
         step("THEN: wallet_wallet_redis обновляет баланс, но не сумму отыгрыша", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().walletUUID(),
-                    (int) ctx.winEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.player.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.winEvent.getSequence())
+                    .fetch();
 
             var depositData = aggregate.deposits().stream()
                     .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))

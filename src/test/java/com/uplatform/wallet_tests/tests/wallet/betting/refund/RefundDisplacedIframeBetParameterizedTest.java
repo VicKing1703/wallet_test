@@ -147,9 +147,10 @@ class RefundDisplacedIframeBetParameterizedTest extends BaseParameterizedTest {
         });
 
         step("Определение вытесненных iFrame ставок из Redis", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.lastBetNatsEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
+                    .fetch();
             var iFrameRecordsInRedis = aggregate.iFrameRecords();
             var allMadeBetIds = ctx.madeBetsRequests.stream()
                     .map(MakePaymentRequest::getBetId)

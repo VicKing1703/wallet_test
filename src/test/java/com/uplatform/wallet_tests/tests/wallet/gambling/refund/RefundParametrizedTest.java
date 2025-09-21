@@ -308,9 +308,10 @@ class RefundParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька после рефанда", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.refundEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.refundEvent.getSequence())
+                    .fetch();
 
             assertNotNull(aggregate, "redis.aggregate");
 

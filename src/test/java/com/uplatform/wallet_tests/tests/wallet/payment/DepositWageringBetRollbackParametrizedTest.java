@@ -284,9 +284,10 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
             });
 
             step("Redis: Проверка агрегата кошелька после роллбэка", () -> {
-                var aggregate = redisClient.getWalletDataWithSeqCheck(
-                        ctx.player.getWalletData().walletUUID(),
-                        (int) ctx.rollbackEvent.getSequence());
+                var aggregate = redisWalletClient
+                        .key(ctx.player.getWalletData().walletUUID())
+                        .withAtLeast("lastSeqNumber", (int) ctx.rollbackEvent.getSequence())
+                        .fetch();
 
                 var depositData = aggregate.deposits().stream()
                         .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))

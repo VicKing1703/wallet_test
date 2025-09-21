@@ -202,9 +202,10 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
         });
 
         step("Redis(Wallet): Проверка изменений лимита", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.depositEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.depositEvent.getSequence())
+                    .fetch();
 
             var redisLimit = aggregate.limits().stream()
                     .filter(l -> NatsLimitType.DEPOSIT.getValue().equals(l.getLimitType()) &&

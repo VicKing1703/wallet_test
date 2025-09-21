@@ -17,8 +17,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContact
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactResponse;
 import com.uplatform.wallet_tests.api.kafka.client.KafkaClient;
 import com.uplatform.wallet_tests.api.kafka.dto.PlayerAccountMessage;
-import com.uplatform.wallet_tests.api.redis.client.PlayerRedisClient;
-import com.uplatform.wallet_tests.api.redis.client.WalletRedisClient;
+import com.uplatform.wallet_tests.api.redis.GenericRedisClient;
 import com.uplatform.wallet_tests.api.redis.model.WalletData;
 import com.uplatform.wallet_tests.api.redis.model.WalletFilterCriteria;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
@@ -31,7 +30,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -47,8 +48,8 @@ public class PlayerRegistrationStep {
     private final FapiClient publicClient;
     private final CapAdminClient capAdminClient;
     private final KafkaClient kafkaClient;
-    private final PlayerRedisClient playerRedisClient;
-    private final WalletRedisClient walletRedisClient;
+    private final GenericRedisClient<Map<String, WalletData>> redisPlayerClient;
+    private final GenericRedisClient<WalletFullData> redisWalletClient;
     private final CapAdminTokenStorage tokenStorage;
     private final String defaultCurrency;
     private final String defaultCountry;
@@ -58,8 +59,8 @@ public class PlayerRegistrationStep {
     public PlayerRegistrationStep(FapiClient publicClient,
                                   CapAdminClient capAdminClient,
                                   KafkaClient kafkaClient,
-                                  PlayerRedisClient playerRedisClient,
-                                  WalletRedisClient walletRedisClient,
+                                  GenericRedisClient<Map<String, WalletData>> redisPlayerClient,
+                                  GenericRedisClient<WalletFullData> redisWalletClient,
                                   CapAdminTokenStorage tokenStorage,
                                   @Value("${app.settings.default.currency}") String defaultCurrency,
                                   @Value("${app.settings.default.country}") String defaultCountry,
@@ -67,8 +68,8 @@ public class PlayerRegistrationStep {
         this.publicClient = Objects.requireNonNull(publicClient);
         this.capAdminClient = Objects.requireNonNull(capAdminClient);
         this.kafkaClient = Objects.requireNonNull(kafkaClient);
-        this.playerRedisClient = Objects.requireNonNull(playerRedisClient);
-        this.walletRedisClient = Objects.requireNonNull(walletRedisClient);
+        this.redisPlayerClient = Objects.requireNonNull(redisPlayerClient);
+        this.redisWalletClient = Objects.requireNonNull(redisWalletClient);
         this.tokenStorage = Objects.requireNonNull(tokenStorage);
         this.defaultCurrency = Objects.requireNonNull(defaultCurrency);
         this.defaultCountry = Objects.requireNonNull(defaultCountry);
@@ -174,9 +175,19 @@ public class PlayerRegistrationStep {
                     Optional.of(1),
                     Optional.of(1)
             );
-            ctx.playerWalletData = this.playerRedisClient.getPlayerWalletByCriteria(
-                    ctx.fullRegistrationMessage.player().externalId(),
-                    criteria);
+
+            Map<String, WalletData> wallets = this.redisPlayerClient
+                    .key(ctx.fullRegistrationMessage.player().externalId())
+                    .with("$", value -> containsWalletMatchingCriteria(value, criteria),
+                            "contains wallet matching criteria")
+                    .within(Duration.ofSeconds(30))
+                    .fetch();
+
+            ctx.playerWalletData = wallets.values().stream()
+                    .filter(wallet -> matchesCriteria(wallet, criteria))
+                    .findFirst()
+                    .orElse(null);
+
             assertNotNull(ctx.playerWalletData, "redis.player.wallet.not_found");
             assertNotNull(ctx.playerWalletData.walletUUID(), "redis.player.wallet.uuid");
             assertNotNull(ctx.playerWalletData.currency(), "redis.player.wallet.currency");
@@ -202,8 +213,9 @@ public class PlayerRegistrationStep {
         }
 
         step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
-            ctx.updatedWalletData = this.walletRedisClient.getWithRetry(
-                    ctx.playerWalletData.walletUUID());
+            ctx.updatedWalletData = this.redisWalletClient
+                    .key(ctx.playerWalletData.walletUUID())
+                    .fetch();
             assertNotNull(ctx.updatedWalletData, "redis.wallet.full_data_not_found");
             assertNotNull(ctx.updatedWalletData.playerUUID(), "redis.wallet.player_uuid");
         });
@@ -211,5 +223,25 @@ public class PlayerRegistrationStep {
         return new RegisteredPlayerData(
                 ctx.authorizationResponse,
                 ctx.updatedWalletData);
+    }
+}
+
+    private boolean containsWalletMatchingCriteria(Object value, WalletFilterCriteria criteria) {
+        if (!(value instanceof Map<?, ?> map)) {
+            return false;
+        }
+        return map.values().stream()
+                .filter(WalletData.class::isInstance)
+                .map(WalletData.class::cast)
+                .anyMatch(wallet -> matchesCriteria(wallet, criteria));
+    }
+
+    private boolean matchesCriteria(WalletData wallet, WalletFilterCriteria criteria) {
+        if (wallet == null || criteria == null) {
+            return false;
+        }
+        return criteria.currency().map(wallet.currency()::equals).orElse(true)
+                && criteria.type().map(type -> Objects.equals(type, wallet.type())).orElse(true)
+                && criteria.status().map(status -> Objects.equals(status, wallet.status())).orElse(true);
     }
 }

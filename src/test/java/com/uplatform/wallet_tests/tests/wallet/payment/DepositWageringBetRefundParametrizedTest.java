@@ -284,9 +284,10 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
             });
 
             step("Redis: Проверка агрегата кошелька после рефанда", () -> {
-                var aggregate = redisClient.getWalletDataWithSeqCheck(
-                        ctx.player.getWalletData().walletUUID(),
-                        (int) ctx.refundEvent.getSequence());
+                var aggregate = redisWalletClient
+                        .key(ctx.player.getWalletData().walletUUID())
+                        .withAtLeast("lastSeqNumber", (int) ctx.refundEvent.getSequence())
+                        .fetch();
 
                 var depositData = aggregate.deposits().stream()
                         .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))

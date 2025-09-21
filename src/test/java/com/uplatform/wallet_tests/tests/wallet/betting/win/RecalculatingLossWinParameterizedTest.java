@@ -261,9 +261,10 @@ class RecalculatingLossWinParameterizedTest extends BaseParameterizedTest {
         });
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.recalculatedEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
+                    .fetch();
 
             var actualBetInfo = aggregate.iFrameRecords().get(2);
             var expectedBetInfo = ctx.recalculatedEvent.getPayload();

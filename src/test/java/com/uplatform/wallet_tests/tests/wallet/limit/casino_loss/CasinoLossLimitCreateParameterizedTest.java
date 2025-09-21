@@ -179,9 +179,10 @@ public class CasinoLossLimitCreateParameterizedTest extends BaseParameterizedTes
         });
 
         step("Redis (Wallet Aggregate): Проверка данных лимита в агрегате кошелька", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.natsLimitChangeEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.natsLimitChangeEvent.getSequence())
+                    .fetch();
 
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");
 

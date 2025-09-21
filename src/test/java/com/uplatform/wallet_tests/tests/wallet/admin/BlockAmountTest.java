@@ -119,9 +119,10 @@ class BlockAmountTest extends BaseTest {
         });
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.blockAmountEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.blockAmountEvent.getSequence())
+                    .fetch();
 
             var blockedAmountInfo = aggregate.blockedAmounts().get(0);
             var responseBody = ctx.blockAmountResponse.getBody();

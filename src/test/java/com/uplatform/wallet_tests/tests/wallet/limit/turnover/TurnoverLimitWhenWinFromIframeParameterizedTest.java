@@ -150,9 +150,10 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
         });
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате после всех операций", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.winEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.winEvent.getSequence())
+                    .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
                     () -> assertEquals((int) ctx.winEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),

@@ -212,9 +212,10 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
             });
 
             step("Redis: Проверка агрегата кошелька после выигрыша", () -> {
-                var aggregate = redisClient.getWalletDataWithSeqCheck(
-                        ctx.player.getWalletData().walletUUID(),
-                        (int) ctx.tournamentEvent.getSequence());
+                var aggregate = redisWalletClient
+                        .key(ctx.player.getWalletData().walletUUID())
+                        .withAtLeast("lastSeqNumber", (int) ctx.tournamentEvent.getSequence())
+                        .fetch();
 
                 var depositData = aggregate.deposits().stream()
                         .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))

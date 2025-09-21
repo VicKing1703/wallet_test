@@ -193,9 +193,10 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
             });
 
             step("AND: В Redis обновляется агрегат кошелька", () -> {
-                var aggregate = redisClient.getWalletDataWithSeqCheck(
-                        ctx.player.getWalletData().walletUUID(),
-                        (int) ctx.betEvent.getSequence());
+                var aggregate = redisWalletClient
+                        .key(ctx.player.getWalletData().walletUUID())
+                        .withAtLeast("lastSeqNumber", (int) ctx.betEvent.getSequence())
+                        .fetch();
 
                 var iframeRecord = aggregate.iFrameRecords().stream()
                         .filter(r -> r.getUuid().equals(ctx.betEvent.getPayload().getUuid()))

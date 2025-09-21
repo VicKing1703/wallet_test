@@ -182,9 +182,10 @@ class CasinoLossLimitWhenRecalculateLossToWinParameterizedTest extends BaseParam
         });
 
         step("Redis(Wallet): Проверка состояния лимита в агрегате после всех операций", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.recalculatedEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
+                    .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
                     () -> assertEquals((int) ctx.recalculatedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),

@@ -145,9 +145,10 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Redis: Проверка данных кошелька после корректировки", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().walletUUID(),
-                    (int) ctx.balanceAdjustedEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .withAtLeast("lastSeqNumber", (int) ctx.balanceAdjustedEvent.getSequence())
+                    .fetch();
             assertAll(
                     () -> assertEquals(0, ctx.expectedBalanceAfterAdjustment.compareTo(aggregate.balance()), "redis.wallet.balance")
             );
