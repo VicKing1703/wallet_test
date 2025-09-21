@@ -11,7 +11,6 @@ import org.springframework.boot.context.properties.bind.BindException;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.EnvironmentAware;
-import org.springframework.core.ResolvableType;
 import org.springframework.core.env.Environment;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -112,7 +111,7 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
             builder.addConstructorArgReference("redisAwaitilityProperties");
 
             RootBeanDefinition beanDefinition = (RootBeanDefinition) builder.getBeanDefinition();
-            beanDefinition.setTargetType(ResolvableType.forClass(GenericRedisClient.class));
+            beanDefinition.setTargetType(GenericRedisClient.class);
             registry.registerBeanDefinition(beanName, beanDefinition);
         });
     }
