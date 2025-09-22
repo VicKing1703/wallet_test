@@ -233,27 +233,34 @@ redis:
 
 ## Руководство по использованию
 
-### Поиск агрегата по ключу
+### Пример тестовых шагов
+
+В реальных сценариях вызовы клиента оборачиваются в Allure-степы. Ниже — два характерных шага из теста: проверка агрегата кошелька и чтение связанного набора кошельков с кастомным таймаутом.
 
 ```java
-WalletFullData aggregate = redisWalletClient.key("wallet:aggregate:" + playerId)
-        .with("$.playerId", playerId)
-        .withAtLeast("$.balances.main", BigDecimal.ZERO)
-        .fetch();
+step("Redis(Wallet): Проверяем агрегат кошелька", () -> {
+    WalletFullData aggregate = redisWalletClient.key("wallet:aggregate:" + playerId)
+            .with("$.playerId", playerId)
+            .withAtLeast("$.balances.main", BigDecimal.ZERO)
+            .fetch();
+
+    assertAll("Поля агрегата кошелька",
+            () -> assertEquals(playerId, aggregate.playerId(), "then.redis.wallet.player_id"),
+            () -> assertTrue(aggregate.balances().main().compareTo(BigDecimal.ZERO) >= 0, "then.redis.wallet.balance.non_negative")
+    );
+});
+
+step("Redis(Player): Считываем список кошельков с пользовательским таймаутом", () -> {
+    Map<String, WalletData> wallets = redisPlayerClient.key("player:wallets:" + playerId)
+            .with("$.metadata.environment", "beta-09")
+            .within(Duration.ofSeconds(15))
+            .fetch();
+
+    assertNotNull(wallets.get(playerId), "then.redis.player.wallet_present");
+});
 ```
 
-Метод `key` запускает билдер для конкретного Redis-ключа. Фильтры `with` и `withAtLeast` принимают JsonPath и проверяют значения в загруженном JSON. `fetch()` читает значение, применяет фильтры и десериализует результат в тип, зарегистрированный в `RedisTypeMappingRegistry`.
-
-### Кастомный таймаут
-
-```java
-Map<String, WalletData> wallets = redisPlayerClient.key("player:wallets:" + playerId)
-        .with("$.metadata.environment", "beta-09")
-        .within(Duration.ofSeconds(15))
-        .fetch();
-```
-
-Метод `within` переопределяет таймаут по умолчанию, рассчитанный из `redis.aggregate`. Если значение не найдено за указанное время, будет выброшено `RedisRetryExhaustedException`.
+Метод `key` запускает билдер для конкретного Redis-ключа. Фильтры `with` и `withAtLeast` принимают JsonPath и проверяют значения в загруженном JSON. `fetch()` читает значение, применяет фильтры и десериализует результат в тип, зарегистрированный в `RedisTypeMappingRegistry`. Метод `within` переопределяет таймаут по умолчанию, рассчитанный из `redis.aggregate`. Если значение не найдено за указанное время, будет выброшено `RedisRetryExhaustedException`.
 
 ## Аттачи Allure
 
