@@ -9,7 +9,6 @@ import java.util.Map;
 
 @Data
 public class RedisModuleProperties {
-
     private RedisAggregateConfig aggregate;
     private Map<String, RedisClientProperties> clients = new LinkedHashMap<>();
 

@@ -5,6 +5,5 @@ import java.time.Duration;
 public record RedisAwaitilityProperties(
         Duration defaultTimeout,
         Duration pollInterval
-) {
-}
+) {}
 

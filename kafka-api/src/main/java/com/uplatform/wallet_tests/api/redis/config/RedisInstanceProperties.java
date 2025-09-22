@@ -6,7 +6,6 @@ import java.time.Duration;
 
 @Data
 public class RedisInstanceProperties {
-
     private String host;
     private int port = 6379;
     private int database = 0;
