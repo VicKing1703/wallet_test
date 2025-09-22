@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.PostConstruct;
 import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
+import com.uplatform.wallet_tests.api.nats.config.NatsConfigProvider;
 import com.uplatform.wallet_tests.api.redis.config.RedisConfigProvider;
 import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
 import com.uplatform.wallet_tests.config.RedisAggregateConfig;
@@ -19,7 +20,7 @@ import java.time.Duration;
 @Service
 @Slf4j
 @Getter
-public class EnvironmentConfigurationProvider implements KafkaConfigProvider, RedisConfigProvider {
+public class EnvironmentConfigurationProvider implements KafkaConfigProvider, RedisConfigProvider, NatsConfigProvider {
 
     private EnvironmentConfig environmentConfig;
 
@@ -60,8 +61,14 @@ public class EnvironmentConfigurationProvider implements KafkaConfigProvider, Re
         return environmentConfig.getTopicPrefix();
     }
 
+    @Override
     public NatsConfig getNatsConfig() {
         return environmentConfig.getNats();
+    }
+
+    @Override
+    public String getNatsStreamPrefix() {
+        return environmentConfig.getNatsStreamPrefix();
     }
 
     @Override

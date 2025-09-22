@@ -1,18 +1,13 @@
 package com.uplatform.wallet_tests.api.nats;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.uplatform.wallet_tests.api.nats.config.NatsConfigProvider;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
 import com.uplatform.wallet_tests.config.NatsConfig;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
-
-import com.uplatform.wallet_tests.api.nats.NatsSubscriber;
-import com.uplatform.wallet_tests.api.nats.NatsAttachmentHelper;
-import com.uplatform.wallet_tests.api.nats.NatsConnectionManager;
-import com.uplatform.wallet_tests.api.nats.NatsExpectationBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -31,12 +26,12 @@ public class NatsClient {
     public NatsClient(ObjectMapper objectMapper,
                       NatsAttachmentHelper attachmentHelper,
                       NatsConnectionManager connectionManager,
-                      EnvironmentConfigurationProvider configProvider) {
+                      NatsConfigProvider configProvider) {
         NatsConfig natsConfig = configProvider.getNatsConfig();
 
-        this.streamPrefix = configProvider.getEnvironmentConfig().getNatsStreamPrefix();
+        this.streamPrefix = configProvider.getNatsStreamPrefix();
         this.natsBaseName = natsConfig.getStreamName();
-        String streamName = this.streamPrefix + this.natsBaseName;
+        String streamName = connectionManager.getStreamName();
 
         this.searchTimeout = Duration.ofSeconds(natsConfig.getSearchTimeoutSeconds());
         this.defaultUniqueWindow = Duration.ofMillis(natsConfig.getUniqueDuplicateWindowMs());

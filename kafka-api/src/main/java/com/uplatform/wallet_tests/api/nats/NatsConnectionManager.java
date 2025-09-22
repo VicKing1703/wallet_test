@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.api.nats;
 
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.api.nats.config.NatsConfigProvider;
 import com.uplatform.wallet_tests.config.NatsConfig;
 import io.nats.client.*;
 import io.nats.client.JetStreamApiException;
@@ -30,9 +30,9 @@ public class NatsConnectionManager {
     private final String natsBaseName;
 
     @Autowired
-    public NatsConnectionManager(EnvironmentConfigurationProvider configProvider) {
+    public NatsConnectionManager(NatsConfigProvider configProvider) {
         NatsConfig natsConfig = configProvider.getNatsConfig();
-        this.streamPrefix = configProvider.getEnvironmentConfig().getNatsStreamPrefix();
+        this.streamPrefix = configProvider.getNatsStreamPrefix();
         this.natsBaseName = natsConfig.getStreamName();
         this.streamName = this.streamPrefix + this.natsBaseName;
 
