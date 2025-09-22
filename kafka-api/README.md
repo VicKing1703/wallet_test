@@ -159,6 +159,105 @@ step("Kafka: Получение сообщения из топика limits.v2",
 * **Message Not Found** — сводка условий, по которым сообщение не найдено к моменту таймаута.
 * **Deserialization Error** — текст ошибки Jackson и исходный payload, который не удалось преобразовать в DTO.
 
+# Redis Test Client
+
+Redis-клиент в модуле `kafka-api` помогает автотестам проверять содержимое JSON-структур, размещённых в Redis. Он переиспользует инфраструктуру Allure-аттачей, Jackson и fluent-API, знакомые по Kafka-клиенту.
+
+## Основные возможности
+
+* **Fluent API.** Ожидания строятся цепочкой `key(...).with(...).withAtLeast(...).within(...).fetch()`.
+* **JSONPath-фильтры.** Значения полей проверяются через JsonPath вплоть до произвольной глубины вложенности.
+* **Ретрай с настраиваемыми таймаутами.** Количество попыток и интервал поллинга задаются в конфигурации `redis.aggregate`.
+* **Интеграция с Allure.** Все попытки чтения ключа сопровождаются текстовыми и JSON-аттачами.
+* **Типобезопасные DTO.** Ответы автоматически десериализуются в заранее зарегистрированные типы.
+
+## Конфигурация Spring
+
+Для работы клиента необходимо задать бин `RedisTypeMappingRegistry`, который связывает имена клиентов из конфигурации и `TypeReference` нужного DTO:
+
+```java
+@Configuration
+public class RedisConfig {
+
+    @Bean
+    public RedisTypeMappingRegistry redisTypeMappingRegistry() {
+        return new RedisTypeMappingRegistry()
+                .register("wallet", new TypeReference<WalletFullData>() {})
+                .register("player", new TypeReference<Map<String, WalletData>>() {});
+    }
+}
+```
+
+Каждый клиент, определённый в конфигурации, регистрируется как Spring-бин `redis<Имя>Client`. Например, настройка `clients.wallet` создаст бин `redisWalletClient`, а `clients.player-history` — `redisPlayerHistoryClient`.
+
+## Конфигурация приложения
+
+Раздел `redis` в `application.yml` или JSON-конфигурации окружения включает два блока:
+
+```yaml
+redis:
+  aggregate:
+    maxGamblingCount: 50
+    maxIframeCount: 500
+    retryAttempts: 20
+    retryDelayMs: 500
+  clients:
+    wallet:
+      host: redis-01.b2bdev.pro
+      port: 6390
+      database: 9
+      timeout: 5000ms
+      password: secret # опционально
+      lettucePool:
+        maxActive: 8
+        maxIdle: 8
+        minIdle: 0
+        maxWait: 2s
+        shutdownTimeout: 100ms
+    player:
+      host: redis-01.b2bdev.pro
+      port: 6389
+      database: 9
+      timeout: 5s
+```
+
+* `aggregate.retryAttempts` и `aggregate.retryDelayMs` определяют количество повторов и интервал опроса; от них вычисляется таймаут по умолчанию в билдере.
+* `aggregate.maxGamblingCount` и `aggregate.maxIframeCount` используются тестами для валидации границ хранимых агрегатов.
+* Блок `clients` описывает подключение для каждого Redis-инстанса, включая параметры пула Lettuce.
+
+## Руководство по использованию
+
+### Поиск агрегата по ключу
+
+```java
+WalletFullData aggregate = redisWalletClient.key("wallet:aggregate:" + playerId)
+        .with("$.playerId", playerId)
+        .withAtLeast("$.balances.main", BigDecimal.ZERO)
+        .fetch();
+```
+
+Метод `key` запускает билдер для конкретного Redis-ключа. Фильтры `with` и `withAtLeast` принимают JsonPath и проверяют значения в загруженном JSON. `fetch()` читает значение, применяет фильтры и десериализует результат в тип, зарегистрированный в `RedisTypeMappingRegistry`.
+
+### Кастомный таймаут
+
+```java
+Map<String, WalletData> wallets = redisPlayerClient.key("player:wallets:" + playerId)
+        .with("$.metadata.environment", "beta-09")
+        .within(Duration.ofSeconds(15))
+        .fetch();
+```
+
+Метод `within` переопределяет таймаут по умолчанию, рассчитанный из `redis.aggregate`. Если значение не найдено за указанное время, будет выброшено `RedisRetryExhaustedException`.
+
+## Аттачи Allure
+
+Redis-клиент создаёт те же типы аттачей, что и Kafka-клиент:
+
+* **Search Info** — имя бина, ключ, таймаут и список JsonPath-фильтров.
+* **Found Value** — исходный JSON найденного значения.
+* **Value Not Found** — причина, по которой ожидание истекло.
+* **Deserialization Error** — стек и сырой payload при ошибке преобразования.
+
 Эти вложения облегчают анализ упавших тестов без чтения логов.
 
 ## Архитектура
