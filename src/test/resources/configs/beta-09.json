@@ -57,19 +57,7 @@
       "retryAttempts": 20,
       "retryDelayMs": 500
     },
-    "instances": {
-      "player": {
-        "host": "redis-01.b2bdev.pro",
-        "port": 6389,
-        "database": 9,
-        "timeout": "5000ms",
-        "lettucePool": {
-          "maxActive": 8,
-          "maxIdle": 8,
-          "minIdle": 0,
-          "shutdownTimeout": "100ms"
-        }
-      },
+    "clients": {
       "wallet": {
         "host": "redis-01.b2bdev.pro",
         "port": 6390,
@@ -81,16 +69,18 @@
           "minIdle": 0,
           "shutdownTimeout": "100ms"
         }
-      }
-    },
-    "clients": {
-      "wallet": {
-        "instanceRef": "wallet",
-        "dataType": "WALLET_AGGREGATE"
       },
       "player": {
-        "instanceRef": "player",
-        "dataType": "PLAYER_WALLETS"
+        "host": "redis-01.b2bdev.pro",
+        "port": 6389,
+        "database": 9,
+        "timeout": "5000ms",
+        "lettucePool": {
+          "maxActive": 8,
+          "maxIdle": 8,
+          "minIdle": 0,
+          "shutdownTimeout": "100ms"
+        }
       }
     }
   },

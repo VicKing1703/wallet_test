@@ -1,8 +1,0 @@
-redis:
-  clients:
-    wallet:
-      instance-ref: wallet
-      data-type: WALLET_AGGREGATE
-    player:
-      instance-ref: player
-      data-type: PLAYER_WALLETS

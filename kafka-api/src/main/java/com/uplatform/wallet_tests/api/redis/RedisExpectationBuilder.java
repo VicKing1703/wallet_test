@@ -33,7 +33,6 @@ public class RedisExpectationBuilder<T> {
     private final String key;
     private final RedisTemplate<String, String> redisTemplate;
     private final TypeReference<T> typeReference;
-    private final RedisDataType dataType;
     private final ObjectMapper objectMapper;
     private final AllureAttachmentService attachmentService;
     private final RedisAwaitilityProperties awaitilityProperties;
@@ -46,7 +45,6 @@ public class RedisExpectationBuilder<T> {
                             String key,
                             RedisTemplate<String, String> redisTemplate,
                             TypeReference<T> typeReference,
-                            RedisDataType dataType,
                             ObjectMapper objectMapper,
                             AllureAttachmentService attachmentService,
                             RedisAwaitilityProperties awaitilityProperties) {
@@ -58,7 +56,6 @@ public class RedisExpectationBuilder<T> {
         this.key = key;
         this.redisTemplate = redisTemplate;
         this.typeReference = typeReference;
-        this.dataType = dataType;
         this.objectMapper = objectMapper;
         this.attachmentService = attachmentService;
         this.awaitilityProperties = awaitilityProperties;
@@ -181,7 +178,6 @@ public class RedisExpectationBuilder<T> {
         StringBuilder builder = new StringBuilder();
         builder.append("Client Bean: ").append(beanName).append('\n');
         builder.append("Redis Instance: ").append(instanceName).append('\n');
-        builder.append("Data Type: ").append(dataType).append('\n');
         builder.append("Key: ").append(key).append('\n');
         builder.append("Timeout: ").append(timeout.toSeconds()).append("s\n");
         if (expectations.isEmpty()) {

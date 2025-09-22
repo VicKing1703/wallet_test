@@ -10,7 +10,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 @Configuration
-@Conditional(RedisInstancesConfiguredCondition.class)
+@Conditional(RedisClientsConfiguredCondition.class)
 public class RedisApiAutoConfiguration {
 
     @Bean
