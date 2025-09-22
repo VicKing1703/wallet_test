@@ -10,7 +10,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 import java.util.Collections;
 import java.util.Map;
 
-public class RedisInstancesConfiguredCondition implements Condition {
+public class RedisClientsConfiguredCondition implements Condition {
 
     @Override
     public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
@@ -19,10 +19,10 @@ public class RedisInstancesConfiguredCondition implements Condition {
             return false;
         }
         try {
-            Map<String, Object> instances = Binder.get(environment)
-                    .bind("redis.instances", Bindable.mapOf(String.class, Object.class))
+            Map<String, Object> clients = Binder.get(environment)
+                    .bind("redis.clients", Bindable.mapOf(String.class, Object.class))
                     .orElse(Collections.emptyMap());
-            return !instances.isEmpty();
+            return !clients.isEmpty();
         } catch (Exception ex) {
             return false;
         }

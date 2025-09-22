@@ -288,14 +288,14 @@ var aggregate = redisWalletClient
 
 Вся инфраструктура (connection factory, `RedisTemplate`, клиенты и настройки Awaitility)
 поднимается автоконфигурацией `RedisApiAutoConfiguration`. Она активируется только
-если в окружении присутствует раздел `redis.instances`, поэтому проекты, которым
+если в окружении присутствует раздел `redis.clients`, поэтому проекты, которым
 Redis не нужен, остаются нетронутыми.
 
 ### 2. Как настроить подключение
 
 Запускайте тесты с системным свойством `-Denv=<имя_окружения>`. В каталоге
 `configs` хранится конфигурация, где раздел `redis` содержит параметры повторов
-и список инстансов. Пример из `beta-09.json`:
+и список клиентов. Пример из `beta-09.json`:
 
 ```json
 "redis": {
@@ -305,31 +305,31 @@ Redis не нужен, остаются нетронутыми.
         "retryAttempts": 10,
         "retryDelayMs": 200
     },
-    "instances": {
-        "player": {
-          "host": "redis-01.b2bdev.pro",
-          "port": 6389,
-          "database": 9,
-          "timeout": "5000ms",
-          "lettucePool": {
-            "maxActive": 8,
-            "maxIdle": 8,
-            "minIdle": 0,
-            "shutdownTimeout": "100ms"
-          }
-        },
-        "wallet": {
-          "host": "redis-01.b2bdev.pro",
-          "port": 6390,
-          "database": 9,
-          "timeout": "5000ms",
-          "lettucePool": {
-            "maxActive": 8,
-            "maxIdle": 8,
-            "minIdle": 0,
-            "shutdownTimeout": "100ms"
-          }
+    "clients": {
+      "wallet": {
+        "host": "redis-01.b2bdev.pro",
+        "port": 6390,
+        "database": 9,
+        "timeout": "5000ms",
+        "lettucePool": {
+          "maxActive": 8,
+          "maxIdle": 8,
+          "minIdle": 0,
+          "shutdownTimeout": "100ms"
         }
+      },
+      "player": {
+        "host": "redis-01.b2bdev.pro",
+        "port": 6389,
+        "database": 9,
+        "timeout": "5000ms",
+        "lettucePool": {
+          "maxActive": 8,
+          "maxIdle": 8,
+          "minIdle": 0,
+          "shutdownTimeout": "100ms"
+        }
+      }
     }
 }
 ```
@@ -337,8 +337,8 @@ Redis не нужен, остаются нетронутыми.
 ### 3. Где прописать адрес сервера
 
 Все данные подключения располагаются в этом же конфигурационном файле в разделе
-`redis.instances`. `DynamicPropertiesConfigurator` переносит их в Spring Environment,
-после чего автоконфигурация Redis автоматически создает для каждого инстанса
+`redis.clients`. `DynamicPropertiesConfigurator` переносит их в Spring Environment,
+после чего автоконфигурация Redis автоматически создает для каждого клиента
 подключение и `RedisTemplate`.
 
 ### 4. Как работает ожидание
@@ -351,19 +351,8 @@ Redis не нужен, остаются нетронутыми.
 
 ### 5. Минимальная конфигурация в тестовом проекте
 
-1. Убедитесь, что в файле окружения заданы `redis.instances`, а в `application.yml`
-   перечислены клиенты:
-
-   ```yaml
-   redis:
-     clients:
-       wallet:
-         instance-ref: wallet
-         data-type: WALLET_AGGREGATE
-       player:
-         instance-ref: player
-         data-type: PLAYER_WALLETS
-   ```
+1. Убедитесь, что в файле окружения заданы `redis.clients` с параметрами подключения
+   для каждого нужного сервиса.
 
 2. Создайте конфигурационный класс с единственным бином `RedisTypeMappingRegistry`:
 
@@ -374,11 +363,14 @@ Redis не нужен, остаются нетронутыми.
        @Bean
        public RedisTypeMappingRegistry redisTypeMappingRegistry() {
            return new RedisTypeMappingRegistry()
-                   .register(RedisDataType.WALLET_AGGREGATE, new TypeReference<WalletFullData>() {})
-                   .register(RedisDataType.PLAYER_WALLETS, new TypeReference<Map<String, WalletData>>() {});
+                   .register("wallet", new TypeReference<WalletFullData>() {})
+                   .register("player", new TypeReference<Map<String, WalletData>>() {});
        }
    }
    ```
+
+   Ключи, переданные в `register(...)`, должны совпадать с именами клиентов из
+   `redis.clients`.
 
 На этом настройка завершена. Автоконфигурация сама создаст подключения, шаблоны
 и `GenericRedisClient`-бины для каждого описанного клиента.

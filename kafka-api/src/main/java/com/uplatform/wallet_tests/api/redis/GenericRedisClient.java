@@ -17,12 +17,10 @@ public class GenericRedisClient<T> {
     private final ObjectMapper objectMapper;
     private final AllureAttachmentService attachmentService;
     private final RedisAwaitilityProperties awaitilityProperties;
-    private final RedisDataType dataType;
 
     public GenericRedisClient(String beanName,
                               String instanceName,
                               RedisTemplate<String, String> redisTemplate,
-                              RedisDataType dataType,
                               RedisTypeMappingRegistry typeMappingRegistry,
                               ObjectMapper objectMapper,
                               AllureAttachmentService attachmentService,
@@ -30,8 +28,7 @@ public class GenericRedisClient<T> {
         this.beanName = Objects.requireNonNull(beanName, "beanName");
         this.instanceName = Objects.requireNonNull(instanceName, "instanceName");
         this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate");
-        this.dataType = Objects.requireNonNull(dataType, "dataType");
-        this.typeReference = typeMappingRegistry.resolve(dataType);
+        this.typeReference = typeMappingRegistry.resolve(instanceName);
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.attachmentService = Objects.requireNonNull(attachmentService, "attachmentService");
         this.awaitilityProperties = Objects.requireNonNull(awaitilityProperties, "awaitilityProperties");
@@ -44,7 +41,6 @@ public class GenericRedisClient<T> {
                 key,
                 redisTemplate,
                 typeReference,
-                dataType,
                 objectMapper,
                 attachmentService,
                 awaitilityProperties

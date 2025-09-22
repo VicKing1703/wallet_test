@@ -83,53 +83,42 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
                 properties.add("redis.aggregate.retry-delay-ms=" + aggregateConfig.retryDelayMs());
             }
 
-            if (redisProperties.getInstances() != null) {
-                redisProperties.getInstances().forEach((instanceName, instanceConfig) -> {
-                    if (instanceConfig.getHost() != null) {
-                        properties.add("redis.instances." + instanceName + ".host=" + instanceConfig.getHost());
+            if (redisProperties.getClients() != null) {
+                redisProperties.getClients().forEach((clientName, clientConfig) -> {
+                    if (clientConfig.getHost() != null) {
+                        properties.add("redis.clients." + clientName + ".host=" + clientConfig.getHost());
                     }
-                    properties.add("redis.instances." + instanceName + ".port=" + instanceConfig.getPort());
-                    properties.add("redis.instances." + instanceName + ".database=" + instanceConfig.getDatabase());
+                    properties.add("redis.clients." + clientName + ".port=" + clientConfig.getPort());
+                    properties.add("redis.clients." + clientName + ".database=" + clientConfig.getDatabase());
 
-                    if (instanceConfig.getPassword() != null) {
-                        properties.add("redis.instances." + instanceName + ".password=" + instanceConfig.getPassword());
+                    if (clientConfig.getPassword() != null) {
+                        properties.add("redis.clients." + clientName + ".password=" + clientConfig.getPassword());
                     }
 
-                    Duration timeout = instanceConfig.getTimeout();
+                    Duration timeout = clientConfig.getTimeout();
                     if (timeout != null) {
-                        properties.add("redis.instances." + instanceName + ".timeout=" + formatDuration(timeout));
+                        properties.add("redis.clients." + clientName + ".timeout=" + formatDuration(timeout));
                     }
 
-                    RedisInstanceProperties.LettucePoolProperties poolConfig = instanceConfig.getLettucePool();
+                    RedisInstanceProperties.LettucePoolProperties poolConfig = clientConfig.getLettucePool();
                     if (poolConfig != null) {
                         if (poolConfig.getMaxActive() != null) {
-                            properties.add("redis.instances." + instanceName + ".lettuce-pool.max-active=" + poolConfig.getMaxActive());
+                            properties.add("redis.clients." + clientName + ".lettuce-pool.max-active=" + poolConfig.getMaxActive());
                         }
                         if (poolConfig.getMaxIdle() != null) {
-                            properties.add("redis.instances." + instanceName + ".lettuce-pool.max-idle=" + poolConfig.getMaxIdle());
+                            properties.add("redis.clients." + clientName + ".lettuce-pool.max-idle=" + poolConfig.getMaxIdle());
                         }
                         if (poolConfig.getMinIdle() != null) {
-                            properties.add("redis.instances." + instanceName + ".lettuce-pool.min-idle=" + poolConfig.getMinIdle());
+                            properties.add("redis.clients." + clientName + ".lettuce-pool.min-idle=" + poolConfig.getMinIdle());
                         }
                         Duration maxWait = poolConfig.getMaxWait();
                         if (maxWait != null) {
-                            properties.add("redis.instances." + instanceName + ".lettuce-pool.max-wait=" + formatDuration(maxWait));
+                            properties.add("redis.clients." + clientName + ".lettuce-pool.max-wait=" + formatDuration(maxWait));
                         }
                         Duration shutdownTimeout = poolConfig.getShutdownTimeout();
                         if (shutdownTimeout != null) {
-                            properties.add("redis.instances." + instanceName + ".lettuce-pool.shutdown-timeout=" + formatDuration(shutdownTimeout));
+                            properties.add("redis.clients." + clientName + ".lettuce-pool.shutdown-timeout=" + formatDuration(shutdownTimeout));
                         }
-                    }
-                });
-            }
-
-            if (redisProperties.getClients() != null) {
-                redisProperties.getClients().forEach((clientName, clientConfig) -> {
-                    if (clientConfig.getInstanceRef() != null) {
-                        properties.add("redis.clients." + clientName + ".instance-ref=" + clientConfig.getInstanceRef());
-                    }
-                    if (clientConfig.getDataType() != null) {
-                        properties.add("redis.clients." + clientName + ".data-type=" + clientConfig.getDataType());
                     }
                 });
             }

@@ -41,7 +41,6 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
             return;
         }
 
-        registerInfrastructureBeans(registry, properties.getInstances());
         registerClientBeans(registry, properties.getClients());
     }
 
@@ -55,52 +54,35 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
         }
     }
 
-    private void registerInfrastructureBeans(BeanDefinitionRegistry registry,
-                                              Map<String, RedisInstanceProperties> instances) {
-        if (instances == null) {
-            return;
-        }
-        instances.forEach((name, props) -> {
-            String connectionBeanName = connectionFactoryBeanName(name);
-            if (!registry.containsBeanDefinition(connectionBeanName)) {
-                registerConnectionFactory(registry, connectionBeanName, props);
-            }
-            String templateBeanName = templateBeanName(name);
-            if (!registry.containsBeanDefinition(templateBeanName)) {
-                registerTemplate(registry, templateBeanName, connectionBeanName);
-            }
-        });
-    }
-
     private void registerClientBeans(BeanDefinitionRegistry registry,
                                      Map<String, RedisModuleProperties.RedisClientProperties> clients) {
         if (clients == null) {
             return;
         }
         clients.forEach((name, props) -> {
-            if (!StringUtils.hasText(props.getInstanceRef())) {
-                throw new IllegalStateException("Redis client '" + name + "' must define instance-ref");
-            }
-            if (props.getDataType() == null) {
-                throw new IllegalStateException("Redis client '" + name + "' must define data-type");
+            if (!StringUtils.hasText(props.getHost())) {
+                throw new IllegalStateException("Redis client '" + name + "' must define host");
             }
             String beanName = clientBeanName(name);
             if (registry.containsBeanDefinition(beanName)) {
                 return;
             }
 
-            String templateBeanName = templateBeanName(props.getInstanceRef());
+            String connectionBeanName = connectionFactoryBeanName(name);
+            if (!registry.containsBeanDefinition(connectionBeanName)) {
+                registerConnectionFactory(registry, connectionBeanName, props);
+            }
+
+            String templateBeanName = templateBeanName(name);
             if (!registry.containsBeanDefinition(templateBeanName)) {
-                throw new IllegalStateException("Redis client '" + name + "' references unknown instance '"
-                        + props.getInstanceRef() + "'");
+                registerTemplate(registry, templateBeanName, connectionBeanName);
             }
 
             BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(GenericRedisClient.class);
             builder.setAutowireMode(GenericBeanDefinition.AUTOWIRE_CONSTRUCTOR);
             builder.addConstructorArgValue(beanName);
-            builder.addConstructorArgValue(props.getInstanceRef());
+            builder.addConstructorArgValue(name);
             builder.addConstructorArgReference(templateBeanName);
-            builder.addConstructorArgValue(props.getDataType());
             builder.addConstructorArgReference("redisTypeMappingRegistry");
             builder.addConstructorArgReference("jacksonObjectMapper");
             builder.addConstructorArgReference("allureAttachmentService");
