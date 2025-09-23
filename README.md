@@ -200,6 +200,15 @@ step("HTTP: отправка запроса Bet", () -> {
 Полученные записи помещаются в буфер `MessageBuffer`, представляющий собой кольцевую очередь.
 Поиск по буферу и десериализацию выполняет `MessageFinder`, возвращая тесту DTO нужного типа.
 
+#### Архитектура
+
+* **KafkaClient** — публичный фасад. Создаёт билдер ожиданий и передаёт ему фонового consumer и таймауты.
+* **KafkaExpectationBuilder** — fluent-конструктор. Сохраняет фильтры, таймаут, флаг уникальности и выполняет поиск с проверками.
+* **KafkaBackgroundConsumer** — управляет подписками, выполняет асинхронный поиск в буфере и взаимодействует с Allure.
+* **KafkaPollingService** — низкоуровневый сервис Spring Kafka, который подписывается на топики, сразу смещает consumer в конец и складывает записи в буфер.
+* **MessageBuffer** — потокобезопасный буфер на каждый топик. Следит за переполнением и хранит ограниченное количество сообщений.
+* **MessageFinder** — применяет JsonPath-фильтры, десериализует сообщения и возвращает совпадения, а также сообщает об ошибках десериализации.
+
 ### 2. Как настроить подключение
 
 При запуске тестов укажите системное свойство `-Denv=<имя_окружения>`.
@@ -264,6 +273,20 @@ step("Kafka: получение сообщения", () -> {
     assertTrue(utils.areEquivalent(message, testData.someEvent));
 });
 ```
+
+#### FAQ / Troubleshooting
+
+**Вопрос:** тест падает с `KafkaMessageNotFoundException`, хотя сообщение точно отправлено. Что проверить?
+
+* Убедитесь, что фильтры `.with(...)` совпадают с фактическим payload (особенно регистр и формат чисел).
+* Проверьте, что суффикс топика для нужного DTO добавлен в `KafkaTopicMappingRegistry`.
+* Убедитесь, что префикс топика (environment prefix) совпадает с фактическим именем топика.
+* Увеличьте таймаут через `.within(...)` для дополнительной диагностики.
+* Просмотрите логи на наличие ошибок подключения к Kafka или десериализации.
+
+**Вопрос:** добавил новый DTO, но клиент не находит топик.
+
+* Убедитесь, что в бине `KafkaTopicMappingRegistry` добавлен маппинг `mappings.put(MyNewMessage.class, "my.new.topic.suffix")`. Без этого клиент не сможет вычислить полное имя топика.
 
 ## Работа с Redis
 
@@ -481,54 +504,116 @@ step("DB: проверяем запись кошелька", () -> {
 
 ### 1. Как устроена работа с NATS
 
-`NatsConnectionManager` устанавливает соединение и проверяет наличие стрима.
-`NatsClient` через `NatsSubscriber` ищет сообщения по subject и формирует
-аттачи с помощью `NatsAttachmentHelper`.
+За работу с JetStream отвечает `NatsConnectionManager`: он устанавливает
+соединение на основании JSON-конфигурации окружения, проверяет наличие стрима и
+создаёт `JetStream`-контекст. `NatsSubscriber` подписывается на нужные subject,
+получает сообщения в буфер и формирует Allure-аттачи через
+`NatsAttachmentHelper`. Поверх этой инфраструктуры расположен фасад
+`NatsClient`, который собирает fluent‑ожидания и управляет тайм‑аутами.
 
 ### 2. Как настроить подключение
 
-Укажите системное свойство `-Denv=<имя_окружения>`. В разделе `nats` файла
-окружения задаются `hosts`, имя стрима и параметры подписки.
+При запуске тестов укажите `-Denv=<имя_окружения>`. Файл `configs/<env>.json`
+должен содержать секцию `nats` с параметрами подключения:
+
+```json
+"nats": {
+  "hosts": ["nats-01.dev.local:4222", "nats-02.dev.local:4222"],
+  "streamName": "wallet",
+  "streamPrefix": "beta-09",
+  "searchTimeoutSeconds": 60,
+  "uniqueDuplicateWindowMs": 5000,
+  "subscriptionAckWaitSeconds": 10,
+  "subscriptionInactiveThresholdSeconds": 30,
+  "subscriptionBufferSize": 200,
+  "subscriptionRetryCount": 5,
+  "subscriptionRetryDelayMs": 500
+}
+```
+
+`EnvironmentConfigurationProvider` читает эти значения и передаёт их в
+`NatsConnectionManager`, поэтому дополнительный `application.yml` для тестов не
+нужен.
 
 ### 3. Где прописать адрес сервера
 
-Все параметры NATS находятся в том же конфигурационном файле. Их считывает
-`EnvironmentConfigurationProvider`, а `NatsConnectionManager` применяет при
-создании соединения.
+Список `hosts` и остальные параметры берутся из той же секции `nats`.
+`NatsConnectionManager` подключается ко всем указанным узлам, а `NatsClient`
+использует `streamPrefix` и `streamName`, чтобы собирать полный subject
+(`prefix.streamName.*.<playerUuid>.<walletUuid>`). При необходимости вы можете
+добавить собственные фабрики subject в самом клиенте.
 
 ### 4. Как работает клиент
 
-`NatsClient` предоставляет метод `buildWalletSubject` для формирования subject и
-флюентный интерфейс `expect` для ожидания события с фильтром. Внутри учитываются
-повторы и тайм‑ауты.
+`NatsClient` предоставляет методы:
+
+* `buildWalletSubject(playerUuid, walletUuid)` — готовый helper для основных
+  событий кошелька.
+* `expect(Class<T>)` — точка входа в DSL ожидания. Дальше доступны цепочки
+  `.from(subject)` для выбора subject, `.with(BiPredicate<T, String>)` для
+  произвольной фильтрации payload и заголовков, `.unique([Duration])` для
+  проверки отсутствия дублей и `.within(Duration)` для переопределения тайм‑аута.
+* `.fetch()` или `.fetchAsync()` — запуск ожидания. Все попытки и найденные
+  события автоматически прикладываются в отчёт Allure.
 
 ### 5. Подключение нового subject
 
-1. Укажите параметры нового стрима в блоке `nats` конфигурации.
-2. Добавьте метод формирования subject в `NatsClient` по образцу
-   `buildWalletSubject`.
+1. Опишите дополнительные параметры (если нужны) в секции `nats` конфигурации
+   окружения.
+2. Добавьте helper в `NatsClient`, если subject требует особого формата.
+3. Используйте `.from("<subject>")` напрямую в тесте, если subject формируется
+   на месте и не требует переиспользования.
 
-### 6. Пример поиска сообщения
+### 6. Примеры шагов с поиском сообщения
+
+Базовый сценарий: найти любое событие по сформированному subject.
 
 ```java
-String subject = natsClient.buildWalletSubject(playerUuid, walletUuid);
-var message = natsClient.expect(NatsBalanceAdjustedPayload.class)
-        .from(subject)
-        .with((payload, type) -> payload.getSequence() == expectedSeq)
-        .fetch();
+step("NATS: ожидаем событие изменения баланса", () -> {
+    String subject = natsClient.buildWalletSubject(playerUuid, walletUuid);
+
+    NatsMessage<NatsBalanceAdjustedPayload> event = natsClient
+            .expect(NatsBalanceAdjustedPayload.class)
+            .from(subject)
+            .fetch();
+
+    assertEquals(walletUuid, event.getPayload().getWalletUuid());
+});
+```
+
+Продвинутый пример с фильтрацией, уникальностью и кастомным тайм‑аутом:
+
+```java
+step("NATS: проверяем единственное событие с нужной последовательностью", () -> {
+    NatsMessage<NatsBettingEventPayload> message = natsClient
+            .expect(NatsBettingEventPayload.class)
+            .from(subject)
+            .with((payload, type) -> payload.getSequence() == expectedSeq)
+            .unique()
+            .within(Duration.ofSeconds(30))
+            .fetch();
+
+    assertThat(message.getPayload().getSequence()).isEqualTo(expectedSeq);
+});
 ```
 
 ### 7. Использование в тестах
+
+Инжектируйте клиента как обычный Spring-бин и вызывайте его внутри
+`Allure.step` вместе с другими проверками теста:
 
 ```java
 @Autowired
 private NatsClient natsClient;
 
-step("NATS: получаем событие", () -> {
-    var msg = natsClient.expect(SomePayload.class)
+step("NATS: получаем событие стартовой ставки", () -> {
+    NatsMessage<NatsBettingEventPayload> betEvent = natsClient
+            .expect(NatsBettingEventPayload.class)
             .from(subject)
+            .with((payload, type) -> payload.getType() == NatsBettingTransactionOperation.BET)
             .fetch();
-    assertNotNull(msg);
+
+    assertNotNull(betEvent);
 });
 ```
 
