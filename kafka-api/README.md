@@ -159,6 +159,105 @@ step("Kafka: Получение сообщения из топика limits.v2",
 * **Message Not Found** — сводка условий, по которым сообщение не найдено к моменту таймаута.
 * **Deserialization Error** — текст ошибки Jackson и исходный payload, который не удалось преобразовать в DTO.
 
+# NATS Test Client
+
+Клиент NATS из `kafka-api` предназначен для поиска событий JetStream в e2e-тестах. Он инкапсулирует подключение к кластеру,
+асинхронные подписки и добавление артефактов в Allure.
+
+## Основные возможности
+
+* **Fluent API.** Поиск запускается через `natsClient.expect(Payload.class).from(subject).matching(...).unique().within(...).fetch()`.
+* **Асинхронное ожидание.** Подписка выполняется в отдельном диспетчере JetStream с автоматическим переоформлением при ошибках.
+* **Проверка уникальности.** Метод `unique()` контролирует, что в окне `uniqueDuplicateWindowMs` найдено ровно одно событие.
+* **Allure-аттачи.** При первом совпадении и при дублях клиент формирует текстовые вложения с метаданными события.
+* **Переиспользуемый subject-builder.** Метод `buildWalletSubject(playerUuid, walletUuid)` генерирует стандартный шаблон с префиксом окружения.
+
+## Конфигурация
+
+### Файл окружения
+
+`EnvironmentConfigurationProvider` читает JSON `configs/<env>.json` (укажите `-Denv=...` при запуске тестов) и предоставляет
+NATS-настройки через `NatsConfigProvider`. Блок `nats` и префикс потока выглядят так:
+
+```json
+{
+  "name": "beta",
+  "natsStreamPrefix": "beta_",
+  "nats": {
+    "hosts": ["nats://nats-1:4222", "nats://nats-2:4222"],
+    "streamName": "wallet-events",
+    "subscriptionRetryCount": 3,
+    "subscriptionRetryDelayMs": 500,
+    "connectReconnectWaitSeconds": 2,
+    "connectMaxReconnects": 10,
+    "searchTimeoutSeconds": 30,
+    "subscriptionAckWaitSeconds": 5,
+    "subscriptionInactiveThresholdSeconds": 60,
+    "subscriptionBufferSize": 256,
+    "uniqueDuplicateWindowMs": 400,
+    "failOnDeserialization": true
+  }
+}
+```
+
+* `hosts` — список URL JetStream-кластера.
+* `streamName` — базовое имя стрима без префикса окружения.
+* `subscriptionRetryCount`/`subscriptionRetryDelayMs` — количество попыток создать подписку и пауза между ними.
+* `connectReconnectWaitSeconds`/`connectMaxReconnects` — параметры переподключения клиента.
+* `searchTimeoutSeconds` — максимальное время поиска сообщения по умолчанию.
+* `subscriptionAckWaitSeconds` и `subscriptionInactiveThresholdSeconds` — таймауты ack и неактивности потребителя.
+* `subscriptionBufferSize` — размер буфера полученных сообщений.
+* `uniqueDuplicateWindowMs` — окно проверки дублей для `unique()`.
+* `failOnDeserialization` — выбрасывать ли исключение при ошибке преобразования payload.
+
+Полное имя стрима вычисляется как `natsStreamPrefix + streamName`, где префикс берётся из имени окружения.
+
+## Руководство по использованию
+
+### Поиск события по subject
+
+```java
+NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
+        .from(natsClient.buildWalletSubject(playerId.toString(), walletId.toString()))
+        .matching((payload, type) -> payload.getPlayerId().equals(playerId))
+        .fetch();
+```
+
+Метод `from` задаёт subject подписки, `matching` принимает `BiPredicate` с payload и type header (если он присутствует).
+
+### Контроль уникальности события
+
+```java
+NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
+        .from(subject)
+        .unique(Duration.ofSeconds(5))
+        .fetch();
+```
+
+`unique(Duration)` ограничивает окно поиска дублей. При обнаружении повторного события в пределах окна будет выброшено
+`NatsDuplicateMessageException` с вложением Allure.
+
+### Асинхронный сценарий
+
+```java
+CompletableFuture<NatsMessage<WalletLimitEvent>> future = natsClient.expect(WalletLimitEvent.class)
+        .from(subject)
+        .within(Duration.ofSeconds(20))
+        .fetchAsync();
+
+// ... выполнить действия теста ...
+
+NatsMessage<WalletLimitEvent> message = future.join();
+```
+
+Метод `fetchAsync()` возвращает `CompletableFuture`, который автоматически завершится по таймауту, если событие не найдено.
+
+## Исключения
+
+* `NatsMessageNotFoundException` — сообщение не найдено или ожидание прервано.
+* `NatsDuplicateMessageException` — найдено более одного события при `unique()`.
+* `NatsDeserializationException` — payload не удалось десериализовать в указанный тип.
+
 # Redis Test Client
 
 Redis-клиент в модуле `kafka-api` помогает автотестам проверять содержимое JSON-структур, размещённых в Redis. Он переиспользует инфраструктуру Allure-аттачей, Jackson и fluent-API, знакомые по Kafka-клиенту.
