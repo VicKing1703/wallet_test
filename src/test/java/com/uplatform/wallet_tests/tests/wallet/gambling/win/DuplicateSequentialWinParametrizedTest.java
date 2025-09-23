@@ -150,7 +150,7 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
 
             ctx.firstWinNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.firstWinNatsEvent, "nats.won_from_gamble");

@@ -109,7 +109,7 @@ class DepositPositiveTest extends BaseTest {
 
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var actualPayload = ctx.depositEvent.getPayload();

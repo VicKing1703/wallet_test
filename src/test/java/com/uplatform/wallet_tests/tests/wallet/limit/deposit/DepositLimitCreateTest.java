@@ -146,7 +146,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
 
             testData.natsLimitChangeEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(testData.natsLimitChangeEvent, "nats.limit_changed_v2_event.message_not_null");

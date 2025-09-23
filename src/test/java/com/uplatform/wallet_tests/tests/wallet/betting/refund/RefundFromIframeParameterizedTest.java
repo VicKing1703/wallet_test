@@ -148,7 +148,7 @@ class RefundFromIframeParameterizedTest extends BaseParameterizedTest {
 
             ctx.refundEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var actualPayload = ctx.refundEvent.getPayload();

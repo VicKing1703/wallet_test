@@ -30,7 +30,7 @@ public class NatsExpectationBuilder<T> {
         return this;
     }
 
-    public NatsExpectationBuilder<T> matching(BiPredicate<T, String> filter) {
+    public NatsExpectationBuilder<T> with(BiPredicate<T, String> filter) {
         this.filter = filter;
         return this;
     }

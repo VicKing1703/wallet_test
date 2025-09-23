@@ -129,7 +129,7 @@ class BetIframeHistoryLimitTest extends BaseTest {
 
             ctx.lastBetEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.lastBetEvent, "nats.betted_from_iframe");

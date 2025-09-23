@@ -112,7 +112,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
                 ctx.depositEvent = natsClient
                         .expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
-                        .matching((p, t) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(t))
+                        .with((p, t) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(t))
                         .fetch();
 
                 assertNotNull(ctx.depositEvent, "precondition.nats.deposit_event.not_found");
@@ -134,7 +134,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
                         ctx.player.getWalletData().walletUUID());
 
                 ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class).from(subject)
-                        .matching((p, t) -> NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(t))
+                        .with((p, t) -> NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(t))
                         .fetch();
 
                 assertNotNull(ctx.betEvent, "precondition.nats.bet_event.not_found");
@@ -168,7 +168,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
 
             ctx.lossEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var payload = ctx.lossEvent.getPayload();

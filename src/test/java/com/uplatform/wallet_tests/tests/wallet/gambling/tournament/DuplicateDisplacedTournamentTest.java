@@ -134,7 +134,7 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
 
             ctx.lastTournamentNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.lastTournamentNatsEvent, "nats.tournament_won_from_gamble_event");

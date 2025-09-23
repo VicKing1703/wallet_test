@@ -111,7 +111,7 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
 
             ctx.firstTournamentNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.firstTournamentNatsEvent, "nats.tournament_won_from_gamble_event_for_first_win");

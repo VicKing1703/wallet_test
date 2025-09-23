@@ -166,7 +166,7 @@ step("Kafka: Получение сообщения из топика limits.v2",
 
 ## Основные возможности
 
-* **Fluent API.** Поиск запускается через `natsClient.expect(Payload.class).from(subject).matching(...).unique().within(...).fetch()`.
+* **Fluent API.** Поиск запускается через `natsClient.expect(Payload.class).from(subject).with(...).unique().within(...).fetch()`.
 * **Асинхронное ожидание.** Подписка выполняется в отдельном диспетчере JetStream с автоматическим переоформлением при ошибках.
 * **Проверка уникальности.** Метод `unique()` контролирует, что в окне `uniqueDuplicateWindowMs` найдено ровно одно событие.
 * **Allure-аттачи.** При первом совпадении и при дублях клиент формирует текстовые вложения с метаданными события.
@@ -219,11 +219,11 @@ NATS-настройки через `NatsConfigProvider`. Блок `nats` и пр
 ```java
 NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
         .from(natsClient.buildWalletSubject(playerId.toString(), walletId.toString()))
-        .matching((payload, type) -> payload.getPlayerId().equals(playerId))
+        .with((payload, type) -> payload.getPlayerId().equals(playerId))
         .fetch();
 ```
 
-Метод `from` задаёт subject подписки, `matching` принимает `BiPredicate` с payload и type header (если он присутствует).
+Метод `from` задаёт subject подписки, `with` принимает `BiPredicate` с payload и type header (если он присутствует).
 
 ### Контроль уникальности события
 

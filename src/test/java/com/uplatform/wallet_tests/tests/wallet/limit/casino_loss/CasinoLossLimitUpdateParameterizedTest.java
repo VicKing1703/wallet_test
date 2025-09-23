@@ -141,7 +141,7 @@ public class CasinoLossLimitUpdateParameterizedTest extends BaseParameterizedTes
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation.message_not_null");
@@ -175,7 +175,7 @@ public class CasinoLossLimitUpdateParameterizedTest extends BaseParameterizedTes
 
             ctx.updateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update.message_not_null");

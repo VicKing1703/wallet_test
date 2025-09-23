@@ -173,7 +173,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
-                        .matching((payload, type) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(type))
+                        .with((payload, type) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(type))
                         .fetch();
 
                 assertNotNull(ctx.depositEvent, "precondition.nats.deposit_event.not_found");
@@ -216,7 +216,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
             ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var wagerInfoList = ctx.betEvent.getPayload().getWageredDepositInfo();

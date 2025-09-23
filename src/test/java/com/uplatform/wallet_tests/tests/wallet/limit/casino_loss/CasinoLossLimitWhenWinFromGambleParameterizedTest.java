@@ -140,7 +140,7 @@ class CasinoLossLimitWhenWinFromGambleParameterizedTest extends BaseParameterize
 
                 var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
@@ -175,7 +175,7 @@ class CasinoLossLimitWhenWinFromGambleParameterizedTest extends BaseParameterize
 
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.event.won_from_gamble");

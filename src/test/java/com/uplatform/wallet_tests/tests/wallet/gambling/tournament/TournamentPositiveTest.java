@@ -100,7 +100,7 @@ class TournamentPositiveTest extends BaseTest {
 
             ctx.tournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertAll(

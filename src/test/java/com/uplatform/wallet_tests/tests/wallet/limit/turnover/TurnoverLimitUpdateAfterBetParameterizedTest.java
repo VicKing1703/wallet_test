@@ -153,7 +153,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation");
@@ -190,7 +190,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
@@ -224,7 +224,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
             ctx.updateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update");

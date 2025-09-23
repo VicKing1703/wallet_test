@@ -125,7 +125,7 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
 
             ctx.balanceAdjustedEvent = natsClient.expect(NatsBalanceAdjustedPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var expectedAdjustment = (direction == DirectionType.DECREASE)

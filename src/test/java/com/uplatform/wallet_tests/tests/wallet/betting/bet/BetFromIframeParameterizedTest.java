@@ -134,7 +134,7 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
                 ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
                         .from(subject)
-                        .matching(filter)
+                        .with(filter)
                         .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.bet_event.not_found");

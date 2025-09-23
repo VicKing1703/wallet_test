@@ -149,7 +149,7 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
             ctx.lastTournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.lastTournamentEvent, "nats.tournament_won_from_gamble");

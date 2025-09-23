@@ -133,7 +133,7 @@ class CasinoLossLimitSpentResetAfterPeriodParameterizedTest extends BaseParamete
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation");
         });
@@ -179,7 +179,7 @@ class CasinoLossLimitSpentResetAfterPeriodParameterizedTest extends BaseParamete
 
             ctx.resetEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
             assertNotNull(ctx.resetEvent, "nats.limit_changed_v2_event.reset.message_not_null");
 

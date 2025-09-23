@@ -161,7 +161,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation.message_not_null");
@@ -209,7 +209,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
 
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.depositEvent, "nats.deposited_money_event.message_not_null");
@@ -243,7 +243,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
 
             ctx.updateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update");

@@ -153,7 +153,7 @@ class DeleteBlockAmountTest extends BaseTest {
 
             ctx.blockAmountRevokedEvent = natsClient.expect(BlockAmountRevokedEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var payload = ctx.blockAmountRevokedEvent.getPayload();

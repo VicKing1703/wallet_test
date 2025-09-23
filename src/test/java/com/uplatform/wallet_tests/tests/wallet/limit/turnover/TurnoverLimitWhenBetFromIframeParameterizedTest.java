@@ -122,7 +122,7 @@ class TurnoverLimitWhenBetFromIframeParameterizedTest extends BaseParameterizedT
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event.received");
@@ -154,7 +154,7 @@ class TurnoverLimitWhenBetFromIframeParameterizedTest extends BaseParameterizedT
 
                 ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertAll("nats.betted_from_iframe_event.content_validation",

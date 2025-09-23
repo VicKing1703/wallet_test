@@ -152,7 +152,7 @@ class WithdrawalPositiveTest extends BaseTest {
 
             ctx.blockEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var payload = ctx.blockEvent.getPayload();
