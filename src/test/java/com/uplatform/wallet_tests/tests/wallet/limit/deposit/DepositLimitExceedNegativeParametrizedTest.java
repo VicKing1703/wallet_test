@@ -121,7 +121,7 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
 
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.limitEvent, "nats.limit_changed_v2_event.message_not_null");

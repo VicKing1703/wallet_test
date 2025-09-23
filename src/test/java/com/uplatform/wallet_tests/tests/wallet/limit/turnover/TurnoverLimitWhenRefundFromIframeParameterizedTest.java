@@ -132,7 +132,7 @@ class TurnoverLimitWhenRefundFromIframeParameterizedTest extends BaseParameteriz
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
@@ -172,7 +172,7 @@ class TurnoverLimitWhenRefundFromIframeParameterizedTest extends BaseParameteriz
 
                 ctx.refundedEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(ctx.refundedEvent, "nats.refunded_from_iframe_event");

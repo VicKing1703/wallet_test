@@ -107,7 +107,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
                         ctx.player.getWalletData().playerUUID(),
                         ctx.player.getWalletData().walletUUID());
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class).from(subject)
-                        .matching((p, t) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(t))
+                        .with((p, t) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(t))
                         .fetch();
                 assertNotNull(ctx.depositEvent, "precondition.nats.deposit_event.not_found");
             });
@@ -127,7 +127,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
                         ctx.player.getWalletData().playerUUID(),
                         ctx.player.getWalletData().walletUUID());
                 var betEvent = natsClient.expect(NatsBettingEventPayload.class).from(subject)
-                        .matching((p, t) -> NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(t))
+                        .with((p, t) -> NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(t))
                         .fetch();
                 assertNotNull(betEvent, "precondition.nats.bet_event.not_found");
             });
@@ -160,7 +160,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
 
             ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var payload = ctx.winEvent.getPayload();

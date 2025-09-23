@@ -159,7 +159,7 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
             ctx.lastWinEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.lastWinEvent, "nats.won_from_gamble");

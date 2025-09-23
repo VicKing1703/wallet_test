@@ -132,7 +132,7 @@ class LossDisplacedIframeBetTest extends BaseTest {
 
             ctx.lastBetNatsEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
             assertNotNull(ctx.lastBetNatsEvent, "nats.betted_from_iframe");
         });

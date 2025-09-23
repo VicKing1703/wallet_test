@@ -188,7 +188,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
-                        .matching(filter)
+                        .with(filter)
                         .fetch();
 
                 assertNotNull(ctx.depositEvent, "given.nats.deposit_event.not_null");
@@ -223,7 +223,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
-                        .matching(filter)
+                        .with(filter)
                         .fetch();
 
                 assertNotNull(ctx.betEvent, "given.nats.bet_event.not_null");
@@ -267,7 +267,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
                 ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
-                        .matching(filter)
+                        .with(filter)
                         .fetch();
 
                 var payload = ctx.refundEvent.getPayload();

@@ -181,7 +181,7 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
 
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var payload = ctx.depositEvent.getPayload();
@@ -225,7 +225,7 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
 
             ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var payload = ctx.betEvent.getPayload();
@@ -280,7 +280,7 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
 
             ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var payload = ctx.winEvent.getPayload();

@@ -194,7 +194,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
 
             ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var betRequest = ctx.betRequestBody;

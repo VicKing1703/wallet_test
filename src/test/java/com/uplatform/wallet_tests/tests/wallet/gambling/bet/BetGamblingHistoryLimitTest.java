@@ -163,7 +163,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
 
             ctx.lastBetEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.lastBetEvent, "nats.betted_from_gamble");

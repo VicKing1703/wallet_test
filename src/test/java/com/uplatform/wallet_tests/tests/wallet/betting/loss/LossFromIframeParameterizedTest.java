@@ -146,7 +146,7 @@ class LossFromIframeParameterizedTest extends BaseParameterizedTest {
 
             ctx.lossNatsEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var actualPayload = ctx.lossNatsEvent.getPayload();

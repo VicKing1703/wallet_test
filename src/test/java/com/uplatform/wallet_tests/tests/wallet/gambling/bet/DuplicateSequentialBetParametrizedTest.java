@@ -126,7 +126,7 @@ class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
 
             ctx.firstBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.firstBetNatsEvent, "nats.betted_from_gamble");

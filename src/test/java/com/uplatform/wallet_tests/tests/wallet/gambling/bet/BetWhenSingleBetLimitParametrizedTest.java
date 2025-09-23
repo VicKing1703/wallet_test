@@ -103,7 +103,7 @@ class BetWhenSingleBetLimitParametrizedTest extends BaseParameterizedTest {
 
             var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");

@@ -88,7 +88,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
             ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertAll("nats.limit_changed_v2_event.content_validation",

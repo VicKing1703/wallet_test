@@ -134,7 +134,7 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
 
                 var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(limitCreateEvent, "nats.limit_changed_v2_event");
@@ -190,7 +190,7 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
 
                 ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(ctx.rollbackEvent, "nats.rollbacked_from_gamble_event");

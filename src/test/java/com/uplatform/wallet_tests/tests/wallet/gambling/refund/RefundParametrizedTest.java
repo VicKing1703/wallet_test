@@ -232,7 +232,7 @@ class RefundParametrizedTest extends BaseParameterizedTest {
 
             ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.refundEvent, "nats.event.refunded_from_gamble");

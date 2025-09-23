@@ -136,7 +136,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.limitEvent, "nats.limit_changed_v2_event.message_not_null");
@@ -186,7 +186,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.depositEvent, "nats.deposited_money_event.message_not_null");

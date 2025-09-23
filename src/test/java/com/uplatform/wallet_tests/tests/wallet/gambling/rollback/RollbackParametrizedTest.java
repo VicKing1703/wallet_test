@@ -234,7 +234,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
             ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.rollbackEvent, "nats.event.rollbacked_from_gamble");

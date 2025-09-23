@@ -514,7 +514,7 @@ step("DB: проверяем запись кошелька", () -> {
 String subject = natsClient.buildWalletSubject(playerUuid, walletUuid);
 var message = natsClient.expect(NatsBalanceAdjustedPayload.class)
         .from(subject)
-        .matching((payload, type) -> payload.getSequence() == expectedSeq)
+        .with((payload, type) -> payload.getSequence() == expectedSeq)
         .fetch();
 ```
 

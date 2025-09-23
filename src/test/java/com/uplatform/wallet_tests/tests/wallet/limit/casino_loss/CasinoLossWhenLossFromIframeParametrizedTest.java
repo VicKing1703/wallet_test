@@ -96,7 +96,7 @@ class CasinoLossWhenLossFromIframeParametrizedTest extends BaseParameterizedTest
 
                 var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
@@ -138,7 +138,7 @@ class CasinoLossWhenLossFromIframeParametrizedTest extends BaseParameterizedTest
 
                 ctx.lossEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(ctx.lossEvent, "nats.event.loosed_from_iframe");

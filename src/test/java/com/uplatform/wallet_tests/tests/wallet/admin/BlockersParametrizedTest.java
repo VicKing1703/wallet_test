@@ -93,7 +93,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
 
             ctx.updateBlockersEvent = natsClient.expect(NatsPreventGambleSettedPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertAll(

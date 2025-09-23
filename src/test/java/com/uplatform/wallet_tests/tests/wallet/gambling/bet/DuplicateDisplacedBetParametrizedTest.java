@@ -148,7 +148,7 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
 
             ctx.lastBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.lastBetNatsEvent, "nats.betted_from_gamble");

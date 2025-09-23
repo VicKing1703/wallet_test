@@ -130,7 +130,7 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
@@ -170,7 +170,7 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
 
                 ctx.lossEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
                 assertAll("nats.loosed_from_iframe_event.content_validation",

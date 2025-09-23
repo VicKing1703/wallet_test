@@ -160,7 +160,7 @@ class RecalculatingWinLossParameterizedTest extends BaseParameterizedTest {
 
             ctx.recalculatedEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var actualPayload = ctx.recalculatedEvent.getPayload();

@@ -219,7 +219,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
 
             ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var winRequest = ctx.winRequestBody;

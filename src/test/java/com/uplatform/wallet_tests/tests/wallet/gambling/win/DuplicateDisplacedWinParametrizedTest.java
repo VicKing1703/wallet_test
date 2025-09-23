@@ -149,7 +149,7 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
 
             ctx.lastWinNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             assertNotNull(ctx.lastWinNatsEvent, "nats.win_event");

@@ -92,7 +92,7 @@ class BlockAmountTest extends BaseTest {
 
             ctx.blockAmountEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .with(filter)
                     .fetch();
 
             var actualPayload = ctx.blockAmountEvent.getPayload();
