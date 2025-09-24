@@ -1,25 +1,26 @@
 package com.uplatform.wallet_tests.api.kafka.consumer;
 
-import com.uplatform.wallet_tests.api.kafka.config.KafkaTopicMappingRegistry;
-import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
 import com.uplatform.wallet_tests.api.attachment.AttachmentService;
 import com.uplatform.wallet_tests.api.attachment.AttachmentType;
+import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
+import com.uplatform.wallet_tests.api.kafka.config.KafkaTopicMappingRegistry;
+import com.uplatform.wallet_tests.api.kafka.consumer.MessageFinder.FindResult;
+import com.uplatform.wallet_tests.api.kafka.exceptions.KafkaDeserializationException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.awaitility.core.ConditionTimeoutException;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Deque;
-import com.uplatform.wallet_tests.api.kafka.consumer.MessageFinder.FindResult;
-import java.util.List;
 import java.util.concurrent.Callable;
+
 import static org.awaitility.Awaitility.await;
-import org.awaitility.core.ConditionTimeoutException;
-import com.uplatform.wallet_tests.api.kafka.exceptions.KafkaDeserializationException;
 
 @Component
 @Slf4j
@@ -70,31 +71,13 @@ public class KafkaBackgroundConsumer {
             Duration timeout,
             Class<T> targetClass
     ) {
-        Optional<String> topicSuffixOpt = topicMappingRegistry.getTopicSuffixFor(targetClass);
-        if (topicSuffixOpt.isEmpty()) {
-            log.error("Cannot find message: No topic suffix configured for class {}.", targetClass.getName());
-            attachmentService.attachText(
-                    AttachmentType.KAFKA,
-                    "Search Error - No Topic Mapping",
-                    String.format("No topic suffix mapping for %s.", targetClass.getSimpleName()));
+        TopicValidationResult validationResult = validateAndGetTopicName(targetClass);
+        if (!validationResult.isValid()) {
+            handleValidationFailure(validationResult, targetClass, filterCriteria);
             return Optional.empty();
         }
 
-        String topicSuffix = topicSuffixOpt.get();
-        String fullTopicName = topicPrefix + topicSuffix;
-
-        if (!messageBuffer.isTopicConfigured(fullTopicName)) {
-            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}. Ensure the type is registered in KafkaTopicMappingRegistry.",
-                    fullTopicName, targetClass.getName(), messageBuffer.getConfiguredTopics());
-            allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type, but not listened)", targetClass, filterCriteria);
-            attachmentService.attachText(
-                    AttachmentType.KAFKA,
-                    "Search Error - Topic Not Listened",
-                    String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s. Ensure the mapping is present in KafkaTopicMappingRegistry.",
-                            fullTopicName, targetClass.getSimpleName(), messageBuffer.getConfiguredTopics()));
-            return Optional.empty();
-        }
-
+        String fullTopicName = validationResult.fullTopicName();
         allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type)", targetClass, filterCriteria);
 
         Callable<Optional<T>> searchCallable = () -> {
@@ -114,6 +97,11 @@ public class KafkaBackgroundConsumer {
                     timeout, fullTopicName, targetClass.getSimpleName(), filterCriteria);
             allureReporter.addMessagesNotFoundAttachment(fullTopicName, filterCriteria, targetClass, "(inferred from Type)");
             return Optional.empty();
+        } catch (KafkaDeserializationException kde) {
+            throw kde;
+        } catch (Exception ex) {
+            log.error("Unexpected error during findMessage: {}", ex.getMessage(), ex);
+            return Optional.empty();
         }
     }
 
@@ -122,31 +110,13 @@ public class KafkaBackgroundConsumer {
             Duration timeout,
             Class<T> targetClass
     ) {
-        Optional<String> topicSuffixOpt = topicMappingRegistry.getTopicSuffixFor(targetClass);
-        if (topicSuffixOpt.isEmpty()) {
-            log.error("Cannot find message: No topic suffix configured for class {}.", targetClass.getName());
-            attachmentService.attachText(
-                    AttachmentType.KAFKA,
-                    "Search Error - No Topic Mapping",
-                    String.format("No topic suffix mapping for %s.", targetClass.getSimpleName()));
+        TopicValidationResult validationResult = validateAndGetTopicName(targetClass);
+        if (!validationResult.isValid()) {
+            handleValidationFailure(validationResult, targetClass, filterCriteria);
             return new FindResult<>(Optional.empty(), List.of(), 0);
         }
 
-        String topicSuffix = topicSuffixOpt.get();
-        String fullTopicName = topicPrefix + topicSuffix;
-
-        if (!messageBuffer.isTopicConfigured(fullTopicName)) {
-            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}. Ensure the type is registered in KafkaTopicMappingRegistry.",
-                    fullTopicName, targetClass.getName(), messageBuffer.getConfiguredTopics());
-            allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type, but not listened)", targetClass, filterCriteria);
-            attachmentService.attachText(
-                    AttachmentType.KAFKA,
-                    "Search Error - Topic Not Listened",
-                    String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s. Ensure the mapping is present in KafkaTopicMappingRegistry.",
-                            fullTopicName, targetClass.getSimpleName(), messageBuffer.getConfiguredTopics()));
-            return new FindResult<>(Optional.empty(), List.of(), 0);
-        }
-
+        String fullTopicName = validationResult.fullTopicName();
         allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type)", targetClass, filterCriteria);
 
         Callable<FindResult<T>> searchCallable = () -> {
@@ -166,6 +136,7 @@ public class KafkaBackgroundConsumer {
                     timeout, fullTopicName, targetClass.getSimpleName(), filterCriteria);
             allureReporter.addMessagesNotFoundAttachment(fullTopicName, filterCriteria, targetClass, "(inferred from Type)");
             try {
+                // After hitting the timeout we run the search once more to capture the final buffer snapshot for attachments.
                 return searchCallable.call();
             } catch (Exception ex) {
                 log.warn("Error evaluating final result after timeout: {}", ex.getMessage());
@@ -213,5 +184,69 @@ public class KafkaBackgroundConsumer {
             String fullTopicName = topicPrefix + topicSuffix;
             messageBuffer.clearBuffer(fullTopicName);
         }
+    }
+
+    private TopicValidationResult validateAndGetTopicName(Class<?> targetClass) {
+        Optional<String> topicSuffixOpt = topicMappingRegistry.getTopicSuffixFor(targetClass);
+        if (topicSuffixOpt.isEmpty()) {
+            return TopicValidationResult.missingMapping();
+        }
+
+        String topicSuffix = topicSuffixOpt.get();
+        String fullTopicName = topicPrefix + topicSuffix;
+
+        if (!messageBuffer.isTopicConfigured(fullTopicName)) {
+            return TopicValidationResult.topicNotConfigured(fullTopicName);
+        }
+
+        return TopicValidationResult.valid(fullTopicName);
+    }
+
+    private <T> void handleValidationFailure(
+            TopicValidationResult validationResult,
+            Class<T> targetClass,
+            Map<String, String> filterCriteria
+    ) {
+        if (validationResult.error() == TopicValidationError.MISSING_MAPPING) {
+            log.error("Cannot find message: No topic suffix configured for class {}.", targetClass.getName());
+            attachmentService.attachText(
+                    AttachmentType.KAFKA,
+                    "Search Error - No Topic Mapping",
+                    String.format("No topic suffix mapping for %s.", targetClass.getSimpleName()));
+        } else if (validationResult.error() == TopicValidationError.TOPIC_NOT_LISTENED) {
+            String fullTopicName = validationResult.fullTopicName();
+            log.error("Topic '{}' (for type {}) is not configured to be listened to. Configured topics: {}. Ensure the type is registered in KafkaTopicMappingRegistry.",
+                    fullTopicName, targetClass.getName(), messageBuffer.getConfiguredTopics());
+            allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type, but not listened)", targetClass, filterCriteria);
+            attachmentService.attachText(
+                    AttachmentType.KAFKA,
+                    "Search Error - Topic Not Listened",
+                    String.format("Topic '%s' (for %s) is not in the list of listened topics. Listened topics: %s. Ensure the mapping is present in KafkaTopicMappingRegistry.",
+                            fullTopicName, targetClass.getSimpleName(), messageBuffer.getConfiguredTopics()));
+        }
+    }
+
+    private record TopicValidationResult(String fullTopicName, TopicValidationError error) {
+        private static TopicValidationResult missingMapping() {
+            return new TopicValidationResult(null, TopicValidationError.MISSING_MAPPING);
+        }
+
+        private static TopicValidationResult topicNotConfigured(String fullTopicName) {
+            return new TopicValidationResult(fullTopicName, TopicValidationError.TOPIC_NOT_LISTENED);
+        }
+
+        private static TopicValidationResult valid(String fullTopicName) {
+            return new TopicValidationResult(fullTopicName, TopicValidationError.NONE);
+        }
+
+        private boolean isValid() {
+            return error == TopicValidationError.NONE;
+        }
+    }
+
+    private enum TopicValidationError {
+        NONE,
+        MISSING_MAPPING,
+        TOPIC_NOT_LISTENED
     }
 }
