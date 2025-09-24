@@ -54,25 +54,10 @@ public record BonusAwardMessage(
 
 ### 2. Настраиваем конфигурацию
 
-Добавьте параметры Kafka в окруженческий JSON (`configs/local.json`, `configs/beta.json` и т.д.):
-
-```json
-{
-  "kafka": {
-    "bootstrapServer": "kafka-development-01:9092,kafka-development-02:9092",
-    "groupId": "wallet-tests-consumer",
-    "bufferSize": 500,
-    "findMessageTimeout": "PT60S",
-    "findMessageSleepInterval": "PT0.2S",
-    "pollDuration": "PT1S",
-    "shutdownTimeout": "PT5S",
-    "autoOffsetReset": "latest",
-    "enableAutoCommit": true
-  }
-}
-```
-
-После старта тестов значения попадут в `KafkaConfig` и будут использованы клиентом автоматически.
+Заполните блок `kafka` в окруженческих JSON (`configs/local.json`, `configs/beta.json` и т.д.), указав брокеры,
+consumer group и рабочие таймауты. Полный пример и описание каждого параметра смотрите в разделе
+[«Настройки приложения»](#настройки-приложения). После запуска тестов значения автоматически попадут в `KafkaConfig`
+и будут использованы клиентом.
 
 ### 3. Пишем тест
 
