@@ -32,15 +32,7 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
 
 Высокоуровневый обмен между тестом, клиентом и Kafka выглядит так:
 
-_Заглушка под диаграмму: сохраните экспортированный PNG как_
-`docs/images/kafka-architecture-diagram.png` _и подключите его через синтаксис_
-
-```
-![Диаграмма взаимодействия Kafka-клиента](../docs/images/kafka-architecture-diagram.png)
-```
-
-> Диаграмма готовится в Mermaid (см. internal/wiki/kafka-mermaid.md) и экспортируется в `docs/images/kafka-architecture-diagram.png`
-> командой `mmdc -i <source>.mmd -o docs/images/kafka-architecture-diagram.png`.
+![Диаграмма взаимодействия Kafka-клиента](src/main/resources/docs/images/kafka-architecture-diagram.jpg)
 
 ---
 
