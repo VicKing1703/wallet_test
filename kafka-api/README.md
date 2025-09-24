@@ -143,18 +143,16 @@ public class KafkaConsumerConfig {
 Все параметры читаются через `KafkaProperties` и попадают в `KafkaClient`. Изменяйте их в JSON-конфигах окружений,
 чтобы не править код при переключении между стендами.
 
-| Параметр | Где задаётся | Назначение | Пример |
-| --- | --- | --- | --- |
-| `topicPrefix` | `EnvironmentConfig.topicPrefix` | Префикс окружения, добавляется ко всем Kafka-топикам. | `wallet.beta.` |
-| `bootstrapServer` | `kafka.bootstrapServer` | Список брокеров, к которым подключается consumer. | `kafka-dev-01:9092,kafka-dev-02:9092` |
-| `groupId` | `kafka.groupId` | Идентификатор consumer group для всех автотестов. | `wallet-tests-consumer` |
-| `bufferSize` | `kafka.bufferSize` | Максимум сообщений на топик, хранимых в буфере. | `500` |
-| `findMessageTimeout` | `kafka.findMessageTimeout` | Таймаут ожидания в методе `fetch()` по умолчанию. | `PT20S` |
-| `findMessageSleepInterval` | `kafka.findMessageSleepInterval` | Интервал между попытками поиска подходящего сообщения. | `PT0.2S` |
-| `pollDuration` | `kafka.pollDuration` | Максимальная блокировка вызова `poll`. | `PT1S` |
-| `shutdownTimeout` | `kafka.shutdownTimeout` | Время на корректное завершение consumer при остановке тестов. | `PT5S` |
-| `autoOffsetReset` | `kafka.autoOffsetReset` | Поведение при отсутствии offset'ов (`latest`/`earliest`). | `latest` |
-| `enableAutoCommit` | `kafka.enableAutoCommit` | Управляет автоматическим коммитом offset'ов. | `true` |
+- `topicPrefix` задаётся в `EnvironmentConfig.topicPrefix`. Добавляется ко всем Kafka-топикам, например `wallet.beta.`.
+- `bootstrapServer` в блоке `kafka.bootstrapServer` перечисляет брокеры, к которым подключается consumer: `kafka-dev-01:9092,kafka-dev-02:9092`.
+- `groupId` (`kafka.groupId`) — идентификатор consumer group для всех автотестов, например `wallet-tests-consumer`.
+- `bufferSize` (`kafka.bufferSize`) ограничивает количество сообщений на топик в буфере. Типичное значение — `500`.
+- `findMessageTimeout` (`kafka.findMessageTimeout`) задаёт таймаут ожидания для `fetch()` по умолчанию, например `PT20S`.
+- `findMessageSleepInterval` (`kafka.findMessageSleepInterval`) определяет паузу между попытками поиска сообщения, например `PT0.2S`.
+- `pollDuration` (`kafka.pollDuration`) описывает максимальную блокировку вызова `poll` у consumer'а, обычно `PT1S`.
+- `shutdownTimeout` (`kafka.shutdownTimeout`) — время на корректное завершение consumer при остановке тестов, например `PT5S`.
+- `autoOffsetReset` (`kafka.autoOffsetReset`) регулирует поведение при отсутствии offset'ов (`latest` или `earliest`).
+- `enableAutoCommit` (`kafka.enableAutoCommit`) включает автоматический коммит offset'ов, чаще всего `true`.
 
 ### Описываем DTO
 
