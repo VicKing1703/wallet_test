@@ -7,12 +7,9 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
 ## Оглавление
 
 - [Kafka Test Client](#kafka-test-client)
-  - [Быстрый старт](#быстрый-старт)
-    - [1. Описываем DTO](#1-описываем-dto)
-    - [2. Настраиваем конфигурацию](#2-настраиваем-конфигурацию)
-    - [3. Пишем тест](#3-пишем-тест)
   - [Архитектура](#архитектура)
   - [Подключение и конфигурация](#подключение-и-конфигурация)
+    - [DTO и сопоставление топиков](#dto-и-сопоставление-топиков)
     - [Зависимость Gradle](#зависимость-gradle)
     - [Spring-конфигурация реестра топиков](#spring-конфигурация-реестра-топиков)
     - [Настройки приложения](#настройки-приложения)
@@ -30,57 +27,6 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
   - [Конфигурация приложения](#конфигурация-приложения)
   - [Руководство по использованию](#руководство-по-использованию-1)
 - [Материалы для визуализаций](#материалы-для-визуализаций)
-
----
-
-## Быстрый старт
-
-Разверните Kafka-клиент в тестовом проекте за три шага.
-
-### 1. Описываем DTO
-
-Создайте record, который отражает схему сообщения и зарегистрируйте его в `KafkaTopicMappingRegistry` (см. раздел ниже).
-
-```java
-package com.uplatform.wallet_tests.api.kafka.dto;
-
-public record BonusAwardMessage(
-        String playerId,
-        String bonusId,
-        String status,
-        long sequence
-) {}
-```
-
-### 2. Настраиваем конфигурацию
-
-Заполните блок `kafka` в окруженческих JSON (`configs/local.json`, `configs/beta.json` и т.д.), указав брокеры,
-consumer group и рабочие таймауты. Полный пример и описание каждого параметра смотрите в разделе
-[«Настройки приложения»](#настройки-приложения). После запуска тестов значения автоматически попадут в `KafkaConfig`
-и будут использованы клиентом.
-
-### 3. Пишем тест
-
-Импортируйте `KafkaClient` и соберите ожидание через fluent API.
-
-```java
-@Autowired
-private KafkaClient kafkaClient;
-
-@Test
-void shouldReceiveBonusAwardEvent() {
-    BonusAwardMessage message = kafkaClient.expect(BonusAwardMessage.class)
-            .with("playerId", testPlayerId)
-            .within(Duration.ofSeconds(30))
-            .fetch();
-
-    assertThat(message.status()).isEqualTo("AWARDED");
-}
-```
-
-Allure автоматически получит аттачи `Search Info` и `Found Message`, что облегчает отладку теста.
-
----
 
 ## Архитектура
 
@@ -100,12 +46,29 @@ _Заглушка под диаграмму: сохраните экспорти
 
 ## Подключение и конфигурация
 
-Чтобы подключить Kafka-клиент в тестовом проекте, выполните шаги ниже:
+Чтобы подключить Kafka-клиент в тестовом проекте:
 
 1. Добавьте модуль `kafka-api` в тестовые зависимости Gradle.
-2. Зарегистрируйте сопоставление DTO → топик в `KafkaTopicMappingRegistry`.
+2. Опишите DTO для сообщений и зарегистрируйте сопоставление DTO → топик в `KafkaTopicMappingRegistry`.
 3. Настройте параметры Kafka в окруженческих JSON-файлах.
-4. Опишите DTO, которые будут десериализоваться из сообщений.
+
+### DTO и сопоставление топиков
+
+Создайте `record`, который отражает схему сообщения и будет десериализовываться клиентом:
+
+```java
+package com.uplatform.wallet_tests.api.kafka.dto;
+
+public record BonusAwardMessage(
+        String playerId,
+        String bonusId,
+        String status,
+        long sequence
+) {}
+```
+
+Затем зарегистрируйте DTO в `KafkaTopicMappingRegistry`, чтобы фоновые listener'ы подписались на нужный топик (см.
+пример ниже).
 
 ### Зависимость Gradle
 
@@ -158,8 +121,8 @@ public class KafkaConsumerConfig {
 }
 ```
 
-Все параметры читаются через `KafkaProperties` и попадают в `KafkaClient`. Изменяйте их в JSON-конфигах окружений,
-чтобы не править код при переключении между стендами.
+Все параметры читаются через `KafkaProperties` и автоматически прокидываются в `KafkaClient` через Spring. Изменяйте их
+в JSON-конфигах окружений, чтобы не править код при переключении между стендами.
 
 - `topicPrefix` задаётся в `EnvironmentConfig.topicPrefix`. Добавляется ко всем Kafka-топикам, например `wallet.beta.`.
 - `bootstrapServer` в блоке `kafka.bootstrapServer` перечисляет брокеры, к которым подключается consumer: `kafka-dev-01:9092,kafka-dev-02:9092`.
