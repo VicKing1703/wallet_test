@@ -7,12 +7,15 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
 ## Оглавление
 
 - [Kafka Test Client](#kafka-test-client)
+  - [Быстрый старт](#быстрый-старт)
+    - [1. Описываем DTO](#1-описываем-dto)
+    - [2. Настраиваем конфигурацию](#2-настраиваем-конфигурацию)
+    - [3. Пишем тест](#3-пишем-тест)
   - [Архитектура](#архитектура)
   - [Подключение и конфигурация](#подключение-и-конфигурация)
     - [Зависимость Gradle](#зависимость-gradle)
     - [Spring-конфигурация реестра топиков](#spring-конфигурация-реестра-топиков)
     - [Настройки приложения](#настройки-приложения)
-    - [Описываем DTO](#описываем-dto)
   - [Сценарии использования](#сценарии-использования)
     - [Методы fluent API](#методы-fluent-api)
     - [Комплексный пример](#комплексный-пример)
@@ -30,6 +33,70 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
 
 ---
 
+## Быстрый старт
+
+Разверните Kafka-клиент в тестовом проекте за три шага.
+
+### 1. Описываем DTO
+
+Создайте record, который отражает схему сообщения и зарегистрируйте его в `KafkaTopicMappingRegistry` (см. раздел ниже).
+
+```java
+package com.uplatform.wallet_tests.api.kafka.dto;
+
+public record BonusAwardMessage(
+        String playerId,
+        String bonusId,
+        String status,
+        long sequence
+) {}
+```
+
+### 2. Настраиваем конфигурацию
+
+Добавьте параметры Kafka в окруженческий JSON (`configs/local.json`, `configs/beta.json` и т.д.):
+
+```json
+{
+  "kafka": {
+    "bootstrapServer": "kafka-development-01:9092,kafka-development-02:9092",
+    "groupId": "wallet-tests-consumer",
+    "bufferSize": 500,
+    "findMessageTimeout": "PT60S",
+    "findMessageSleepInterval": "PT0.2S",
+    "pollDuration": "PT1S",
+    "shutdownTimeout": "PT5S",
+    "autoOffsetReset": "latest",
+    "enableAutoCommit": true
+  }
+}
+```
+
+После старта тестов значения попадут в `KafkaConfig` и будут использованы клиентом автоматически.
+
+### 3. Пишем тест
+
+Импортируйте `KafkaClient` и соберите ожидание через fluent API.
+
+```java
+@Autowired
+private KafkaClient kafkaClient;
+
+@Test
+void shouldReceiveBonusAwardEvent() {
+    BonusAwardMessage message = kafkaClient.expect(BonusAwardMessage.class)
+            .with("playerId", testPlayerId)
+            .within(Duration.ofSeconds(30))
+            .fetch();
+
+    assertThat(message.status()).isEqualTo("AWARDED");
+}
+```
+
+Allure автоматически получит аттачи `Search Info` и `Found Message`, что облегчает отладку теста.
+
+---
+
 ## Архитектура
 
 Высокоуровневый обмен между тестом, клиентом и Kafka выглядит так:
@@ -41,42 +108,8 @@ _Заглушка под диаграмму: сохраните экспорти
 ![Диаграмма взаимодействия Kafka-клиента](../docs/images/kafka-architecture-diagram.png)
 ```
 
-<details>
-<summary>Mermaid-код диаграммы</summary>
-
-```mermaid
-sequenceDiagram
-    title Высокоуровневая архитектура Kafka-клиента
-    participant Test as "Ваш тест"
-    participant API as "Тестовый API (Client/Builder)"
-    participant Consumer as KafkaBackgroundConsumer
-    participant Buffer as MessageBuffer
-    participant Polling as KafkaPollingService
-    participant Kafka
-    par "1. Основной поток теста (синхронный вызов)"
-        Test->>API: expect(...).with(...).fetch()
-        API->>Consumer: Найти сообщение с фильтрами и таймаутом
-        Note right of Consumer: Ожидание происходит здесь (Awaitility)
-        loop Поиск в буфере
-            Consumer->>Buffer: Есть ли подходящее сообщение?
-        end
-        Buffer-->>Consumer: Да, сообщение найдено
-        Note left of Consumer: Allure-аттач о находке
-        Consumer-->>API: Возвращает десериализованное сообщение
-        API-->>Test: Возвращает результат теста
-    and "2. Фоновый поток (постоянно работает)"
-        Polling->>Kafka: Запрашивает новые сообщения (poll)
-        Kafka-->>Polling: Отдает пачку сообщений
-        Polling->>Buffer: Складывает все сообщения в буфер
-    end
-```
-
-Сохраните этот код во временный файл `docs/images/kafka-architecture-diagram.mmd` (файл не хранится в
-репозитории) и выполните локально команду
-`mmdc -p mermaid-puppeteer-config.json -i docs/images/kafka-architecture-diagram.mmd -o docs/images/kafka-architecture-diagram.png`,
-чтобы сгенерировать PNG для README.
-
-</details>
+> Диаграмма готовится в Mermaid (см. internal/wiki/kafka-mermaid.md) и экспортируется в `docs/images/kafka-architecture-diagram.png`
+> командой `mmdc -i <source>.mmd -o docs/images/kafka-architecture-diagram.png`.
 
 ---
 
@@ -153,27 +186,6 @@ public class KafkaConsumerConfig {
 - `shutdownTimeout` (`kafka.shutdownTimeout`) — время на корректное завершение consumer при остановке тестов, например `PT5S`.
 - `autoOffsetReset` (`kafka.autoOffsetReset`) регулирует поведение при отсутствии offset'ов (`latest` или `earliest`).
 - `enableAutoCommit` (`kafka.enableAutoCommit`) включает автоматический коммит offset'ов, чаще всего `true`.
-
-### Описываем DTO
-
-Kafka-клиент десериализует сообщения в классы, зарегистрированные в `KafkaTopicMappingRegistry`. DTO можно объявлять
-через `record`, чтобы Jackson автоматически сопоставил поля:
-
-```java
-package com.uplatform.wallet_tests.api.kafka.dto;
-
-public record BonusAwardMessage(
-        String playerId,
-        String bonusId,
-        String status,
-        long sequence
-) {}
-```
-
-После добавления нового типа не забудьте зарегистрировать его суффикс в реестре топиков (см. раздел выше) — тогда
-фоновые консьюмеры автоматически начнут слушать нужный топик.
-
----
 
 ## Сценарии использования
 
