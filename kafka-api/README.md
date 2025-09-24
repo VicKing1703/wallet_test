@@ -175,17 +175,7 @@ step("Kafka: Получение сообщения из топика limits.v2",
 - **Deserialization Error** — подробности ошибки Jackson и исходный payload.
 
 Пример того, как это выглядит в Allure:
-
-_Заглушка под скриншот: сохраните изображение как_
-`docs/images/allure-report-example.png` _и подключите его через синтаксис_
-
-```
-![Allure-отчёт с Kafka-аттачами](../docs/images/allure-report-example.png)
-```
-
-Скриншот должен отражать стандартный набор аттачей клиента и храниться локально в `docs/images/allure-report-example.png` перед
-публикацией.
-
+![Allure-отчёт с Kafka-аттачами](src/main/resources/docs/images/allure-report-example.jpg)
 ---
 
 ## NATS Test Client
