@@ -25,7 +25,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
@@ -129,12 +128,9 @@ class CasinoLossLimitWhenRefundFromGambleParametrizedTest extends BaseParameteri
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
-
                 var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
                     .fetch();
 
                 assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
@@ -181,13 +177,10 @@ class CasinoLossLimitWhenRefundFromGambleParametrizedTest extends BaseParameteri
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.refundRequestBody.getTransactionId().equals(payload.getUuid());
-
                 ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.refundRequestBody.getTransactionId())
                     .fetch();
 
                 assertNotNull(ctx.refundEvent, "nats.event.refunded_from_gamble");

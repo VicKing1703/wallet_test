@@ -25,7 +25,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
@@ -129,12 +128,9 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
-
                 var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
                     .fetch();
 
                 assertNotNull(limitCreateEvent, "nats.limit_changed_v2_event");
@@ -184,13 +180,10 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.rollbackRequestBody.getTransactionId().equals(payload.getUuid());
-
                 ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.rollbackRequestBody.getTransactionId())
                     .fetch();
 
                 assertNotNull(ctx.rollbackEvent, "nats.rollbacked_from_gamble_event");

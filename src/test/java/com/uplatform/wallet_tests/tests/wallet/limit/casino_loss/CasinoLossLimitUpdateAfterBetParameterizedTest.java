@@ -24,7 +24,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -146,14 +145,10 @@ class CasinoLossLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTe
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            NatsLimitType.CASINO_LOSS.getValue().equals(payload.getLimits().get(0).getLimitType());
-
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.CASINO_LOSS.getValue())
                     .fetch();
 
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation");
@@ -184,13 +179,10 @@ class CasinoLossLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTe
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
-
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.betRequestBody.getTransactionId())
                     .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
@@ -216,15 +208,11 @@ class CasinoLossLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTe
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            ctx.createEvent.getPayload().getLimits().get(0).getExternalId().equals(payload.getLimits().get(0).getExternalId()) &&
-                            NatsLimitEventType.AMOUNT_UPDATED.getValue().equals(payload.getEventType());
-
             ctx.updateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.limits[0].external_id", ctx.createEvent.getPayload().getLimits().get(0).getExternalId())
+                    .with("$.event_type", NatsLimitEventType.AMOUNT_UPDATED.getValue())
                     .fetch();
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update");

@@ -23,7 +23,6 @@ import java.util.stream.Stream;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
@@ -91,12 +90,9 @@ class CasinoLossWhenLossFromIframeParametrizedTest extends BaseParameterizedTest
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
-
                 var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
                     .fetch();
 
                 assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
@@ -132,13 +128,10 @@ class CasinoLossWhenLossFromIframeParametrizedTest extends BaseParameterizedTest
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LOOSED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                                ctx.betRequestBody.getBetId() == payload.getBetId();
-
                 ctx.lossEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LOOSED_FROM_IFRAME.getHeaderValue())
+                    .with("$.bet_id", ctx.betRequestBody.getBetId())
                     .fetch();
 
                 assertNotNull(ctx.lossEvent, "nats.event.loosed_from_iframe");
