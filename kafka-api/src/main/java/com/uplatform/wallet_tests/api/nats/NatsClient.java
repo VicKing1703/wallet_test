@@ -6,6 +6,7 @@ import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.config.NatsConfig;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class NatsClient {
     @Autowired
     public NatsClient(ObjectMapper objectMapper,
                       NatsAttachmentHelper attachmentHelper,
+                      NatsPayloadMatcher payloadMatcher,
                       NatsConnectionManager connectionManager,
                       NatsConfigProvider configProvider) {
         NatsConfig natsConfig = configProvider.getNatsConfig();
@@ -41,6 +43,7 @@ public class NatsClient {
                 connectionManager.getJetStream(),
                 objectMapper,
                 attachmentHelper,
+                payloadMatcher,
                 searchTimeout,
                 Duration.ofSeconds(natsConfig.getSubscriptionAckWaitSeconds()),
                 Duration.ofSeconds(natsConfig.getSubscriptionInactiveThresholdSeconds()),
@@ -61,21 +64,36 @@ public class NatsClient {
 
     public <T> CompletableFuture<NatsMessage<T>> findMessageAsync(String subject,
                                                                   Class<T> messageType,
-                                                                  BiPredicate<T, String> filter) {
-        return subscriber.findMessageAsync(subject, messageType, filter);
+                                                                  Map<String, Object> jsonPathFilters,
+                                                                  Map<String, Object> metadataFilters,
+                                                                  BiPredicate<T, String> legacyFilter,
+                                                                  boolean legacyFilterUsed,
+                                                                  Duration timeout) {
+        return subscriber.findMessageAsync(subject, messageType, jsonPathFilters, metadataFilters,
+                legacyFilter, legacyFilterUsed, timeout);
     }
 
     public <T> CompletableFuture<NatsMessage<T>> findUniqueMessageAsync(String subject,
                                                                         Class<T> messageType,
-                                                                        BiPredicate<T, String> filter,
-                                                                        Duration duplicateWindow) {
-        return subscriber.findUniqueMessageAsync(subject, messageType, filter, duplicateWindow);
+                                                                        Map<String, Object> jsonPathFilters,
+                                                                        Map<String, Object> metadataFilters,
+                                                                        BiPredicate<T, String> legacyFilter,
+                                                                        boolean legacyFilterUsed,
+                                                                        Duration duplicateWindow,
+                                                                        Duration timeout) {
+        return subscriber.findUniqueMessageAsync(subject, messageType, jsonPathFilters, metadataFilters,
+                legacyFilter, legacyFilterUsed, duplicateWindow, timeout);
     }
 
     public <T> CompletableFuture<NatsMessage<T>> findUniqueMessageAsync(String subject,
                                                                         Class<T> messageType,
-                                                                        BiPredicate<T, String> filter) {
-        return findUniqueMessageAsync(subject, messageType, filter, defaultUniqueWindow);
+                                                                        Map<String, Object> jsonPathFilters,
+                                                                        Map<String, Object> metadataFilters,
+                                                                        BiPredicate<T, String> legacyFilter,
+                                                                        boolean legacyFilterUsed,
+                                                                        Duration timeout) {
+        return findUniqueMessageAsync(subject, messageType, jsonPathFilters, metadataFilters,
+                legacyFilter, legacyFilterUsed, defaultUniqueWindow, timeout);
     }
 
     public <T> NatsExpectationBuilder<T> expect(Class<T> messageType) {

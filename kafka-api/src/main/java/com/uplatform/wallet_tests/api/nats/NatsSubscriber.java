@@ -25,14 +25,16 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
-import java.util.concurrent.Callable;
 
 @Slf4j
 class NatsSubscriber {
@@ -41,6 +43,7 @@ class NatsSubscriber {
     private final JetStream js;
     private final ObjectMapper objectMapper;
     private final NatsAttachmentHelper attachmentHelper;
+    private final NatsPayloadMatcher payloadMatcher;
     private final Duration searchTimeout;
     private final Duration ackWaitTimeout;
     private final Duration inactiveThreshold;
@@ -60,6 +63,7 @@ class NatsSubscriber {
                    JetStream js,
                    ObjectMapper objectMapper,
                    NatsAttachmentHelper attachmentHelper,
+                   NatsPayloadMatcher payloadMatcher,
                    Duration searchTimeout,
                    Duration ackWaitTimeout,
                    Duration inactiveThreshold,
@@ -72,6 +76,7 @@ class NatsSubscriber {
         this.js = js;
         this.objectMapper = objectMapper;
         this.attachmentHelper = attachmentHelper;
+        this.payloadMatcher = payloadMatcher;
         this.searchTimeout = searchTimeout;
         this.ackWaitTimeout = ackWaitTimeout;
         this.inactiveThreshold = inactiveThreshold;
@@ -84,34 +89,55 @@ class NatsSubscriber {
 
     <T> CompletableFuture<NatsMessage<T>> findMessageAsync(String subject,
                                                            Class<T> messageType,
-                                                           BiPredicate<T, String> filter) {
+                                                           Map<String, Object> jsonPathFilters,
+                                                           Map<String, Object> metadataFilters,
+                                                           BiPredicate<T, String> legacyFilter,
+                                                           boolean legacyFilterUsed,
+                                                           Duration timeout) {
         CompletableFuture<NatsMessage<T>> future = new CompletableFuture<>();
+        Duration effectiveTimeout = timeout != null ? timeout : this.searchTimeout;
         String logPrefix = String.format("NATS SEARCH ASYNC [%s -> %s]", this.streamName, subject);
 
+        attachmentHelper.addSearchInfo(subject, messageType, effectiveTimeout,
+                jsonPathFilters, metadataFilters, false, null, legacyFilterUsed);
+
         subscribeWithRetries(subject, future, logPrefix,
-                () -> startSubscription(subject, messageType, filter, future, logPrefix));
+                () -> startSubscription(subject, messageType, jsonPathFilters, metadataFilters,
+                        legacyFilter, future, logPrefix, effectiveTimeout));
 
         return future;
     }
 
     <T> CompletableFuture<NatsMessage<T>> findUniqueMessageAsync(String subject,
                                                                  Class<T> messageType,
-                                                                 BiPredicate<T, String> filter,
-                                                                 Duration duplicateWindow) {
+                                                                 Map<String, Object> jsonPathFilters,
+                                                                 Map<String, Object> metadataFilters,
+                                                                 BiPredicate<T, String> legacyFilter,
+                                                                 boolean legacyFilterUsed,
+                                                                 Duration duplicateWindow,
+                                                                 Duration timeout) {
         CompletableFuture<NatsMessage<T>> future = new CompletableFuture<>();
+        Duration effectiveTimeout = timeout != null ? timeout : this.searchTimeout;
         String logPrefix = String.format("NATS SEARCH UNIQUE [%s -> %s]", this.streamName, subject);
 
+        attachmentHelper.addSearchInfo(subject, messageType, effectiveTimeout,
+                jsonPathFilters, metadataFilters, true, duplicateWindow, legacyFilterUsed);
+
         subscribeWithRetries(subject, future, logPrefix,
-                () -> startUniqueSubscription(subject, messageType, filter, future, logPrefix, duplicateWindow));
+                () -> startUniqueSubscription(subject, messageType, jsonPathFilters, metadataFilters,
+                        legacyFilter, future, logPrefix, duplicateWindow, effectiveTimeout));
 
         return future;
     }
 
     private <T> Dispatcher startSubscription(String subject,
                                              Class<T> messageType,
-                                             BiPredicate<T, String> filter,
+                                             Map<String, Object> jsonPathFilters,
+                                             Map<String, Object> metadataFilters,
+                                             BiPredicate<T, String> legacyFilter,
                                              CompletableFuture<NatsMessage<T>> future,
-                                             String logPrefix) throws IOException, JetStreamApiException {
+                                             String logPrefix,
+                                             Duration timeout) throws IOException, JetStreamApiException {
         Dispatcher dispatcher = nc.createDispatcher();
         JavaType javaType = objectMapper.getTypeFactory().constructType(messageType);
         final Dispatcher dispatcherRef = dispatcher;
@@ -132,20 +158,24 @@ class NatsSubscriber {
         };
 
         MessageHandler handler = msg ->
-                processIncomingMessage(msg, javaType, filter, firstMatch, strategy, logPrefix, future);
+                processIncomingMessage(msg, javaType, jsonPathFilters, metadataFilters,
+                        legacyFilter, firstMatch, strategy, logPrefix, future);
 
         subHolder.set(createSubscription(subject, dispatcherRef, handler));
 
-        awaitMessageFuture(future, dispatcherRef, subHolder.get(), logPrefix);
+        awaitMessageFuture(future, dispatcherRef, subHolder.get(), logPrefix, timeout);
         return dispatcher;
     }
 
     private <T> Dispatcher startUniqueSubscription(String subject,
                                                    Class<T> messageType,
-                                                   BiPredicate<T, String> filter,
+                                                   Map<String, Object> jsonPathFilters,
+                                                   Map<String, Object> metadataFilters,
+                                                   BiPredicate<T, String> legacyFilter,
                                                    CompletableFuture<NatsMessage<T>> future,
                                                    String logPrefix,
-                                                   Duration duplicateWindow) throws IOException, JetStreamApiException {
+                                                   Duration duplicateWindow,
+                                                   Duration timeout) throws IOException, JetStreamApiException {
         Dispatcher dispatcher = nc.createDispatcher();
         JavaType javaType = objectMapper.getTypeFactory().constructType(messageType);
         final Dispatcher dispatcherRef = dispatcher;
@@ -155,8 +185,9 @@ class NatsSubscriber {
         final AtomicBoolean firstMatch = new AtomicBoolean(false);
         final long startTime = System.currentTimeMillis();
         final AtomicLong firstMatchElapsed = new AtomicLong(-1L);
-        Duration window = (duplicateWindow == null || duplicateWindow.compareTo(searchTimeout) > 0)
-                ? searchTimeout : duplicateWindow;
+        Duration effectiveTimeout = timeout != null ? timeout : searchTimeout;
+        Duration window = (duplicateWindow == null || duplicateWindow.compareTo(effectiveTimeout) > 0)
+                ? effectiveTimeout : duplicateWindow;
         final long windowMs = window.toMillis();
 
         MatchHandlingStrategy<T> strategy = new MatchHandlingStrategy<>() {
@@ -176,11 +207,13 @@ class NatsSubscriber {
         };
 
         MessageHandler handler = msg ->
-                processIncomingMessage(msg, javaType, filter, firstMatch, strategy, logPrefix, future);
+                processIncomingMessage(msg, javaType, jsonPathFilters, metadataFilters,
+                        legacyFilter, firstMatch, strategy, logPrefix, future);
 
         subHolder.set(createSubscription(subject, dispatcherRef, handler));
 
-        awaitUniqueMessageFuture(resultRef, duplicateFound, future, dispatcherRef, subHolder.get(), logPrefix, duplicateWindow, firstMatchElapsed, subject);
+        awaitUniqueMessageFuture(resultRef, duplicateFound, future, dispatcherRef, subHolder.get(),
+                logPrefix, window, firstMatchElapsed, subject);
         return dispatcher;
     }
 
@@ -250,7 +283,9 @@ class NatsSubscriber {
 
     private <T> void processIncomingMessage(Message msg,
                                             JavaType javaType,
-                                            BiPredicate<T, String> filter,
+                                            Map<String, Object> jsonPathFilters,
+                                            Map<String, Object> metadataFilters,
+                                            BiPredicate<T, String> legacyFilter,
                                             AtomicBoolean firstMatch,
                                             MatchHandlingStrategy<T> strategy,
                                             String logPrefix,
@@ -294,7 +329,10 @@ class NatsSubscriber {
                 }
                 return;
             }
-            if (!filter.test(payload, msgType)) {
+
+            NatsMessage<T> result = buildNatsMessage(msg, payload, msgSeq, msgType, timestamp);
+
+            if (!matchesAll(result, jsonPathFilters, metadataFilters, legacyFilter)) {
                 safeTermOrAck(msg);
                 if (log.isDebugEnabled()) {
                     log.debug("{} | Non-match terminated: seq={}, subj={}, type={}", logPrefix, msgSeq, msg.getSubject(), msgType);
@@ -303,9 +341,6 @@ class NatsSubscriber {
             }
 
             safeAck(msg);
-            NatsMessage<T> result = NatsMessage.<T>builder()
-                    .payload(payload).subject(msg.getSubject()).type(msgType)
-                    .sequence(msgSeq).timestamp(timestamp).build();
 
             if (!strategy.isCompleted()) {
                 if (firstMatch.compareAndSet(false, true)) {
@@ -324,11 +359,13 @@ class NatsSubscriber {
     private <T> void awaitMessageFuture(CompletableFuture<NatsMessage<T>> future,
                                         Dispatcher dispatcher,
                                         Subscription subscription,
-                                        String logPrefix) {
-        future.orTimeout(searchTimeout.toMillis(), TimeUnit.MILLISECONDS).whenComplete((result, ex) -> {
+                                        String logPrefix,
+                                        Duration timeout) {
+        Duration effectiveTimeout = timeout != null ? timeout : searchTimeout;
+        future.orTimeout(effectiveTimeout.toMillis(), TimeUnit.MILLISECONDS).whenComplete((result, ex) -> {
             String completionLogPrefix = logPrefix + " | Future completed";
             if (ex instanceof TimeoutException) {
-                log.warn("{} with Timeout after {}", completionLogPrefix, searchTimeout);
+                log.warn("{} with Timeout after {}", completionLogPrefix, effectiveTimeout);
             }
             else if (ex != null) {
                 log.error("{} with Exception: {}", completionLogPrefix, ex.getMessage(), ex);
@@ -343,17 +380,16 @@ class NatsSubscriber {
                                               Dispatcher dispatcher,
                                               Subscription subscription,
                                               String logPrefix,
-                                              Duration duplicateWindow,
+                                              Duration window,
                                               AtomicLong firstMatchElapsed,
                                               String subject) {
-        Duration window = (duplicateWindow == null || duplicateWindow.compareTo(searchTimeout) > 0)
-                ? searchTimeout : duplicateWindow;
-        CompletableFuture.delayedExecutor(window.toMillis(), TimeUnit.MILLISECONDS).execute(() -> {
+        Duration effectiveWindow = (window == null || window.isNegative()) ? searchTimeout : window;
+        CompletableFuture.delayedExecutor(effectiveWindow.toMillis(), TimeUnit.MILLISECONDS).execute(() -> {
             try {
                 if (future.isDone()) return;
                 boolean duplicate = duplicateFound.get();
                 log.info("{} | subject={} firstMatchElapsedMs={} windowMs={} duplicate={}",
-                        logPrefix, subject, firstMatchElapsed.get(), window.toMillis(), duplicate);
+                        logPrefix, subject, firstMatchElapsed.get(), effectiveWindow.toMillis(), duplicate);
                 if (duplicate) {
                     future.completeExceptionally(new NatsDuplicateMessageException("More than one message matched filter"));
                 } else {
@@ -368,6 +404,60 @@ class NatsSubscriber {
                 unsubscribeAndClose(dispatcher, subscription, logPrefix + " on completion");
             }
         });
+    }
+
+    private <T> NatsMessage<T> buildNatsMessage(Message msg,
+                                                T payload,
+                                                long sequence,
+                                                String type,
+                                                OffsetDateTime timestamp) {
+        return NatsMessage.<T>builder()
+                .payload(payload)
+                .subject(msg.getSubject())
+                .type(type)
+                .sequence(sequence)
+                .timestamp(timestamp)
+                .build();
+    }
+
+    private <T> boolean matchesAll(NatsMessage<T> message,
+                                   Map<String, Object> jsonPathFilters,
+                                   Map<String, Object> metadataFilters,
+                                   BiPredicate<T, String> legacyFilter) {
+        BiPredicate<T, String> predicate = legacyFilter != null ? legacyFilter : (p, t) -> true;
+        return matchesMetadata(message, metadataFilters)
+                && payloadMatcher.matches(message.getPayload(), jsonPathFilters)
+                && predicate.test(message.getPayload(), message.getType());
+    }
+
+    private boolean matchesMetadata(NatsMessage<?> message, Map<String, Object> filters) {
+        if (filters == null || filters.isEmpty()) {
+            return true;
+        }
+        for (Map.Entry<String, Object> entry : filters.entrySet()) {
+            String key = entry.getKey();
+            Object expected = entry.getValue();
+            if ("type".equals(key)) {
+                if (!Objects.equals(message.getType(), Objects.toString(expected, null))) {
+                    return false;
+                }
+            } else if ("sequence".equals(key)) {
+                long expectedSeq;
+                if (expected instanceof Number number) {
+                    expectedSeq = number.longValue();
+                } else {
+                    try {
+                        expectedSeq = Long.parseLong(Objects.toString(expected, null));
+                    } catch (NumberFormatException ex) {
+                        return false;
+                    }
+                }
+                if (message.getSequence() != expectedSeq) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private void safeAck(Message msg) {

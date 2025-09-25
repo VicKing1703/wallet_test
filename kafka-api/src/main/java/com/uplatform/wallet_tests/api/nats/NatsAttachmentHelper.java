@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import com.uplatform.wallet_tests.api.attachment.AttachmentType;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import java.time.Duration;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -43,6 +45,66 @@ public class NatsAttachmentHelper {
             attachmentService.attachText(AttachmentType.NATS, name, sb.toString());
         } catch (Exception e) {
             log.error("Failed to add Allure attachment '{}': {}", name, e.getMessage());
+        }
+    }
+
+    public void addSearchInfo(String subject,
+                              Class<?> messageType,
+                              Duration timeout,
+                              Map<String, Object> payloadFilters,
+                              Map<String, Object> metadataFilters,
+                              boolean unique,
+                              Duration duplicateWindow,
+                              boolean legacyPredicateUsed) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Subject: ").append(subject).append('\n');
+        builder.append("Message Type: ")
+                .append(messageType != null ? messageType.getSimpleName() : "N/A")
+                .append('\n');
+        if (timeout != null) {
+            builder.append("Timeout: ").append(timeout.toMillis()).append(" ms\n");
+        }
+        builder.append("Mode: ").append(unique ? "unique" : "first-match");
+        if (unique) {
+            builder.append(" (window=")
+                    .append(duplicateWindow != null ? duplicateWindow.toMillis() : "default")
+                    .append(" ms)");
+        }
+        builder.append('\n');
+
+        if (metadataFilters != null && !metadataFilters.isEmpty()) {
+            builder.append("Metadata Filters:");
+            metadataFilters.forEach((key, value) -> builder
+                    .append('\n')
+                    .append(" - ")
+                    .append(key)
+                    .append(" = ")
+                    .append(String.valueOf(value)));
+            builder.append('\n');
+        } else {
+            builder.append("Metadata Filters: [none]\n");
+        }
+
+        if (payloadFilters != null && !payloadFilters.isEmpty()) {
+            builder.append("Payload Filters:");
+            payloadFilters.forEach((key, value) -> builder
+                    .append('\n')
+                    .append(" - ")
+                    .append(key)
+                    .append(" = ")
+                    .append(String.valueOf(value)));
+            builder.append('\n');
+        } else {
+            builder.append("Payload Filters: [none]\n");
+        }
+
+        builder.append("Legacy Predicate: ")
+                .append(legacyPredicateUsed ? "enabled" : "not used");
+
+        try {
+            attachmentService.attachText(AttachmentType.NATS, "Search Info", builder.toString());
+        } catch (Exception e) {
+            log.error("Failed to add NATS Search Info attachment: {}", e.getMessage());
         }
     }
 }

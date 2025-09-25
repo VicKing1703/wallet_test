@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.Collections;
-import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
@@ -146,13 +145,10 @@ class WithdrawalPositiveTest extends BaseTest {
                     ctx.player.getWalletData().playerUUID(),
                     ctx.player.getWalletData().walletUUID());
 
-            BiPredicate<NatsBlockAmountEventPayload, String> filter = (payload, type) ->
-                    NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue().equals(type)
-                            && ctx.transactionId.equals(payload.getUuid());
-
             ctx.blockEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue())
+                    .with("$.uuid", ctx.transactionId)
                     .fetch();
 
             var payload = ctx.blockEvent.getPayload();

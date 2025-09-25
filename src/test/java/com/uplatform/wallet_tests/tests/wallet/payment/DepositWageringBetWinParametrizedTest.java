@@ -27,7 +27,6 @@ import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -176,12 +175,9 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
                     ctx.player.getWalletData().playerUUID(),
                     ctx.player.getWalletData().walletUUID());
 
-            BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
-
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                     .fetch();
 
             var payload = ctx.depositEvent.getPayload();
@@ -219,13 +215,10 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
                     ctx.player.getWalletData().playerUUID(),
                     ctx.player.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.betRequest.getTransactionId().equals(payload.getUuid());
-
             ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.betRequest.getTransactionId())
                     .fetch();
 
             var payload = ctx.betEvent.getPayload();
@@ -274,13 +267,10 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
                     ctx.player.getWalletData().playerUUID(),
                     ctx.player.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.winRequest.getTransactionId().equals(payload.getUuid());
-
             ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.WON_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.winRequest.getTransactionId())
                     .fetch();
 
             var payload = ctx.winEvent.getPayload();

@@ -240,11 +240,11 @@ Allure.
 ```java
 NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
         .from(natsClient.buildWalletSubject(playerId.toString(), walletId.toString()))
-        .with((payload, type) -> payload.getPlayerId().equals(playerId))
+        .with("$.playerId", playerId.toString())
         .fetch();
 ```
 
-Метод `from` задаёт subject подписки, `with` принимает `BiPredicate` с payload и type header (если он задан).
+Метод `from` задаёт subject подписки, а `with` принимает JsonPath и ожидаемое значение payload.
 
 **Контроль уникальности события.**
 

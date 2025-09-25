@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -104,12 +103,10 @@ class DepositPositiveTest extends BaseTest {
             var subject = natsClient.buildWalletSubject(
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
-            BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
-
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
+                    .with("$.uuid", ctx.paymentTransactionMessage.transaction().transactionId())
                     .fetch();
 
             var actualPayload = ctx.depositEvent.getPayload();

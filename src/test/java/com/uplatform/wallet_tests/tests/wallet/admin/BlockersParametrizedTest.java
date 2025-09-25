@@ -17,7 +17,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -86,14 +85,11 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().walletUUID()
             );
 
-            var filter = (BiPredicate<NatsPreventGambleSettedPayload, String>) (payload, typeHeader) ->
-                    NatsEventType.SETTING_PREVENT_GAMBLE_SETTED.getHeaderValue().equals(typeHeader)
-                            && payload.isGamblingActive() == gamblingEnabled
-                            && payload.isBettingActive() == bettingEnabled;
-
             ctx.updateBlockersEvent = natsClient.expect(NatsPreventGambleSettedPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.SETTING_PREVENT_GAMBLE_SETTED.getHeaderValue())
+                    .with("$.is_gambling_active", gamblingEnabled)
+                    .with("$.is_betting_active", bettingEnabled)
                     .fetch();
 
             assertAll(

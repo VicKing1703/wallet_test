@@ -26,7 +26,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -183,12 +182,9 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                         ctx.player.getWalletData().playerUUID(),
                         ctx.player.getWalletData().walletUUID());
 
-                BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
-
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
-                        .with(filter)
+                        .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                         .fetch();
 
                 assertNotNull(ctx.depositEvent, "given.nats.deposit_event.not_null");
@@ -217,13 +213,10 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                         ctx.player.getWalletData().playerUUID(),
                         ctx.player.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.betRequest.getTransactionId().equals(payload.getUuid());
-
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
-                        .with(filter)
+                        .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.betRequest.getTransactionId())
                         .fetch();
 
                 assertNotNull(ctx.betEvent, "given.nats.bet_event.not_null");
@@ -261,13 +254,10 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                         ctx.player.getWalletData().playerUUID(),
                         ctx.player.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.refundRequest.getTransactionId().equals(payload.getUuid());
-
                 ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
-                        .with(filter)
+                        .withType(NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.refundRequest.getTransactionId())
                         .fetch();
 
                 var payload = ctx.refundEvent.getPayload();

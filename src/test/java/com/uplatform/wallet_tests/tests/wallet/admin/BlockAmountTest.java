@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.get;
@@ -87,12 +86,9 @@ class BlockAmountTest extends BaseTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsBlockAmountEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue().equals(typeHeader);
-
             ctx.blockAmountEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue())
                     .fetch();
 
             var actualPayload = ctx.blockAmountEvent.getPayload();
