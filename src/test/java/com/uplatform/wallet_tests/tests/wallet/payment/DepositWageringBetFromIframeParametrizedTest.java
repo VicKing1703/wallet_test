@@ -24,7 +24,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.Map;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -129,7 +128,7 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
-                        .with((payload, type) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(type))
+                        .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                         .fetch();
 
                 assertNotNull(ctx.depositEvent, "precondition.nats.deposit_event.not_found");
@@ -165,13 +164,10 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
                     ctx.player.getWalletData().playerUUID(),
                     ctx.player.getWalletData().walletUUID());
 
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, type) ->
-                    NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(type) &&
-                            ctx.betRequest.getBetId().equals(payload.getBetId());
-
             ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
+                    .with("$.betId", ctx.betRequest.getBetId())
                     .fetch();
 
             var payload = ctx.betEvent.getPayload();

@@ -28,7 +28,6 @@ import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.Map;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -173,7 +172,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
-                        .with((payload, type) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(type))
+                        .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                         .fetch();
 
                 assertNotNull(ctx.depositEvent, "precondition.nats.deposit_event.not_found");
@@ -210,13 +209,10 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                     ctx.player.getWalletData().playerUUID(),
                     ctx.player.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, type) ->
-                    NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(type) &&
-                            ctx.betRequest.getTransactionId().equals(payload.getUuid());
-
             ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.betRequest.getTransactionId())
                     .fetch();
 
             var wagerInfoList = ctx.betEvent.getPayload().getWageredDepositInfo();

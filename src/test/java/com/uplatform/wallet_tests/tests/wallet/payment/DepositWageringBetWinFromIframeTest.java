@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
 import static io.qameta.allure.Allure.step;
@@ -107,7 +106,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
                         ctx.player.getWalletData().playerUUID(),
                         ctx.player.getWalletData().walletUUID());
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class).from(subject)
-                        .with((p, t) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(t))
+                        .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                         .fetch();
                 assertNotNull(ctx.depositEvent, "precondition.nats.deposit_event.not_found");
             });
@@ -127,7 +126,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
                         ctx.player.getWalletData().playerUUID(),
                         ctx.player.getWalletData().walletUUID());
                 var betEvent = natsClient.expect(NatsBettingEventPayload.class).from(subject)
-                        .with((p, t) -> NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(t))
+                        .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
                         .fetch();
                 assertNotNull(betEvent, "precondition.nats.bet_event.not_found");
             });
@@ -154,13 +153,10 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
                     ctx.player.getWalletData().playerUUID(),
                     ctx.player.getWalletData().walletUUID());
 
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, type) ->
-                    NatsEventType.WON_FROM_IFRAME.getHeaderValue().equals(type) &&
-                            ctx.betRequest.getBetId().equals(payload.getBetId());
-
             ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.WON_FROM_IFRAME.getHeaderValue())
+                    .with("$.betId", ctx.betRequest.getBetId())
                     .fetch();
 
             var payload = ctx.winEvent.getPayload();

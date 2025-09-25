@@ -20,7 +20,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.NatsEnumMapper.*;
@@ -116,16 +115,10 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            var filter = (BiPredicate<NatsBalanceAdjustedPayload, String>) (payload, typeHeader) -> {
-                if (!NatsEventType.BALANCE_ADJUSTED.getHeaderValue().equals(typeHeader)) {
-                    return false;
-                }
-                return payload.getComment().equals(ctx.adjustmentRequest.getComment());
-            };
-
             ctx.balanceAdjustedEvent = natsClient.expect(NatsBalanceAdjustedPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BALANCE_ADJUSTED.getHeaderValue())
+                    .with("$.comment", ctx.adjustmentRequest.getComment())
                     .fetch();
 
             var expectedAdjustment = (direction == DirectionType.DECREASE)

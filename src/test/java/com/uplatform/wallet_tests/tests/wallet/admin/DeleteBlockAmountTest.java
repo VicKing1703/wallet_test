@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.get;
@@ -148,12 +147,9 @@ class DeleteBlockAmountTest extends BaseTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<BlockAmountRevokedEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BLOCK_AMOUNT_REVOKED.getHeaderValue().equals(typeHeader);
-
             ctx.blockAmountRevokedEvent = natsClient.expect(BlockAmountRevokedEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BLOCK_AMOUNT_REVOKED.getHeaderValue())
                     .fetch();
 
             var payload = ctx.blockAmountRevokedEvent.getPayload();

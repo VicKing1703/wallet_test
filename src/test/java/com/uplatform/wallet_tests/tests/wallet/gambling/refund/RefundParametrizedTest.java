@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -226,13 +225,10 @@ class RefundParametrizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.refundRequestBody.getTransactionId().equals(payload.getUuid());
-
             ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.refundRequestBody.getTransactionId())
                     .fetch();
 
             assertNotNull(ctx.refundEvent, "nats.event.refunded_from_gamble");
