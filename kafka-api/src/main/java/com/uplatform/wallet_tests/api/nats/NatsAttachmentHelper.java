@@ -20,27 +20,43 @@ public class NatsAttachmentHelper {
     private final AllureAttachmentService attachmentService;
 
     public <T> void addNatsAttachment(String name, NatsMessage<T> natsMsg) {
-        if (natsMsg == null || natsMsg.getPayload() == null) {
-            log.warn("Skipping NATS attachment '{}' because message or payload is null.", name);
-            return;
-        }
         StringBuilder sb = new StringBuilder();
-        sb.append("Subject: ").append(natsMsg.getSubject()).append("\n");
-        sb.append("Sequence: ").append(natsMsg.getSequence()).append("\n");
-        if (natsMsg.getType() != null) {
-            sb.append("Type Header: ").append(natsMsg.getType()).append("\n");
+
+        if (natsMsg == null) {
+            log.warn("Attaching placeholder for '{}' because message is null.", name);
+            sb.append("Message: <null>\n");
+        } else {
+            sb.append("Metadata:\n");
+            sb.append(" - Subject: ").append(natsMsg.getSubject()).append("\n");
+            sb.append(" - Sequence: ").append(natsMsg.getSequence()).append("\n");
+            if (natsMsg.getType() != null) {
+                sb.append(" - Type Header: ").append(natsMsg.getType()).append("\n");
+            }
+            if (natsMsg.getTimestamp() != null) {
+                sb.append(" - Timestamp: ")
+                        .append(natsMsg.getTimestamp().toInstant())
+                        .append(" (")
+                        .append(natsMsg.getTimestamp())
+                        .append(")\n");
+            }
+
+            T payload = natsMsg.getPayload();
+            if (payload != null) {
+                sb.append('\n');
+                sb.append("Payload:");
+                sb.append("\n - Data Type: ").append(payload.getClass().getName()).append("\n\n");
+                try {
+                    sb.append("Payload (JSON):\n");
+                    sb.append(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
+                } catch (JsonProcessingException e) {
+                    sb.append("Error marshalling payload: ").append(e.getMessage()).append("\n");
+                    sb.append("Payload (toString()):\n").append(payload);
+                }
+            } else {
+                sb.append("\nPayload: <null>\n");
+            }
         }
-        if (natsMsg.getTimestamp() != null) {
-            sb.append("Timestamp: ").append(natsMsg.getTimestamp().toInstant()).append(" (").append(natsMsg.getTimestamp()).append(")\n");
-        }
-        sb.append("Data Type: ").append(natsMsg.getPayload().getClass().getName()).append("\n\n");
-        try {
-            sb.append("Payload (JSON):\n");
-            sb.append(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(natsMsg.getPayload()));
-        } catch (JsonProcessingException e) {
-            sb.append("Error marshalling payload: ").append(e.getMessage()).append("\n");
-            sb.append("Payload (toString()):\n").append(natsMsg.getPayload().toString());
-        }
+
         try {
             attachmentService.attachText(AttachmentType.NATS, name, sb.toString());
         } catch (Exception e) {
