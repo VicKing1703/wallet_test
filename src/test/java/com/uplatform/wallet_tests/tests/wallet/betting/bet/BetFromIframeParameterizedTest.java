@@ -25,8 +25,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Objects;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -128,13 +126,10 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
                         ctx.player.getWalletData().playerUUID(),
                         ctx.player.getWalletData().walletUUID());
 
-                BiPredicate<NatsBettingEventPayload, String> filter = (payload, type) ->
-                        NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(type) &&
-                                Objects.equals(ctx.betRequest.getBetId(), payload.getBetId());
-
                 ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
                         .from(subject)
-                        .with(filter)
+                        .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
+                        .with("$.bet_id", ctx.betRequest.getBetId())
                         .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.bet_event.not_found");

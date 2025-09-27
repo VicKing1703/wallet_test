@@ -2,6 +2,7 @@ package com.uplatform.wallet_tests.tests.wallet.betting.bet;
 
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.allure.Suite;
+import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
@@ -16,8 +17,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
-import java.util.Objects;
-import java.util.function.BiPredicate;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
 import static io.qameta.allure.Allure.step;
@@ -72,6 +71,7 @@ class BetIframeHistoryLimitTest extends BaseTest {
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             Long lastBetId;
+            MakePaymentRequest lastBetRequest;
             NatsMessage<NatsBettingEventPayload> lastBetEvent;
             BigDecimal currentBalance;
         }
@@ -98,6 +98,7 @@ class BetIframeHistoryLimitTest extends BaseTest {
 
                 if (i == currentTransactionCountToMake - 1) {
                     ctx.lastBetId = betRequestBody.getBetId();
+                    ctx.lastBetRequest = betRequestBody;
                 }
 
                 var currentBetNumber = i + 1;
@@ -123,13 +124,10 @@ class BetIframeHistoryLimitTest extends BaseTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                            Objects.equals(ctx.lastBetId, payload.getBetId());
-
             ctx.lastBetEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
+                    .with("$.bet_id", ctx.lastBetId)
                     .fetch();
 
             assertNotNull(ctx.lastBetEvent, "nats.betted_from_iframe");
