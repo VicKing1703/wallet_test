@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
@@ -126,13 +125,14 @@ class LossDisplacedIframeBetTest extends BaseTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                            Objects.equals(ctx.lastMadeBetId, payload.getBetId());
-
+            var lastBetRequest = ctx.madeBetsRequests.stream()
+                    .filter(req -> Objects.equals(req.getBetId(), ctx.lastMadeBetId))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("nats.last_bet.request_not_found"));
             ctx.lastBetNatsEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
+                    .with("$.bet_id", ctx.lastMadeBetId)
                     .fetch();
             assertNotNull(ctx.lastBetNatsEvent, "nats.betted_from_iframe");
         });

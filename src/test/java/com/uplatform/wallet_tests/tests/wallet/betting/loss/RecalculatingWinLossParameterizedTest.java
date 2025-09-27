@@ -28,8 +28,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Objects;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
@@ -154,19 +152,18 @@ class RecalculatingWinLossParameterizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.RECALCULATED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                            Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
-
-            ctx.recalculatedEvent = natsClient.expect(NatsBettingEventPayload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
-
-            var actualPayload = ctx.recalculatedEvent.getPayload();
             var expectedBetInfoList = objectMapper.readValue(
                     ctx.betRequestBody.getBetInfo(),
                     new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
+            var expectedBetInfo = expectedBetInfoList.get(0);
+
+            ctx.recalculatedEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .withType(NatsEventType.RECALCULATED_FROM_IFRAME.getHeaderValue())
+                    .with("$.bet_id", ctx.betRequestBody.getBetId())
+                    .fetch();
+
+            var actualPayload = ctx.recalculatedEvent.getPayload();
             assertAll("Проверка основных полей NATS payload",
                     () -> assertNotNull(actualPayload.getUuid(), "nats.payload.uuid"),
                     () -> assertEquals(ctx.betRequestBody.getType(), actualPayload.getType(), "nats.payload.type"),
@@ -179,7 +176,6 @@ class RecalculatingWinLossParameterizedTest extends BaseParameterizedTest {
                     () -> assertTrue(actualPayload.getWageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info")
             );
 
-            var expectedBetInfo = expectedBetInfoList.get(0);
             var actualBetInfo = actualPayload.getBetInfo().get(0);
             assertAll("Проверка полей внутри bet_info NATS payload",
                     () -> assertEquals(expectedBetInfo.getChampId(), actualBetInfo.getChampId(), "nats.payload.bet_info.champId"),

@@ -3,10 +3,14 @@ package com.uplatform.wallet_tests.tests.wallet.betting.bet;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.SetSingleBetLimitRequest;
+import com.uplatform.wallet_tests.api.kafka.dto.LimitMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
+import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitEventType;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitType;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
@@ -17,7 +21,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SINGLE_BET_LIMIT_REACHED;
@@ -73,6 +76,8 @@ class BetWithSingleBetLimitParameterizedTest extends BaseParameterizedTest {
         final BigDecimal betAmount = new BigDecimal("170.15");
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
+            LimitMessage kafkaLimitMessage;
+            NatsMessage<NatsLimitChangedV2Payload> limitCreateEvent;
         }
         final TestContext ctx = new TestContext();
 
@@ -93,19 +98,50 @@ class BetWithSingleBetLimitParameterizedTest extends BaseParameterizedTest {
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "public_api.status_code");
 
+            step("Sub-step Kafka: получение события limit_changed_v2", () -> {
+                var expectedAmount = limitAmount.stripTrailingZeros().toPlainString();
+                ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
+                        .with("playerId", ctx.registeredPlayer.getWalletData().playerUUID())
+                        .with("limitType", NatsLimitType.SINGLE_BET.getValue())
+                        .with("currencyCode", ctx.registeredPlayer.getWalletData().currency())
+                        .with("amount", expectedAmount)
+                        .fetch();
+
+                assertNotNull(ctx.kafkaLimitMessage, "kafka.limit_changed_v2.message_not_found");
+            });
+
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
+                ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                        .from(subject)
+                        .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                        .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                        .with("$.limits[0].external_id", ctx.kafkaLimitMessage.id())
+                        .with("$.limits[0].limit_type", ctx.kafkaLimitMessage.limitType())
+                        .with("$.limits[0].interval_type", "")
+                        .with("$.limits[0].amount", ctx.kafkaLimitMessage.amount())
+                        .with("$.limits[0].currency_code", ctx.kafkaLimitMessage.currencyCode())
+                        .with("$.limits[0].expires_at", 0)
+                        .with("$.limits[0].status", true)
+                        .fetch();
 
-                var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
-                assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
+                assertNotNull(ctx.limitCreateEvent, "nats.event.limit_changed_v2");
+
+                var limit = ctx.limitCreateEvent.getPayload().getLimits().get(0);
+                assertAll("nats.limit_changed_v2_event.content_validation",
+                        () -> assertEquals(NatsLimitEventType.CREATED.getValue(), ctx.limitCreateEvent.getPayload().getEventType(), "nats.limit_changed_v2_event.payload.eventType"),
+                        () -> assertEquals(ctx.kafkaLimitMessage.id(), limit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
+                        () -> assertEquals(NatsLimitType.SINGLE_BET.getValue(), limit.getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
+                        () -> assertTrue(limit.getIntervalType().isEmpty(), "nats.limit_changed_v2_event.limit.intervalType_empty"),
+                        () -> assertEquals(0, new BigDecimal(ctx.kafkaLimitMessage.amount()).compareTo(limit.getAmount()), "nats.limit_changed_v2_event.limit.amount"),
+                        () -> assertEquals(ctx.kafkaLimitMessage.currencyCode(), limit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
+                        () -> assertNotNull(limit.getStartedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
+                        () -> assertEquals(0, limit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
+                        () -> assertTrue(limit.getStatus(), "nats.limit_changed_v2_event.limit.status")
+                );
             });
         });
 
