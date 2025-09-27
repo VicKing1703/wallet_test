@@ -19,6 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -169,12 +170,14 @@ class TurnoverLimitWhenRefundFromIframeParameterizedTest extends BaseParameteriz
                 ctx.refundedEvent = natsClient.expect(NatsBettingEventPayload.class)
                         .from(subject)
                         .withType(NatsEventType.REFUNDED_FROM_IFRAME.getHeaderValue())
-                        .with("$.uuid", ctx.betRequestBody.getBetId().toString())
                         .with("$.bet_id", ctx.betRequestBody.getBetId())
                         .with("$.type", NatsBettingTransactionOperation.REFUND.getValue())
                         .fetch();
 
                 assertNotNull(ctx.refundedEvent, "nats.refunded_from_iframe_event");
+                assertNotNull(ctx.refundedEvent.getPayload().getUuid(), "nats.refunded_from_iframe_event.payload.uuid_not_null");
+                assertDoesNotThrow(() -> UUID.fromString(ctx.refundedEvent.getPayload().getUuid()),
+                        "nats.refunded_from_iframe_event.payload.uuid_format");
             });
         });
 

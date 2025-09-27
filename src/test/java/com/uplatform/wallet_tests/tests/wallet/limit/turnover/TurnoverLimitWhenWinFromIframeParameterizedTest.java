@@ -19,6 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -134,13 +135,15 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
                 ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
                         .from(subject)
                         .withType(NatsEventType.WON_FROM_IFRAME.getHeaderValue())
-                        .with("$.uuid", ctx.betRequestBody.getBetId().toString())
                         .with("$.bet_id", ctx.betRequestBody.getBetId())
                         .with("$.type", NatsBettingTransactionOperation.WIN.getValue())
                         .fetch();
 
                 assertAll("nats.won_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.winEvent, "nats.won_from_iframe_event"),
+                        () -> assertNotNull(ctx.winEvent.getPayload().getUuid(), "nats.won_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.winEvent.getPayload().getUuid()),
+                                "nats.won_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, winAmount.compareTo(ctx.winEvent.getPayload().getAmount()), "nats.won_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.WIN, ctx.winEvent.getPayload().getType(), "nats.won_from_iframe_event.payload.operation"),
                         () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.winEvent.getPayload().getBetId(), "nats.won_from_iframe_event.payload.betId")

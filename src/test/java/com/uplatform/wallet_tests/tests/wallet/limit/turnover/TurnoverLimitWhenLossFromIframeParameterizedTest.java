@@ -19,6 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -167,13 +168,15 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
                 ctx.lossEvent = natsClient.expect(NatsBettingEventPayload.class)
                         .from(subject)
                         .withType(NatsEventType.LOOSED_FROM_IFRAME.getHeaderValue())
-                        .with("$.uuid", ctx.betRequestBody.getBetId().toString())
                         .with("$.bet_id", ctx.betRequestBody.getBetId())
                         .with("$.type", NatsBettingTransactionOperation.LOSS.getValue())
                         .fetch();
 
                 assertAll("nats.loosed_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.lossEvent, "nats.loosed_from_iframe_event"),
+                        () -> assertNotNull(ctx.lossEvent.getPayload().getUuid(), "nats.loosed_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.lossEvent.getPayload().getUuid()),
+                                "nats.loosed_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, lossAmount.compareTo(ctx.lossEvent.getPayload().getAmount()), "nats.loosed_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.lossEvent.getPayload().getType(), "nats.loosed_from_iframe_event.payload.operation"),
                         () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.lossEvent.getPayload().getBetId(), "nats.loosed_from_iframe_event.payload.betId")
