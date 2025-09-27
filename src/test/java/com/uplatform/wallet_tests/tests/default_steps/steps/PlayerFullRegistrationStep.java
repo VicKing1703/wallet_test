@@ -1,5 +1,7 @@
 package com.uplatform.wallet_tests.tests.default_steps.steps;
 
+import static org.awaitility.Awaitility.await;
+
 import com.uplatform.wallet_tests.api.http.cap.client.CapAdminClient;
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_verification_status.UpdateVerificationStatusRequest;
@@ -152,6 +154,11 @@ public class PlayerFullRegistrationStep {
                     .permanentAddress("Brivibas iela 1")
                     .postalCode("LV-1010")
                     .profession("Developer")
+                    .placeOfWork("asdasdas")
+                    .avgMonthlySalaryEURAlias("from2001To3000")
+                    .activitySectorAlias("realEstate")
+                    .jobAlias("worker")
+                    .isPoliticallyInvolved(false)
                     .password(get(PASSWORD))
                     .rulesAgreement(true)
                     .context(Collections.emptyMap())
@@ -306,18 +313,6 @@ public class PlayerFullRegistrationStep {
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.set_turnover_limit.status_code");
         });
 
-        step("CAP API: Отмена KYC проверки", () -> {
-            var request = CancelKycCheckRequest.builder()
-                    .kycCheckProceed(false)
-                    .build();
-            var response = capAdminClient.cancelKycCheck(
-                    ctx.fullRegistrationMessage.player().externalId(),
-                    tokenStorage.getAuthorizationHeader(),
-                    platformNodeId,
-                    request);
-            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap.cancel_kyc_check.status_code");
-        });
-
         step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
             ctx.updatedWalletData = this.redisWalletClient
                     .key(ctx.playerWalletData.walletUUID())
@@ -334,6 +329,24 @@ public class PlayerFullRegistrationStep {
                     Duration.ofMinutes(2));
             assertEquals(Integer.valueOf(1), property.get("status"),
                     "db.player.account_properties.required_limits_set");
+        });
+
+        step("CAP API: Отмена KYC проверки", () -> {
+            var request = CancelKycCheckRequest.builder()
+                    .kycCheckProceed(false)
+                    .build();
+            var response = capAdminClient.cancelKycCheck(
+                    ctx.fullRegistrationMessage.player().externalId(),
+                    tokenStorage.getAuthorizationHeader(),
+                    platformNodeId,
+                    request);
+            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap.cancel_kyc_check.status_code");
+        });
+
+        step("WAIT: ожидание обработки отмены KYC", () -> {
+            await().pollDelay(Duration.ofSeconds(10))
+                    .atMost(Duration.ofSeconds(20))
+                    .until(() -> true);
         });
 
         return new RegisteredPlayerData(

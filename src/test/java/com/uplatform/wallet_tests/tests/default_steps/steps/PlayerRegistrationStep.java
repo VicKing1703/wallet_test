@@ -1,6 +1,9 @@
 package com.uplatform.wallet_tests.tests.default_steps.steps;
 
+import static org.awaitility.Awaitility.await;
+
 import com.uplatform.wallet_tests.api.http.cap.client.CapAdminClient;
+import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.DirectionType;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.OperationType;
@@ -141,6 +144,11 @@ public class PlayerRegistrationStep {
                     .permanentAddress("Brivibas iela 1")
                     .postalCode("LV-1010")
                     .profession("Developer")
+                    .placeOfWork("asdasdas")
+                    .avgMonthlySalaryEURAlias("from2001To3000")
+                    .activitySectorAlias("realEstate")
+                    .jobAlias("worker")
+                    .isPoliticallyInvolved(false)
                     .password(get(PASSWORD))
                     .rulesAgreement(true)
                     .context(Collections.emptyMap())
@@ -226,6 +234,24 @@ public class PlayerRegistrationStep {
                     .fetch();
             assertNotNull(ctx.updatedWalletData, "redis.wallet.full_data_not_found");
             assertNotNull(ctx.updatedWalletData.playerUUID(), "redis.wallet.player_uuid");
+        });
+
+        step("CAP API: Отмена KYC проверки", () -> {
+            var request = CancelKycCheckRequest.builder()
+                    .kycCheckProceed(false)
+                    .build();
+            var response = capAdminClient.cancelKycCheck(
+                    ctx.fullRegistrationMessage.player().externalId(),
+                    tokenStorage.getAuthorizationHeader(),
+                    platformNodeId,
+                    request);
+            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap.cancel_kyc_check.status_code");
+        });
+
+        step("WAIT: ожидание обработки отмены KYC", () -> {
+            await().pollDelay(Duration.ofSeconds(10))
+                    .atMost(Duration.ofSeconds(20))
+                    .until(() -> true);
         });
 
         return new RegisteredPlayerData(

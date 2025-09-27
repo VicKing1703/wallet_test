@@ -56,6 +56,21 @@ public class FullRegistrationRequestBody {
     @JsonProperty("profession")
     private String profession;
 
+    @JsonProperty("placeOfWork")
+    private String placeOfWork;
+
+    @JsonProperty("avgMonthlySalaryEURAlias")
+    private String avgMonthlySalaryEURAlias;
+
+    @JsonProperty("activitySectorAlias")
+    private String activitySectorAlias;
+
+    @JsonProperty("jobAlias")
+    private String jobAlias;
+
+    @JsonProperty("isPoliticallyInvolved")
+    private boolean isPoliticallyInvolved;
+
     @JsonProperty("password")
     private String password;
 
