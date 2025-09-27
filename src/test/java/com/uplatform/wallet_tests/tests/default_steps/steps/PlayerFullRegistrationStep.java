@@ -1,5 +1,7 @@
 package com.uplatform.wallet_tests.tests.default_steps.steps;
 
+import static org.awaitility.Awaitility.await;
+
 import com.uplatform.wallet_tests.api.http.cap.client.CapAdminClient;
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_verification_status.UpdateVerificationStatusRequest;
@@ -339,6 +341,12 @@ public class PlayerFullRegistrationStep {
                     platformNodeId,
                     request);
             assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap.cancel_kyc_check.status_code");
+        });
+
+        step("WAIT: ожидание обработки отмены KYC", () -> {
+            await().pollDelay(Duration.ofSeconds(1))
+                    .atMost(Duration.ofSeconds(2))
+                    .until(() -> true);
         });
 
         return new RegisteredPlayerData(
