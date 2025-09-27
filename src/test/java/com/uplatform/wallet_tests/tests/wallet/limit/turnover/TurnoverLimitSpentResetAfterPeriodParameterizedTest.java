@@ -25,7 +25,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -126,14 +125,17 @@ class TurnoverLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteri
                     ctx.registeredPlayer.getWalletData().walletUUID()
             );
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType());
+            var expectedAmount = new BigDecimal(ctx.createRequest.getAmount()).stripTrailingZeros().toPlainString();
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                    .with("$.limits[0].interval_type", periodType.getValue())
+                    .with("$.limits[0].currency_code", ctx.createRequest.getCurrency())
+                    .with("$.limits[0].amount", expectedAmount)
+                    .with("$.limits[0].status", true)
                     .fetch();
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation");
         });
@@ -171,15 +173,17 @@ class TurnoverLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteri
                     ctx.registeredPlayer.getWalletData().walletUUID()
             );
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            ctx.createEvent.getPayload().getLimits().get(0).getExternalId().equals(payload.getLimits().get(0).getExternalId()) &&
-                            NatsLimitEventType.SPENT_RESETTED.getValue().equals(payload.getEventType());
+            var expectedResetAmount = LIMIT_AMOUNT.stripTrailingZeros().toPlainString();
 
             ctx.resetEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.event_type", NatsLimitEventType.SPENT_RESETTED.getValue())
+                    .with("$.limits[0].external_id", ctx.createEvent.getPayload().getLimits().get(0).getExternalId())
+                    .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                    .with("$.limits[0].interval_type", periodType.getValue())
+                    .with("$.limits[0].currency_code", ctx.registeredPlayer.getWalletData().currency())
+                    .with("$.limits[0].amount", expectedResetAmount)
                     .fetch();
             assertNotNull(ctx.resetEvent, "nats.limit_changed_v2_event.reset.message_not_null");
 

@@ -20,8 +20,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -62,6 +62,22 @@ class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
     private static final BigDecimal limitAmount = new BigDecimal("150.12");
     private static final BigDecimal betAmount = new BigDecimal("10.15");
+    private static final String ZERO_UUID = new UUID(0L, 0L).toString();
+    private static final EnumSet<NatsGamblingTransactionOperation> BETTING_OPERATIONS = EnumSet.of(
+            NatsGamblingTransactionOperation.BET,
+            NatsGamblingTransactionOperation.TIPS,
+            NatsGamblingTransactionOperation.FREESPIN
+    );
+
+    private static String expectedBetOperation(NatsGamblingTransactionOperation operation) {
+        return BETTING_OPERATIONS.contains(operation)
+                ? NatsGamblingTransactionOperation.BET.getValue()
+                : operation.getValue();
+    }
+
+    private static String resolveTransactionTypeValue(NatsGamblingTransactionOperation operation) {
+        return NatsGamblingTransactionType.valueOf("TYPE_" + operation.name()).getValue();
+    }
 
     static Stream<Arguments> operationAndPeriodProvider() {
         return Stream.of(
@@ -137,14 +153,18 @@ class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                                NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType());
+                var expectedAmount = new BigDecimal(request.getAmount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                        .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                        .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                        .with("$.limits[0].interval_type", periodType.getValue())
+                        .with("$.limits[0].currency_code", request.getCurrency())
+                        .with("$.limits[0].amount", expectedAmount)
+                        .with("$.limits[0].status", true)
+                        .fetch();
 
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
@@ -176,14 +196,14 @@ class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
-
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.betRequestBody.getTransactionId())
+                        .with("$.bet_uuid", ZERO_UUID)
+                        .with("$.operation", expectedBetOperation(operationParam))
+                        .with("$.type", resolveTransactionTypeValue(operationParam))
+                        .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble");
             });

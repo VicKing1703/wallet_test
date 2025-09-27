@@ -21,7 +21,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -146,14 +145,19 @@ public class TurnoverLimitCreateParameterizedTest extends BaseParameterizedTest 
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            ctx.kafkaLimitMessage.id().equals(payload.getLimits().get(0).getExternalId());
+            var expectedAmount = limitAmountBase.stripTrailingZeros().toPlainString();
 
             ctx.natsLimitChangeEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                    .with("$.limits[0].external_id", ctx.kafkaLimitMessage.id())
+                    .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                    .with("$.limits[0].interval_type", periodType.getValue())
+                    .with("$.limits[0].currency_code", ctx.registeredPlayer.getWalletData().currency())
+                    .with("$.limits[0].amount", expectedAmount)
+                    .with("$.limits[0].expires_at", ctx.kafkaLimitMessage.expiresAt())
+                    .with("$.limits[0].status", true)
                     .fetch();
             assertNotNull(ctx.natsLimitChangeEvent, "nats.limit_changed_v2_event.message_not_null");
             assertNotNull(ctx.natsLimitChangeEvent.getPayload(), "nats.limit_changed_v2_event.payload_not_null");

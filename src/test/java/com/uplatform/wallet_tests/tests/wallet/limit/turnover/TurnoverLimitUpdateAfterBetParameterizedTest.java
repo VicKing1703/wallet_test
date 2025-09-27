@@ -24,7 +24,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -78,6 +77,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
     private static final BigDecimal betAmount = new BigDecimal("10.15");
     private static final BigDecimal newAmountLess = new BigDecimal("100.00");
     private static final BigDecimal newAmountMore = new BigDecimal("140.00");
+    private static final String ZERO_UUID = new UUID(0L, 0L).toString();
 
     static Stream<Arguments> periodAndAmountProvider() {
         return Stream.of(
@@ -146,14 +146,17 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType());
+            var expectedCreateAmount = new BigDecimal(ctx.createRequest.getAmount()).stripTrailingZeros().toPlainString();
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                    .with("$.limits[0].interval_type", periodType.getValue())
+                    .with("$.limits[0].currency_code", ctx.createRequest.getCurrency())
+                    .with("$.limits[0].amount", expectedCreateAmount)
+                    .with("$.limits[0].status", true)
                     .fetch();
 
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation");
@@ -184,14 +187,13 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
-
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.betRequestBody.getTransactionId())
+                        .with("$.bet_uuid", ZERO_UUID)
+                        .with("$.operation", NatsGamblingTransactionOperation.BET.getValue())
+                        .fetch();
 
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
             });
@@ -216,15 +218,17 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            ctx.createEvent.getPayload().getLimits().get(0).getExternalId().equals(payload.getLimits().get(0).getExternalId()) &&
-                            NatsLimitEventType.AMOUNT_UPDATED.getValue().equals(payload.getEventType());
+            var expectedUpdateAmount = newAmount.stripTrailingZeros().toPlainString();
 
             ctx.updateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.event_type", NatsLimitEventType.AMOUNT_UPDATED.getValue())
+                    .with("$.limits[0].external_id", ctx.createEvent.getPayload().getLimits().get(0).getExternalId())
+                    .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                    .with("$.limits[0].interval_type", periodType.getValue())
+                    .with("$.limits[0].currency_code", ctx.registeredPlayer.getWalletData().currency())
+                    .with("$.limits[0].amount", expectedUpdateAmount)
                     .fetch();
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update");
