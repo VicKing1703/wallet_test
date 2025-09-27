@@ -344,8 +344,8 @@ public class PlayerFullRegistrationStep {
         });
 
         step("WAIT: ожидание обработки отмены KYC", () -> {
-            await().pollDelay(Duration.ofSeconds(1))
-                    .atMost(Duration.ofSeconds(2))
+            await().pollDelay(Duration.ofSeconds(10))
+                    .atMost(Duration.ofSeconds(10))
                     .until(() -> true);
         });
 
