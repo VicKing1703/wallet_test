@@ -311,18 +311,6 @@ public class PlayerFullRegistrationStep {
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.set_turnover_limit.status_code");
         });
 
-        step("CAP API: Отмена KYC проверки", () -> {
-            var request = CancelKycCheckRequest.builder()
-                    .kycCheckProceed(false)
-                    .build();
-            var response = capAdminClient.cancelKycCheck(
-                    ctx.fullRegistrationMessage.player().externalId(),
-                    tokenStorage.getAuthorizationHeader(),
-                    platformNodeId,
-                    request);
-            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap.cancel_kyc_check.status_code");
-        });
-
         step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
             ctx.updatedWalletData = this.redisWalletClient
                     .key(ctx.playerWalletData.walletUUID())
@@ -339,6 +327,18 @@ public class PlayerFullRegistrationStep {
                     Duration.ofMinutes(2));
             assertEquals(Integer.valueOf(1), property.get("status"),
                     "db.player.account_properties.required_limits_set");
+        });
+
+        step("CAP API: Отмена KYC проверки", () -> {
+            var request = CancelKycCheckRequest.builder()
+                    .kycCheckProceed(false)
+                    .build();
+            var response = capAdminClient.cancelKycCheck(
+                    ctx.fullRegistrationMessage.player().externalId(),
+                    tokenStorage.getAuthorizationHeader(),
+                    platformNodeId,
+                    request);
+            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap.cancel_kyc_check.status_code");
         });
 
         return new RegisteredPlayerData(
