@@ -19,8 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.Objects;
-import java.util.function.BiPredicate;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -126,17 +125,18 @@ class TurnoverLimitWhenRecalculateWinToLossParameterizedTest extends BaseParamet
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                                payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                                NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType()) &&
-                                periodType.getValue().equals(payload.getLimits().get(0).getIntervalType()) &&
-                                request.getCurrency().equals(payload.getLimits().get(0).getCurrencyCode());
+                var expectedAmount = new BigDecimal(request.getAmount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                        .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                        .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                        .with("$.limits[0].interval_type", periodType.getValue())
+                        .with("$.limits[0].currency_code", request.getCurrency())
+                        .with("$.limits[0].amount", expectedAmount)
+                        .with("$.limits[0].status", true)
+                        .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
@@ -175,17 +175,18 @@ class TurnoverLimitWhenRecalculateWinToLossParameterizedTest extends BaseParamet
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.RECALCULATED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                                Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
-
                 ctx.recalculatedEvent = natsClient.expect(NatsBettingEventPayload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.RECALCULATED_FROM_IFRAME.getHeaderValue())
+                        .with("$.bet_id", ctx.betRequestBody.getBetId())
+                        .with("$.type", NatsBettingTransactionOperation.LOSS.getValue())
+                        .fetch();
 
                 assertAll("nats.recalculated_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.recalculatedEvent, "nats.recalculated_from_iframe_event"),
+                        () -> assertNotNull(ctx.recalculatedEvent.getPayload().getUuid(), "nats.recalculated_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.recalculatedEvent.getPayload().getUuid()),
+                                "nats.recalculated_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, winAmountRecalculated.compareTo(ctx.recalculatedEvent.getPayload().getAmount().negate()), "nats.recalculated_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.recalculatedEvent.getPayload().getType(), "nats.recalculated_from_iframe_event.payload.operation"),
                         () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().getBetId(), "nats.recalculated_from_iframe_event.payload.betId")

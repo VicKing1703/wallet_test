@@ -20,8 +20,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -39,6 +39,23 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
     private static final BigDecimal limitAmount = new BigDecimal("150.12");
     private static final BigDecimal winAmount = new BigDecimal("10.15");
+    private static final String ZERO_UUID = new UUID(0L, 0L).toString();
+
+    private static final EnumSet<NatsGamblingTransactionOperation> WIN_OPERATIONS = EnumSet.of(
+            NatsGamblingTransactionOperation.WIN,
+            NatsGamblingTransactionOperation.JACKPOT,
+            NatsGamblingTransactionOperation.FREESPIN
+    );
+
+    private static String resolveTransactionTypeValue(NatsGamblingTransactionOperation operation) {
+        return NatsGamblingTransactionType.valueOf("TYPE_" + operation.name()).getValue();
+    }
+
+    private static String expectedWinOperation(NatsGamblingTransactionOperation operation) {
+        return WIN_OPERATIONS.contains(operation)
+                ? NatsGamblingTransactionOperation.WIN.getValue()
+                : operation.getValue();
+    }
 
     static Stream<Arguments> operationAndPeriodProvider() {
         return Stream.of(
@@ -110,16 +127,18 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                                payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                                NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType()) &&
-                                periodType.getValue().equals(payload.getLimits().get(0).getIntervalType());
+                var expectedAmount = new BigDecimal(request.getAmount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                        .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                        .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                        .with("$.limits[0].interval_type", periodType.getValue())
+                        .with("$.limits[0].currency_code", request.getCurrency())
+                        .with("$.limits[0].amount", expectedAmount)
+                        .with("$.limits[0].status", true)
+                        .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
@@ -150,14 +169,14 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.winRequestBody.getTransactionId().equals(payload.getUuid());
-
                 ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.WON_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.winRequestBody.getTransactionId())
+                        .with("$.bet_uuid", ZERO_UUID)
+                        .with("$.operation", expectedWinOperation(operationParam))
+                        .with("$.type", resolveTransactionTypeValue(operationParam))
+                        .fetch();
                 assertNotNull(ctx.winEvent, "nats.won_from_gamble");
             });
         });

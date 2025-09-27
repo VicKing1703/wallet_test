@@ -11,6 +11,7 @@ import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitType;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
@@ -25,7 +26,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -70,6 +70,7 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
     private static final BigDecimal limitAmountBase = generateBigDecimalAmount(initialAdjustmentAmount);
     private static final BigDecimal betAmount = generateBigDecimalAmount(limitAmountBase);
     private static final BigDecimal refundAmount = betAmount;
+    private static final String ZERO_UUID = new UUID(0L, 0L).toString();
 
     static Stream<Arguments> periodProvider() {
         return Stream.of(
@@ -135,17 +136,18 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                                payload.getLimits().stream().anyMatch(l ->
-                                        NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
-                                                periodType.getValue().equals(l.getIntervalType())
-                                );
+                var expectedAmount = new BigDecimal(request.getAmount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                        .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                        .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                        .with("$.limits[0].interval_type", periodType.getValue())
+                        .with("$.limits[0].currency_code", request.getCurrency())
+                        .with("$.limits[0].amount", expectedAmount)
+                        .with("$.limits[0].status", true)
+                        .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
@@ -177,14 +179,13 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
-
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
-                    .from(subject)
-                    .with(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.betRequestBody.getTransactionId())
+                        .with("$.bet_uuid", ZERO_UUID)
+                        .with("$.operation", NatsGamblingTransactionOperation.BET.getValue())
+                        .fetch();
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
             });
         });
@@ -216,13 +217,12 @@ class TurnoverLimitWhenRefundParameterizedTest extends BaseParameterizedTest {
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.refundRequestBody.getTransactionId().equals(payload.getUuid());
-
                 ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.REFUNDED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.refundRequestBody.getTransactionId())
+                    .with("$.bet_uuid", ctx.betRequestBody.getTransactionId())
+                    .with("$.operation", NatsGamblingTransactionOperation.REFUND.getValue())
                     .fetch();
                 assertNotNull(ctx.refundEvent, "nats.refunded_from_gamble_event");
             });
