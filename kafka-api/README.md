@@ -277,12 +277,10 @@ NATS-DSL повторяет Kafka-клиент и концентрируется
 - `.unique()` включает проверку дублей, используя окно `uniqueDuplicateWindowMs` из конфигурации.
 - `.unique(Duration window)` позволяет задать своё окно. Дубликаты приводят к `NatsDuplicateMessageException` и отдельному аттачу.
 
-#### Асинхронный поиск
+#### Завершение ожидания
 
-- `.fetch()` блокирует поток до завершения ожидания и бросает исключения при таймауте/ошибке.
-- `.fetchAsync()` возвращает `CompletableFuture`, что позволяет запускать действия теста параллельно с ожиданием события.
-
-Метод `.within(timeout)` доступен в любой цепочке и переопределяет таймаут только для текущего ожидания.
+- `.fetch()` блокирует поток до завершения ожидания и выбрасывает исключения при таймауте или ошибке обработки.
+- `.within(Duration timeout)` переопределяет таймаут только для текущего запроса и не влияет на глобальную настройку клиента.
 
 ### Интеграция с Allure
 
@@ -315,20 +313,17 @@ NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class
         .fetch();
 ```
 
-#### Асинхронный сценарий
+#### Пользовательский таймаут
 
 ```java
-CompletableFuture<NatsMessage<WalletLimitEvent>> future = natsClient.expect(WalletLimitEvent.class)
+NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
         .from(subject)
+        .with("$.limitType", expectedLimitType)
         .within(Duration.ofSeconds(20))
-        .fetchAsync();
-
-// ... действия теста ...
-
-NatsMessage<WalletLimitEvent> message = future.join();
+        .fetch();
 ```
 
-`fetchAsync()` завершится найденным сообщением или исключением `NatsMessageNotFoundException`, если условия не выполнятся вовремя.
+Такой вызов переопределяет только текущий таймаут ожидания, не изменяя настройку `searchTimeoutSeconds`.
 
 ---
 

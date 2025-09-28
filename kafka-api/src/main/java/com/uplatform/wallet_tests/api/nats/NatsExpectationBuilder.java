@@ -1,14 +1,14 @@
 package com.uplatform.wallet_tests.api.nats;
 
 import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
-import com.uplatform.wallet_tests.api.nats.exceptions.NatsDeserializationException;
 import com.uplatform.wallet_tests.api.nats.exceptions.NatsDuplicateMessageException;
 import com.uplatform.wallet_tests.api.nats.exceptions.NatsMessageNotFoundException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class NatsExpectationBuilder<T> {
     private final NatsClient client;
@@ -68,53 +68,60 @@ public class NatsExpectationBuilder<T> {
         return this;
     }
 
-    public CompletableFuture<NatsMessage<T>> fetchAsync() {
+    public NatsMessage<T> fetch() {
         if (subject == null) {
             throw new IllegalStateException("Subject must be specified");
         }
-        Duration effectiveTimeout = this.timeout != null ? this.timeout : defaultTimeout;
+
+        Duration candidateTimeout = this.timeout != null ? this.timeout : defaultTimeout;
+        Duration effectiveTimeout = candidateTimeout.isNegative()
+                ? defaultTimeout
+                : candidateTimeout.truncatedTo(ChronoUnit.MILLIS);
+
         Map<String, Object> payloadFilters = Map.copyOf(this.jsonPathFilters);
         Map<String, Object> metaFilters = Map.copyOf(this.metadataFilters);
-        Duration searchTimeout = effectiveTimeout.isNegative()
-                ? defaultTimeout
-                : effectiveTimeout.truncatedTo(ChronoUnit.MILLIS);
 
-        if (unique) {
-            Duration window = this.duplicateWindow != null ? this.duplicateWindow : client.getDefaultUniqueWindow();
-            return client.findUniqueMessageAsync(
-                    subject,
-                    messageType,
-                    payloadFilters,
-                    metaFilters,
-                    window,
-                    searchTimeout
-            );
+        String typeDescription = messageType.getSimpleName();
+        String searchDetails = buildSearchDetails(payloadFilters, metaFilters);
+
+        try {
+            if (unique) {
+                Duration window = this.duplicateWindow != null ? this.duplicateWindow : client.getDefaultUniqueWindow();
+                return client.findUniqueMessage(subject, messageType, payloadFilters, metaFilters, window, effectiveTimeout);
+            }
+
+            return client.findMessage(subject, messageType, payloadFilters, metaFilters, effectiveTimeout);
+        } catch (NatsMessageNotFoundException e) {
+            throw new NatsMessageNotFoundException(
+                    String.format("NATS message %s %s not found on subject '%s' within %s.",
+                            typeDescription,
+                            searchDetails,
+                            subject,
+                            effectiveTimeout),
+                    e);
+        } catch (NatsDuplicateMessageException e) {
+            throw new NatsDuplicateMessageException(
+                    String.format("NATS message %s %s expected once on subject '%s' but duplicates detected.",
+                            typeDescription,
+                            searchDetails,
+                            subject),
+                    e);
         }
-
-        return client.findMessageAsync(
-                subject,
-                messageType,
-                payloadFilters,
-                metaFilters,
-                searchTimeout
-        );
     }
 
-    public NatsMessage<T> fetch() {
-        try {
-            return fetchAsync().get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new NatsMessageNotFoundException("Fetching NATS message interrupted", e);
-        } catch (Exception e) {
-            Throwable cause = e instanceof java.util.concurrent.ExecutionException ? e.getCause() : e;
-            if (cause instanceof NatsDuplicateMessageException) {
-                throw (NatsDuplicateMessageException) cause;
-            } else if (cause instanceof NatsDeserializationException) {
-                throw (NatsDeserializationException) cause;
-            } else {
-                throw new NatsMessageNotFoundException("Failed to fetch NATS message", cause);
-            }
+    private String buildSearchDetails(Map<String, Object> payloadFilters, Map<String, Object> metadataFilters) {
+        List<String> parts = metadataFilters.entrySet().stream()
+                .map(entry -> String.format("meta[%s] = %s", entry.getKey(), String.valueOf(entry.getValue())))
+                .collect(Collectors.toList());
+
+        parts.addAll(payloadFilters.entrySet().stream()
+                .map(entry -> String.format("jsonPath[%s] = %s", entry.getKey(), String.valueOf(entry.getValue())))
+                .collect(Collectors.toList()));
+
+        if (parts.isEmpty()) {
+            return "with no filters";
         }
+
+        return "with filters: " + String.join(", ", parts);
     }
 }
