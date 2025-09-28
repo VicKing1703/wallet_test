@@ -167,7 +167,7 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
             ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
                     .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
-                    .with("$.betId", ctx.betRequest.getBetId())
+                    .with("$.bet_id", ctx.betRequest.getBetId())
                     .fetch();
 
             var payload = ctx.betEvent.getPayload();
