@@ -129,7 +129,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
                     .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
-                    .with("$.limits[0].limitType", NatsLimitType.DEPOSIT.getValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.DEPOSIT.getValue())
                     .with("$.limits[0].amount", limitAmount)
                     .fetch();
 

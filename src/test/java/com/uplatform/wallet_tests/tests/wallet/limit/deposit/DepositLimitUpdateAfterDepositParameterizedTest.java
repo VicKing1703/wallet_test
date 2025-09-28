@@ -156,7 +156,7 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
                     .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
-                    .with("$.limits[0].externalId", ctx.kafkaLimitMessage.id())
+                    .with("$.limits[0].external_id", ctx.kafkaLimitMessage.id())
                     .fetch();
 
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation.message_not_null");
@@ -230,8 +230,8 @@ public class DepositLimitUpdateAfterDepositParameterizedTest extends BaseParamet
             ctx.updateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
                     .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
-                    .with("$.eventType", NatsLimitEventType.AMOUNT_UPDATED.getValue())
-                    .with("$.limits[0].externalId", ctx.createEvent.getPayload().getLimits().get(0).getExternalId())
+                    .with("$.event_type", NatsLimitEventType.AMOUNT_UPDATED.getValue())
+                    .with("$.limits[0].external_id", ctx.createEvent.getPayload().getLimits().get(0).getExternalId())
                     .fetch();
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update");

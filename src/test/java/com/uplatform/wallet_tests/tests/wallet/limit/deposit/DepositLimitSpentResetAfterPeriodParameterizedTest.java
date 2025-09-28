@@ -128,7 +128,7 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
                     .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
-                    .with("$.limits[0].limitType", NatsLimitType.DEPOSIT.getValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.DEPOSIT.getValue())
                     .fetch();
             assertNotNull(ctx.createEvent, "nats.limit_changed_v2_event.creation");
         });
@@ -169,8 +169,8 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
             ctx.resetEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
                     .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
-                    .with("$.eventType", NatsLimitEventType.SPENT_RESETTED.getValue())
-                    .with("$.limits[0].externalId", ctx.createEvent.getPayload().getLimits().get(0).getExternalId())
+                    .with("$.event_type", NatsLimitEventType.SPENT_RESETTED.getValue())
+                    .with("$.limits[0].external_id", ctx.createEvent.getPayload().getLimits().get(0).getExternalId())
                     .fetch();
             assertNotNull(ctx.resetEvent, "nats.limit_changed_v2_event.reset.message_not_null");
 
