@@ -28,10 +28,15 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
     - [Комплексный пример](#комплексный-пример-1)
   - [Интеграция с Allure](#интеграция-с-allure-1)
 - [Redis Test Client](#redis-test-client)
-  - [Основные возможности](#основные-возможности-1)
-  - [Конфигурация Spring](#конфигурация-spring)
-  - [Конфигурация приложения](#конфигурация-приложения)
-  - [Руководство по использованию](#руководство-по-использованию-1)
+  - [Архитектура и ключевые компоненты](#архитектура-и-ключевые-компоненты-1)
+  - [Подключение и конфигурация](#подключение-и-конфигурация-2)
+    - [Зависимость Gradle](#зависимость-gradle-2)
+    - [Spring-конфигурация типов](#spring-конфигурация-типов)
+    - [Настройки клиента](#настройки-клиента-1)
+  - [Сценарии использования](#сценарии-использования-2)
+    - [Методы fluent API](#методы-fluent-api-2)
+    - [Комплексный пример](#комплексный-пример-2)
+  - [Интеграция с Allure](#интеграция-с-allure-2)
 - [Материалы для визуализаций](#материалы-для-визуализаций)
 
 ## Архитектура
@@ -303,19 +308,33 @@ step("NATS: Получаем событие о создании лимита", (
 
 ## Redis Test Client
 
-Redis-клиент из `kafka-api` помогает автотестам проверять JSON-структуры в Redis с поддержкой JsonPath-фильтров и Allure-аттачей.
+Redis-клиент из `kafka-api` повторяет знакомую структуру Kafka- и NATS-модулей: fluent DSL описывает ожидание значения по ключу,
+конфигурация хранится во внешних JSON/YAML файлах, а результат сопровождён информативными аттачами в Allure.
 
-### Основные возможности
+### Архитектура и ключевые компоненты
 
-- **Fluent API.** Цепочка `key(...).with(...).withAtLeast(...).within(...).fetch()` знакома по Kafka-клиенту.
-- **JsonPath-фильтры.** Проверяют значения любой глубины вложенности.
-- **Гибкий ретрай.** Интервалы и количество попыток управляются в конфигурации `redis.aggregate`.
-- **Типобезопасные DTO.** Ответ десериализуется в типы, зарегистрированные в `RedisTypeMappingRegistry`.
-- **Allure-интеграция.** Каждый вызов сопровождается информативными вложениями.
+- **`GenericRedisClient`.** Точечный бин для каждого инстанса, разворачиваемого из конфигурации. Инициализирует билдер ожидания через
+  `.key(...)` и прокидывает типы/зависимости.
+- **`RedisExpectationBuilder`.** Fluent API, который применяет JsonPath-фильтры, управляет таймаутом и формирует отчёт об успешном
+  чтении или таймауте.
+- **`RedisTypeMappingRegistry`.** Реестр `TypeReference`, связывающий логические имена клиентов (`wallet`, `player`) с DTO для
+  десериализации ответа.
+- **`RedisAwaitilityProperties`.** Настройки повторных попыток (`retryAttempts`, `retryDelay`) и таймаутов, используемые по
+  умолчанию билдером.
 
-### Конфигурация Spring
+### Подключение и конфигурация
 
-Опишите бин `RedisTypeMappingRegistry`, который связывает имена клиентов с `TypeReference` нужного DTO:
+#### Зависимость Gradle
+
+```gradle
+dependencies {
+    testImplementation project(":kafka-api")
+}
+```
+
+#### Spring-конфигурация типов
+
+Опишите бин `RedisTypeMappingRegistry`, чтобы модули тестов получили типобезопасный доступ к значениям:
 
 ```java
 @Configuration
@@ -330,11 +349,12 @@ public class RedisConfig {
 }
 ```
 
-Каждый клиент из конфигурации разворачивается в бин `redis<Имя>Client`. Например, `clients.wallet` создаёт `redisWalletClient`.
+Каждый блок `clients.<name>` из конфигурации разворачивается в бин `redis<Имя>Client`, поэтому `clients.wallet` создаёт
+`redisWalletClient`, а `clients.player` — `redisPlayerClient`.
 
-### Конфигурация приложения
+#### Настройки клиента
 
-Блок `redis` в `application.yml` или окруженческом JSON содержит настройки ретраев и подключений:
+Блок `redis` в `application.yml` или `configs/<env>.json` управляет ретраями, подключениями и пулами Lettuce:
 
 ```yaml
 redis:
@@ -363,48 +383,61 @@ redis:
       timeout: 5s
 ```
 
-| Параметр | Назначение |
-| --- | --- |
-| `aggregate.retryAttempts` / `aggregate.retryDelayMs` | Количество повторов чтения и пауза между ними. |
-| `aggregate.maxGamblingCount` / `aggregate.maxIframeCount` | Границы агрегатов, используемые тестами. |
-| `clients.<name>` | Подключение к конкретному Redis-инстансу и имя создаваемого бина `redis<Имя>Client`. |
-| `timeout` | Таймаут операций Lettuce (поддерживаются ISO 8601 и единицы с суффиксом `ms`). |
-| `password` | Опциональный пароль для подключения. |
-| `lettucePool.*` | Параметры пула соединений: лимиты активных/свободных коннектов, ожидание и завершение. |
+- `aggregate.retryAttempts` / `aggregate.retryDelayMs` — количество повторов чтения и задержка между ними для Awaitility.
+- `aggregate.maxGamblingCount` / `aggregate.maxIframeCount` — границы агрегатов, которые используют вспомогательные хелперы тестов.
+- `clients.<name>` — описание Redis-инстанса и имя создаваемого бина `redis<Имя>Client`.
+- `timeout` — таймаут операций Lettuce; поддерживаются ISO 8601 (`PT5S`) и значения с суффиксами (`5000ms`).
+- `password` — опциональный пароль для подключения.
+- `lettucePool.*` — параметры пула: лимиты активных/свободных подключений, ожидание и таймаут завершения.
 
-### Руководство по использованию
+### Сценарии использования
 
-**Проверка агрегата кошелька.**
+#### Методы fluent API
+
+- `redis<Имя>Client.key(String key)` — стартует ожидание для конкретного ключа, проверяя, что он не пустой.
+- `.with(String jsonPath, Object value)` — сравнивает значение JsonPath с ожидаемым, корректно обрабатывая числа и строки.
+- `.with(String jsonPath, Predicate<Object> predicate)` / `.with(..., String description)` — позволяет описать произвольное условие и
+  человекочитаемое описание, которое попадёт в аттач.
+- `.withAtLeast(String jsonPath, Number threshold)` — проверяет, что числовое значение не меньше порога.
+- `.within(Duration timeout)` — переопределяет таймаут только для текущего запроса; иначе используется значение из
+  `RedisAwaitilityProperties`.
+- `.fetch()` — выполняет чтение с ретраями, возвращает десериализованный DTO и формирует аттачи для Allure.
+
+Фильтры применяются одновременно: значение должно удовлетворять каждому JsonPath-условию, чтобы запрос завершился успехом.
+
+#### Комплексный пример
 
 ```java
-step("Redis(Wallet): Проверяем агрегат кошелька", () -> {
+step("Redis: Проверяем агрегат кошелька и связанный кеш", () -> {
     WalletFullData aggregate = redisWalletClient.key("wallet:aggregate:" + playerId)
             .with("$.playerId", playerId)
+            .with("$.metadata.environment", environmentCode)
             .withAtLeast("$.balances.main", BigDecimal.ZERO)
+            .with("$.limits", value -> !((Collection<?>) value).isEmpty(), "contains at least one limit")
+            .within(Duration.ofSeconds(15))
             .fetch();
 
-    assertAll("Поля агрегата кошелька",
-            () -> assertEquals(playerId, aggregate.playerId(), "then.redis.wallet.player_id"),
-            () -> assertTrue(aggregate.balances().main().compareTo(BigDecimal.ZERO) >= 0, "then.redis.wallet.balance.non_negative")
-    );
-});
-```
-
-**Чтение связанных кошельков с пользовательским таймаутом.**
-
-```java
-step("Redis(Player): Считываем список кошельков с пользовательским таймаутом", () -> {
     Map<String, WalletData> wallets = redisPlayerClient.key("player:wallets:" + playerId)
-            .with("$.metadata.environment", "beta-09")
-            .within(Duration.ofSeconds(15))
+            .with("$.entries['" + playerId + "'].currency", aggregate.balances().currency())
             .fetch();
 
     assertNotNull(wallets.get(playerId), "then.redis.player.wallet_present");
 });
 ```
 
-Метод `key` стартует билдер для конкретного ключа, `with` и `withAtLeast` проверяют значения через JsonPath, а `within` переопределяет
-таймаут. При истечении времени выбрасывается `RedisRetryExhaustedException` с подробными аттачами.
+Таймаут и фильтры можно комбинировать в любой последовательности. При истечении времени будет выброшено
+`RedisRetryExhaustedException` с подробными причинами последней попытки.
+
+### Интеграция с Allure
+
+Каждый вызов `fetch()` формирует стандартные вложения:
+
+- **Search Info** — имя бина, ключ, таймаут и полный список JsonPath-фильтров.
+- **Found Value** — форматированный JSON найденного значения.
+- **Value Not Found** — итоговая причина таймаута и фактическое время ожидания.
+- **Deserialization Error** — исходный JSON и сообщение Jackson, если десериализация провалилась.
+
+Эти аттачи упрощают анализ Redis-проверок и полностью соответствуют стилю Kafka/NATS клиентов.
 
 ---
 
