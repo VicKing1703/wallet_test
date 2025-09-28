@@ -240,17 +240,15 @@ dependencies {
 
 #### Настройки клиента
 
-| Параметр | Назначение |
-| --- | --- |
-| `hosts` | URL JetStream-кластера для подключения. |
-| `streamName` | Базовое имя стрима без окруженческого префикса. |
-| `subscriptionRetryCount` / `subscriptionRetryDelayMs` | Ретраи при создании подписки и задержка между попытками. |
-| `connectReconnectWaitSeconds` / `connectMaxReconnects` | Политика переподключений клиента к NATS. |
-| `searchTimeoutSeconds` | Таймаут ожидания сообщения по умолчанию (`within` может его переопределить). |
-| `subscriptionAckWaitSeconds` / `subscriptionInactiveThresholdSeconds` | Таймауты ack и неактивности JetStream-подписки. |
-| `subscriptionBufferSize` | Размер буфера полученных сообщений на подписку. |
-| `uniqueDuplicateWindowMs` | Окно контроля дублей при использовании `unique()`. |
-| `failOnDeserialization` | При `true` клиент завершает ожидание с ошибкой, если payload не десериализуется. |
+- `hosts` (`nats.hosts`) — список URL JetStream-кластера, к которым подключается клиент.
+- `streamName` (`nats.streamName`) — базовое имя стрима без окруженческого префикса; окружение добавляется через `natsStreamPrefix`.
+- `subscriptionRetryCount` / `subscriptionRetryDelayMs` (`nats.subscriptionRetryCount` / `nats.subscriptionRetryDelayMs`) — количество попыток создания подписки и пауза между ними.
+- `connectReconnectWaitSeconds` / `connectMaxReconnects` (`nats.connectReconnectWaitSeconds` / `nats.connectMaxReconnects`) — стратегия переподключений при потере соединения.
+- `searchTimeoutSeconds` (`nats.searchTimeoutSeconds`) — таймаут ожидания сообщения по умолчанию; метод `.within(...)` переопределяет его локально.
+- `subscriptionAckWaitSeconds` / `subscriptionInactiveThresholdSeconds` (`nats.subscriptionAckWaitSeconds` / `nats.subscriptionInactiveThresholdSeconds`) — таймауты ack и неактивности JetStream-подписки.
+- `subscriptionBufferSize` (`nats.subscriptionBufferSize`) — размер буфера сообщений на подписку в памяти клиента.
+- `uniqueDuplicateWindowMs` (`nats.uniqueDuplicateWindowMs`) — окно, в пределах которого работает контроль дублей для `.unique()`.
+- `failOnDeserialization` (`nats.failOnDeserialization`) — при значении `true` ожидание завершается ошибкой, если payload нельзя десериализовать.
 
 ## Сценарии использования
 
