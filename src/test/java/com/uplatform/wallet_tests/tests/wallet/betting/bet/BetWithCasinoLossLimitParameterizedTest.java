@@ -126,7 +126,7 @@ class BetWithCasinoLossLimitParameterizedTest extends BaseParameterizedTest {
                         .with("$.limits[0].interval_type", NatsLimitIntervalType.DAILY.getValue())
                         .with("$.limits[0].amount", ctx.kafkaLimitMessage.amount())
                         .with("$.limits[0].currency_code", ctx.kafkaLimitMessage.currencyCode())
-                        .with("$.limits[0].expires_at", 0)
+                        .with("$.limits[0].expires_at", ctx.kafkaLimitMessage.expiresAt())
                         .with("$.limits[0].status", true)
                         .fetch();
 
@@ -141,7 +141,7 @@ class BetWithCasinoLossLimitParameterizedTest extends BaseParameterizedTest {
                         () -> assertEquals(0, new BigDecimal(ctx.kafkaLimitMessage.amount()).compareTo(limit.getAmount()), "nats.limit_changed_v2_event.limit.amount"),
                         () -> assertEquals(ctx.kafkaLimitMessage.currencyCode(), limit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
                         () -> assertNotNull(limit.getStartedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
-                        () -> assertEquals(0, limit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
+                        () -> assertEquals(ctx.kafkaLimitMessage.expiresAt(), limit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                         () -> assertTrue(limit.getStatus(), "nats.limit_changed_v2_event.limit.status")
                 );
             });

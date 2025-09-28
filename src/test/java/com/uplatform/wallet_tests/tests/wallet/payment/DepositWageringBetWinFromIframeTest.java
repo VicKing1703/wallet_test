@@ -156,7 +156,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
             ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
                     .withType(NatsEventType.WON_FROM_IFRAME.getHeaderValue())
-                    .with("$.betId", ctx.betRequest.getBetId())
+                    .with("$.bet_id", ctx.betRequest.getBetId())
                     .fetch();
 
             var payload = ctx.winEvent.getPayload();

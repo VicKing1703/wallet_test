@@ -24,7 +24,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -213,13 +212,10 @@ class WinParametrizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.winRequestBody.getTransactionId().equals(payload.getUuid());
-
             ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.WON_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.winRequestBody.getTransactionId())
                     .fetch();
 
             var winRequest = ctx.winRequestBody;

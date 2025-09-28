@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -228,13 +227,10 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.rollbackRequestBody.getTransactionId().equals(payload.getUuid());
-
             ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.rollbackRequestBody.getTransactionId())
                     .fetch();
 
             assertNotNull(ctx.rollbackEvent, "nats.event.rollbacked_from_gamble");

@@ -24,7 +24,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -114,14 +113,10 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
                     ctx.player.getWalletData().playerUUID(),
                     ctx.player.getWalletData().walletUUID());
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, header) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(header) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            NatsLimitType.DEPOSIT.getValue().equals(payload.getLimits().get(0).getLimitType());
-
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.DEPOSIT.getValue())
                     .fetch();
 
             assertNotNull(ctx.limitEvent, "nats.limit_changed_v2_event.message_not_null");

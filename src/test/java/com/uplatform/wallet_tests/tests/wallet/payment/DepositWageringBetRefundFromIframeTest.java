@@ -159,7 +159,7 @@ class DepositWageringBetRefundFromIframeTest extends BaseTest {
             ctx.refundEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
                     .withType(NatsEventType.REFUNDED_FROM_IFRAME.getHeaderValue())
-                    .with("$.betId", ctx.betRequest.getBetId())
+                    .with("$.bet_id", ctx.betRequest.getBetId())
                     .fetch();
 
             var payload = ctx.refundEvent.getPayload();

@@ -25,7 +25,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -127,16 +126,11 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, header) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(header) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            NatsLimitType.DEPOSIT.getValue().equals(payload.getLimits().get(0).getLimitType()) &&
-                            payload.getLimits().get(0).getAmount() != null &&
-                            limitAmount.compareTo(payload.getLimits().get(0).getAmount()) == 0;
-
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.DEPOSIT.getValue())
+                    .with("$.limits[0].amount", limitAmount)
                     .fetch();
 
             assertNotNull(ctx.limitEvent, "nats.limit_changed_v2_event.message_not_null");
@@ -181,12 +175,9 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, header) ->
-                    NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(header);
-
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                     .fetch();
 
             assertNotNull(ctx.depositEvent, "nats.deposited_money_event.message_not_null");
