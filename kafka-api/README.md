@@ -18,9 +18,18 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
     - [Комплексный пример](#комплексный-пример)
   - [Интеграция с Allure](#интеграция-с-allure)
 - [NATS Test Client](#nats-test-client)
-  - [Основные возможности](#основные-возможности)
-  - [Конфигурация](#конфигурация)
-  - [Руководство по использованию](#руководство-по-использованию)
+  - [Архитектура и ключевые компоненты](#архитектура-и-ключевые-компоненты)
+  - [Подключение и конфигурация](#подключение-и-конфигурация-1)
+    - [Зависимость Gradle](#зависимость-gradle-1)
+    - [Файл окружения](#файл-окружения)
+    - [Настройки клиента](#настройки-клиента)
+  - [Fluent API ожиданий](#fluent-api-ожиданий)
+    - [JSONPath-фильтры](#jsonpath-фильтры)
+    - [Фильтры по метаданным](#фильтры-по-метаданным)
+    - [Ожидание уникального сообщения](#ожидание-уникального-сообщения)
+    - [Асинхронный поиск](#асинхронный-поиск)
+  - [Интеграция с Allure](#интеграция-с-allure-1)
+  - [Примеры использования](#примеры-использования-1)
 - [Redis Test Client](#redis-test-client)
   - [Основные возможности](#основные-возможности-1)
   - [Конфигурация Spring](#конфигурация-spring)
@@ -180,23 +189,33 @@ step("Kafka: Получение сообщения из топика limits.v2",
 
 ## NATS Test Client
 
-Клиент NATS из модуля `kafka-api` помогает автотестам получать события JetStream, фильтровать их и прикладывать артефакты в
-Allure.
+Клиент NATS в модуле `kafka-api` работает поверх JetStream, повторяя знакомый по Kafka и Redis подход: ожидания описываются через
+fluent API, параметры читаются из единого JSON-конфига, а результат сопровождается аттачами в Allure.
 
-### Основные возможности
+### Архитектура и ключевые компоненты
 
-- **Fluent API.** Цепочка `expect(...).from(...).with(...).unique().within(...).fetch()` позволяет гибко описывать ожидания.
-- **Асинхронное ожидание.** Клиент создаёт подписку в отдельном dispatcher'е JetStream и автоматически возобновляет её при
-  ошибках.
-- **Контроль дублей.** Метод `unique()` отслеживает повторные события в окне `uniqueDuplicateWindowMs` и добавляет Allure-аттачи
-  при нарушении.
-- **Готовые subject-builder'ы.** Вспомогательные методы, такие как `buildWalletSubject(...)`, генерируют шаблоны с учётом
-  окруженческого префикса.
+- **`NatsClient`.** Фасад, который собирает ожидание (`expect(...)`) и делегирует поиск в `NatsSubscriber`.
+- **`NatsSubscriber`.** Управляет JetStream-подпиской в отдельном dispatcher'е, применяет фильтры и следит за таймаутами.
+- **`NatsPayloadMatcher`.** Сравнивает payload по JSONPath-выражениям и метаданным сообщения.
+- **`NatsAttachmentHelper`.** Формирует единый набор аттачей: Search Info, Found Message, Duplicate Message и Message Not Found.
+- **`NatsConnectionManager`.** Настраивает подключение и кэширует `Connection`/`JetStream` на время тестового прогона.
 
-### Конфигурация
+Такое разделение повторяет паттерн Kafka-клиента, поэтому интеграция с тестами и Spring остаётся однородной.
 
-**Файл окружения.** `EnvironmentConfigurationProvider` читает JSON `configs/<env>.json` (указывается через `-Denv=...`) и
-передаёт блок `nats` в `NatsConfigProvider`:
+### Подключение и конфигурация
+
+#### Зависимость Gradle
+
+```gradle
+dependencies {
+    testImplementation project(":kafka-api")
+}
+```
+
+#### Файл окружения
+
+`EnvironmentConfigurationProvider` читает JSON `configs/<env>.json` (значение передаётся через `-Denv=...`) и прокидывает блок
+`nats` в `NatsConfigProvider`:
 
 ```json
 {
@@ -219,46 +238,84 @@ Allure.
 }
 ```
 
+Полное имя стрима формируется как `natsStreamPrefix + streamName`; хелпер `buildWalletSubject(...)` дополнительно добавляет
+окруженческий префикс и wildcard-сегмент для канала.
+
+#### Настройки клиента
+
 | Параметр | Назначение |
 | --- | --- |
 | `hosts` | URL JetStream-кластера для подключения. |
 | `streamName` | Базовое имя стрима без окруженческого префикса. |
-| `subscriptionRetryCount` / `subscriptionRetryDelayMs` | Количество попыток создать подписку и задержка между ними. |
-| `connectReconnectWaitSeconds` / `connectMaxReconnects` | Повторные подключения клиента к NATS. |
-| `searchTimeoutSeconds` | Таймаут ожидания сообщения по умолчанию. |
+| `subscriptionRetryCount` / `subscriptionRetryDelayMs` | Ретраи при создании подписки и задержка между попытками. |
+| `connectReconnectWaitSeconds` / `connectMaxReconnects` | Политика переподключений клиента к NATS. |
+| `searchTimeoutSeconds` | Таймаут ожидания сообщения по умолчанию (`within` может его переопределить). |
 | `subscriptionAckWaitSeconds` / `subscriptionInactiveThresholdSeconds` | Таймауты ack и неактивности JetStream-подписки. |
-| `subscriptionBufferSize` | Размер буфера полученных сообщений. |
+| `subscriptionBufferSize` | Размер буфера полученных сообщений на подписку. |
 | `uniqueDuplicateWindowMs` | Окно контроля дублей при использовании `unique()`. |
-| `failOnDeserialization` | Если `true`, клиент падает при ошибке десериализации payload. |
+| `failOnDeserialization` | При `true` клиент завершает ожидание с ошибкой, если payload не десериализуется. |
 
-Полное имя стрима вычисляется как `natsStreamPrefix + streamName`, где префикс берётся из имени окружения.
+### Fluent API ожиданий
 
-### Руководство по использованию
+NATS-DSL повторяет Kafka-клиент и концентрируется на двух видах фильтров: JSONPath и метаданные. Поддержка произвольных
+`BiPredicate` удалена, что делает логику поиска полностью детерминированной и прозрачной.
 
-**Поиск события по subject.**
+#### JSONPath-фильтры
+
+Метод `.with(jsonPath, expectedValue)` добавляет проверку payload. Значения сериализуются в строку, `null` и пустые строки
+игнорируются. Можно комбинировать любое количество выражений: `$.playerId`, `$.data.limit.amount`, `data.balance` и т.д.
+
+#### Фильтры по метаданным
+
+- `.withType(value)` проверяет заголовок `type` (полезно для различия событий одного DTO).
+- `.withSequence(sequence)` фиксирует порядковый номер сообщения в стриме.
+
+Фильтры объединяются по AND, поэтому сообщение должно удовлетворять всем условиям одновременно.
+
+#### Ожидание уникального сообщения
+
+- `.unique()` включает проверку дублей, используя окно `uniqueDuplicateWindowMs` из конфигурации.
+- `.unique(Duration window)` позволяет задать своё окно. Дубликаты приводят к `NatsDuplicateMessageException` и отдельному аттачу.
+
+#### Асинхронный поиск
+
+- `.fetch()` блокирует поток до завершения ожидания и бросает исключения при таймауте/ошибке.
+- `.fetchAsync()` возвращает `CompletableFuture`, что позволяет запускать действия теста параллельно с ожиданием события.
+
+Метод `.within(timeout)` доступен в любой цепочке и переопределяет таймаут только для текущего ожидания.
+
+### Интеграция с Allure
+
+Каждый поиск формирует единый набор вложений:
+
+- **Search Info** — subject, таймаут, тип DTO и полный список JSONPath/metadata-фильтров.
+- **Found Message** — форматированный payload с метаданными JetStream.
+- **Duplicate Message** — появляется при нарушении `.unique()`.
+- **Message Not Found** — содержит информацию о таймауте и применённых фильтрах.
+
+### Примеры использования
+
+#### Поиск события по subject
 
 ```java
 NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
         .from(natsClient.buildWalletSubject(playerId.toString(), walletId.toString()))
         .with("$.playerId", playerId.toString())
+        .withType("LimitCreatedEvent")
         .fetch();
 ```
 
-Метод `from` задаёт subject подписки, а `with` принимает JsonPath и ожидаемое значение payload.
-
-**Контроль уникальности события.**
+#### Контроль уникальности события
 
 ```java
 NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
         .from(subject)
+        .with("$.limitType", expectedLimitType)
         .unique(Duration.ofSeconds(5))
         .fetch();
 ```
 
-`unique(Duration)` ограничивает окно поиска дублей. Повторное событие в пределах окна вызывает `NatsDuplicateMessageException`
-и отдельный Allure-аттач.
-
-**Асинхронный сценарий.**
+#### Асинхронный сценарий
 
 ```java
 CompletableFuture<NatsMessage<WalletLimitEvent>> future = natsClient.expect(WalletLimitEvent.class)
@@ -271,7 +328,7 @@ CompletableFuture<NatsMessage<WalletLimitEvent>> future = natsClient.expect(Wall
 NatsMessage<WalletLimitEvent> message = future.join();
 ```
 
-`fetchAsync()` возвращает `CompletableFuture`, который завершится найденным сообщением или таймаутом.
+`fetchAsync()` завершится найденным сообщением или исключением `NatsMessageNotFoundException`, если условия не выполнятся вовремя.
 
 ---
 
