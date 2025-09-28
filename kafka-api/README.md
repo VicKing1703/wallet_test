@@ -23,13 +23,10 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
     - [Зависимость Gradle](#зависимость-gradle-1)
     - [Файл окружения](#файл-окружения)
     - [Настройки клиента](#настройки-клиента)
-  - [Fluent API ожиданий](#fluent-api-ожиданий)
-    - [JSONPath-фильтры](#jsonpath-фильтры)
-    - [Фильтры по метаданным](#фильтры-по-метаданным)
-    - [Ожидание уникального сообщения](#ожидание-уникального-сообщения)
-    - [Асинхронный поиск](#асинхронный-поиск)
+  - [Сценарии использования](#сценарии-использования-1)
+    - [Методы fluent API](#методы-fluent-api-1)
+    - [Комплексный пример](#комплексный-пример-1)
   - [Интеграция с Allure](#интеграция-с-allure-1)
-  - [Примеры использования](#примеры-использования-1)
 - [Redis Test Client](#redis-test-client)
   - [Основные возможности](#основные-возможности-1)
   - [Конфигурация Spring](#конфигурация-spring)
@@ -255,32 +252,45 @@ dependencies {
 | `uniqueDuplicateWindowMs` | Окно контроля дублей при использовании `unique()`. |
 | `failOnDeserialization` | При `true` клиент завершает ожидание с ошибкой, если payload не десериализуется. |
 
-### Fluent API ожиданий
+## Сценарии использования
 
-NATS-DSL повторяет Kafka-клиент и концентрируется на двух видах фильтров: JSONPath и метаданные. Поддержка произвольных
-`BiPredicate` удалена, что делает логику поиска полностью детерминированной и прозрачной.
+### Методы fluent API
 
-#### JSONPath-фильтры
+NATS-DSL полностью перешёл на JSONPath- и metadata-фильтры, повторяя подход Kafka-клиента и делая поиск сообщений детерминированным.
 
-Метод `.with(jsonPath, expectedValue)` добавляет проверку payload. Значения сериализуются в строку, `null` и пустые строки
-игнорируются. Можно комбинировать любое количество выражений: `$.playerId`, `$.data.limit.amount`, `data.balance` и т.д.
+- `natsClient.expect(Class<T>)` — стартует построение ожидания для DTO и подхватывает таймаут по умолчанию из конфигурации.
+- `.from(String subject)` — задаёт subject JetStream, с которого нужно читать события. Хелпер `buildWalletSubject(...)` помогает формировать его из идентификаторов игрока/кошелька.
+- `.with(String jsonPath, Object value)` — добавляет JSONPath-фильтр к payload. Значение сериализуется в строку; `null` и пустые строки игнорируются. Можно комбинировать выражения любой вложенности: `$.playerId`, `$.data.limit.amount`, `data.balance`.
+- `.withType(String type)` — проверяет metadata-поле `type`, удобно для разграничения событий одного DTO.
+- `.withSequence(long sequence)` — фиксирует ожидаемый порядковый номер сообщения в стриме.
+- `.unique()` — включает контроль дублей, используя окно `uniqueDuplicateWindowMs` из конфигурации.
+- `.unique(Duration window)` — задаёт собственное окно для поиска дублей; повторяющиеся сообщения приводят к `NatsDuplicateMessageException` и отдельному аттачу.
+- `.within(Duration timeout)` — переопределяет таймаут ожидания только для текущего запроса.
+- `.fetch()` — выполняет поиск сообщения, возвращает `NatsMessage<T>` и формирует аттачи даже при таймауте или ошибке.
 
-#### Фильтры по метаданным
+Все фильтры применяются одновременно, поэтому сообщение должно удовлетворять каждому условию сразу.
 
-- `.withType(value)` проверяет заголовок `type` (полезно для различия событий одного DTO).
-- `.withSequence(sequence)` фиксирует порядковый номер сообщения в стриме.
+### Комплексный пример
 
-Фильтры объединяются по AND, поэтому сообщение должно удовлетворять всем условиям одновременно.
+```java
+step("NATS: Получаем событие о создании лимита", () -> {
+    String subject = natsClient.buildWalletSubject(playerId.toString(), walletId.toString());
 
-#### Ожидание уникального сообщения
+    NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
+            .from(subject)
+            .with("$.playerId", playerId.toString())
+            .with("$.limitType", expectedLimitType)
+            .withType("LimitCreatedEvent")
+            .withSequence(expectedSequence)
+            .unique(Duration.ofSeconds(5))
+            .within(Duration.ofSeconds(30))
+            .fetch();
 
-- `.unique()` включает проверку дублей, используя окно `uniqueDuplicateWindowMs` из конфигурации.
-- `.unique(Duration window)` позволяет задать своё окно. Дубликаты приводят к `NatsDuplicateMessageException` и отдельному аттачу.
+    assertThat(message.getPayload().limitType()).isEqualTo(expectedLimitType);
+});
+```
 
-#### Завершение ожидания
-
-- `.fetch()` блокирует поток до завершения ожидания и выбрасывает исключения при таймауте или ошибке обработки.
-- `.within(Duration timeout)` переопределяет таймаут только для текущего запроса и не влияет на глобальную настройку клиента.
+Комбинируйте `.unique()` и `within(...)`, чтобы гибко управлять таймаутами и проверкой дублей.
 
 ### Интеграция с Allure
 
@@ -290,40 +300,6 @@ NATS-DSL повторяет Kafka-клиент и концентрируется
 - **Found Message** — форматированный payload с метаданными JetStream.
 - **Duplicate Message** — появляется при нарушении `.unique()`.
 - **Message Not Found** — содержит информацию о таймауте и применённых фильтрах.
-
-### Примеры использования
-
-#### Поиск события по subject
-
-```java
-NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
-        .from(natsClient.buildWalletSubject(playerId.toString(), walletId.toString()))
-        .with("$.playerId", playerId.toString())
-        .withType("LimitCreatedEvent")
-        .fetch();
-```
-
-#### Контроль уникальности события
-
-```java
-NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
-        .from(subject)
-        .with("$.limitType", expectedLimitType)
-        .unique(Duration.ofSeconds(5))
-        .fetch();
-```
-
-#### Пользовательский таймаут
-
-```java
-NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
-        .from(subject)
-        .with("$.limitType", expectedLimitType)
-        .within(Duration.ofSeconds(20))
-        .fetch();
-```
-
-Такой вызов переопределяет только текущий таймаут ожидания, не изменяя настройку `searchTimeoutSeconds`.
 
 ---
 
