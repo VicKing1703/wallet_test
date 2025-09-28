@@ -34,7 +34,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiPredicate;
 
 @Slf4j
 class NatsSubscriber {
@@ -91,19 +90,17 @@ class NatsSubscriber {
                                                            Class<T> messageType,
                                                            Map<String, Object> jsonPathFilters,
                                                            Map<String, Object> metadataFilters,
-                                                           BiPredicate<T, String> legacyFilter,
-                                                           boolean legacyFilterUsed,
                                                            Duration timeout) {
         CompletableFuture<NatsMessage<T>> future = new CompletableFuture<>();
         Duration effectiveTimeout = timeout != null ? timeout : this.searchTimeout;
         String logPrefix = String.format("NATS SEARCH ASYNC [%s -> %s]", this.streamName, subject);
 
         attachmentHelper.addSearchInfo(subject, messageType, effectiveTimeout,
-                jsonPathFilters, metadataFilters, false, null, legacyFilterUsed);
+                jsonPathFilters, metadataFilters, false, null);
 
         subscribeWithRetries(subject, future, logPrefix,
                 () -> startSubscription(subject, messageType, jsonPathFilters, metadataFilters,
-                        legacyFilter, future, logPrefix, effectiveTimeout));
+                        future, logPrefix, effectiveTimeout));
 
         return future;
     }
@@ -112,8 +109,6 @@ class NatsSubscriber {
                                                                  Class<T> messageType,
                                                                  Map<String, Object> jsonPathFilters,
                                                                  Map<String, Object> metadataFilters,
-                                                                 BiPredicate<T, String> legacyFilter,
-                                                                 boolean legacyFilterUsed,
                                                                  Duration duplicateWindow,
                                                                  Duration timeout) {
         CompletableFuture<NatsMessage<T>> future = new CompletableFuture<>();
@@ -121,11 +116,11 @@ class NatsSubscriber {
         String logPrefix = String.format("NATS SEARCH UNIQUE [%s -> %s]", this.streamName, subject);
 
         attachmentHelper.addSearchInfo(subject, messageType, effectiveTimeout,
-                jsonPathFilters, metadataFilters, true, duplicateWindow, legacyFilterUsed);
+                jsonPathFilters, metadataFilters, true, duplicateWindow);
 
         subscribeWithRetries(subject, future, logPrefix,
                 () -> startUniqueSubscription(subject, messageType, jsonPathFilters, metadataFilters,
-                        legacyFilter, future, logPrefix, duplicateWindow, effectiveTimeout));
+                        future, logPrefix, duplicateWindow, effectiveTimeout));
 
         return future;
     }
@@ -134,7 +129,6 @@ class NatsSubscriber {
                                              Class<T> messageType,
                                              Map<String, Object> jsonPathFilters,
                                              Map<String, Object> metadataFilters,
-                                             BiPredicate<T, String> legacyFilter,
                                              CompletableFuture<NatsMessage<T>> future,
                                              String logPrefix,
                                              Duration timeout) throws IOException, JetStreamApiException {
@@ -159,7 +153,7 @@ class NatsSubscriber {
 
         MessageHandler handler = msg ->
                 processIncomingMessage(msg, javaType, jsonPathFilters, metadataFilters,
-                        legacyFilter, firstMatch, strategy, logPrefix, future);
+                        firstMatch, strategy, logPrefix, future);
 
         subHolder.set(createSubscription(subject, dispatcherRef, handler));
 
@@ -171,7 +165,6 @@ class NatsSubscriber {
                                                    Class<T> messageType,
                                                    Map<String, Object> jsonPathFilters,
                                                    Map<String, Object> metadataFilters,
-                                                   BiPredicate<T, String> legacyFilter,
                                                    CompletableFuture<NatsMessage<T>> future,
                                                    String logPrefix,
                                                    Duration duplicateWindow,
@@ -208,7 +201,7 @@ class NatsSubscriber {
 
         MessageHandler handler = msg ->
                 processIncomingMessage(msg, javaType, jsonPathFilters, metadataFilters,
-                        legacyFilter, firstMatch, strategy, logPrefix, future);
+                        firstMatch, strategy, logPrefix, future);
 
         subHolder.set(createSubscription(subject, dispatcherRef, handler));
 
@@ -239,7 +232,7 @@ class NatsSubscriber {
                         logPrefix, attempt, this.subscriptionRetryCount, e.getMessage());
 
                 if (attempt == this.subscriptionRetryCount) {
-                log.error("{} | All {} subscription attempts failed for subject '{}'. Giving up.",
+                    log.error("{} | All {} subscription attempts failed for subject '{}'. Giving up.",
                             logPrefix, this.subscriptionRetryCount, subject, e);
                     future.completeExceptionally(
                             new NatsMessageNotFoundException(
@@ -285,7 +278,6 @@ class NatsSubscriber {
                                             JavaType javaType,
                                             Map<String, Object> jsonPathFilters,
                                             Map<String, Object> metadataFilters,
-                                            BiPredicate<T, String> legacyFilter,
                                             AtomicBoolean firstMatch,
                                             MatchHandlingStrategy<T> strategy,
                                             String logPrefix,
@@ -332,7 +324,7 @@ class NatsSubscriber {
 
             NatsMessage<T> result = buildNatsMessage(msg, payload, msgSeq, msgType, timestamp);
 
-            if (!matchesAll(result, jsonPathFilters, metadataFilters, legacyFilter)) {
+            if (!matchesAll(result, jsonPathFilters, metadataFilters)) {
                 safeTermOrAck(msg);
                 if (log.isDebugEnabled()) {
                     log.debug("{} | Non-match terminated: seq={}, subj={}, type={}", logPrefix, msgSeq, msg.getSubject(), msgType);
@@ -422,12 +414,9 @@ class NatsSubscriber {
 
     private <T> boolean matchesAll(NatsMessage<T> message,
                                    Map<String, Object> jsonPathFilters,
-                                   Map<String, Object> metadataFilters,
-                                   BiPredicate<T, String> legacyFilter) {
-        BiPredicate<T, String> predicate = legacyFilter != null ? legacyFilter : (p, t) -> true;
+                                   Map<String, Object> metadataFilters) {
         return matchesMetadata(message, metadataFilters)
-                && payloadMatcher.matches(message.getPayload(), jsonPathFilters)
-                && predicate.test(message.getPayload(), message.getType());
+                && payloadMatcher.matches(message.getPayload(), jsonPathFilters);
     }
 
     private boolean matchesMetadata(NatsMessage<?> message, Map<String, Object> filters) {

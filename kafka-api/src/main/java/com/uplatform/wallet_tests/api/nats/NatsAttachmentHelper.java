@@ -70,8 +70,7 @@ public class NatsAttachmentHelper {
                               Map<String, Object> payloadFilters,
                               Map<String, Object> metadataFilters,
                               boolean unique,
-                              Duration duplicateWindow,
-                              boolean legacyPredicateUsed) {
+                              Duration duplicateWindow) {
         StringBuilder builder = new StringBuilder();
         builder.append("Subject: ").append(subject).append('\n');
         builder.append("Message Type: ")
@@ -113,9 +112,6 @@ public class NatsAttachmentHelper {
         } else {
             builder.append("Payload Filters: [none]\n");
         }
-
-        builder.append("Legacy Predicate: ")
-                .append(legacyPredicateUsed ? "enabled" : "not used");
 
         try {
             attachmentService.attachText(AttachmentType.NATS, "Search Info", builder.toString());

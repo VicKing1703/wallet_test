@@ -9,7 +9,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiPredicate;
 
 public class NatsExpectationBuilder<T> {
     private final NatsClient client;
@@ -18,8 +17,6 @@ public class NatsExpectationBuilder<T> {
     private String subject;
     private final Map<String, Object> jsonPathFilters = new LinkedHashMap<>();
     private final Map<String, Object> metadataFilters = new LinkedHashMap<>();
-    private BiPredicate<T, String> legacyFilter = (p, t) -> true;
-    private boolean legacyFilterUsed = false;
     private boolean unique = false;
     private Duration timeout;
     private Duration duplicateWindow;
@@ -32,18 +29,6 @@ public class NatsExpectationBuilder<T> {
 
     public NatsExpectationBuilder<T> from(String subject) {
         this.subject = subject;
-        return this;
-    }
-
-    @Deprecated
-    public NatsExpectationBuilder<T> with(BiPredicate<T, String> filter) {
-        if (filter == null) {
-            this.legacyFilter = (p, t) -> true;
-            this.legacyFilterUsed = false;
-        } else {
-            this.legacyFilter = filter;
-            this.legacyFilterUsed = true;
-        }
         return this;
     }
 
@@ -101,8 +86,6 @@ public class NatsExpectationBuilder<T> {
                     messageType,
                     payloadFilters,
                     metaFilters,
-                    legacyFilter,
-                    legacyFilterUsed,
                     window,
                     searchTimeout
             );
@@ -113,8 +96,6 @@ public class NatsExpectationBuilder<T> {
                 messageType,
                 payloadFilters,
                 metaFilters,
-                legacyFilter,
-                legacyFilterUsed,
                 searchTimeout
         );
     }
