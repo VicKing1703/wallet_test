@@ -18,14 +18,25 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
     - [Комплексный пример](#комплексный-пример)
   - [Интеграция с Allure](#интеграция-с-allure)
 - [NATS Test Client](#nats-test-client)
-  - [Основные возможности](#основные-возможности)
-  - [Конфигурация](#конфигурация)
-  - [Руководство по использованию](#руководство-по-использованию)
+  - [Архитектура и ключевые компоненты](#архитектура-и-ключевые-компоненты)
+  - [Подключение и конфигурация](#подключение-и-конфигурация-1)
+    - [Зависимость Gradle](#зависимость-gradle-1)
+    - [Файл окружения](#файл-окружения)
+    - [Настройки клиента](#настройки-клиента)
+  - [Сценарии использования](#сценарии-использования-1)
+    - [Методы fluent API](#методы-fluent-api-1)
+    - [Комплексный пример](#комплексный-пример-1)
+  - [Интеграция с Allure](#интеграция-с-allure-1)
 - [Redis Test Client](#redis-test-client)
-  - [Основные возможности](#основные-возможности-1)
-  - [Конфигурация Spring](#конфигурация-spring)
-  - [Конфигурация приложения](#конфигурация-приложения)
-  - [Руководство по использованию](#руководство-по-использованию-1)
+  - [Архитектура и ключевые компоненты](#архитектура-и-ключевые-компоненты-1)
+  - [Подключение и конфигурация](#подключение-и-конфигурация-2)
+    - [Зависимость Gradle](#зависимость-gradle-2)
+    - [Spring-конфигурация типов](#spring-конфигурация-типов)
+    - [Настройки клиента](#настройки-клиента-1)
+  - [Сценарии использования](#сценарии-использования-2)
+    - [Методы fluent API](#методы-fluent-api-2)
+    - [Комплексный пример](#комплексный-пример-2)
+  - [Интеграция с Allure](#интеграция-с-allure-2)
 - [Материалы для визуализаций](#материалы-для-визуализаций)
 
 ## Архитектура
@@ -180,23 +191,33 @@ step("Kafka: Получение сообщения из топика limits.v2",
 
 ## NATS Test Client
 
-Клиент NATS из модуля `kafka-api` помогает автотестам получать события JetStream, фильтровать их и прикладывать артефакты в
-Allure.
+Клиент NATS в модуле `kafka-api` работает поверх JetStream, повторяя знакомый по Kafka и Redis подход: ожидания описываются через
+fluent API, параметры читаются из единого JSON-конфига, а результат сопровождается аттачами в Allure.
 
-### Основные возможности
+### Архитектура и ключевые компоненты
 
-- **Fluent API.** Цепочка `expect(...).from(...).with(...).unique().within(...).fetch()` позволяет гибко описывать ожидания.
-- **Асинхронное ожидание.** Клиент создаёт подписку в отдельном dispatcher'е JetStream и автоматически возобновляет её при
-  ошибках.
-- **Контроль дублей.** Метод `unique()` отслеживает повторные события в окне `uniqueDuplicateWindowMs` и добавляет Allure-аттачи
-  при нарушении.
-- **Готовые subject-builder'ы.** Вспомогательные методы, такие как `buildWalletSubject(...)`, генерируют шаблоны с учётом
-  окруженческого префикса.
+- **`NatsClient`.** Фасад, который собирает ожидание (`expect(...)`) и делегирует поиск в `NatsSubscriber`.
+- **`NatsSubscriber`.** Управляет JetStream-подпиской в отдельном dispatcher'е, применяет фильтры и следит за таймаутами.
+- **`NatsPayloadMatcher`.** Сравнивает payload по JSONPath-выражениям и метаданным сообщения.
+- **`NatsAttachmentHelper`.** Формирует единый набор аттачей: Search Info, Found Message, Duplicate Message и Message Not Found.
+- **`NatsConnectionManager`.** Настраивает подключение и кэширует `Connection`/`JetStream` на время тестового прогона.
 
-### Конфигурация
+Такое разделение повторяет паттерн Kafka-клиента, поэтому интеграция с тестами и Spring остаётся однородной.
 
-**Файл окружения.** `EnvironmentConfigurationProvider` читает JSON `configs/<env>.json` (указывается через `-Denv=...`) и
-передаёт блок `nats` в `NatsConfigProvider`:
+### Подключение и конфигурация
+
+#### Зависимость Gradle
+
+```gradle
+dependencies {
+    testImplementation project(":kafka-api")
+}
+```
+
+#### Файл окружения
+
+`EnvironmentConfigurationProvider` читает JSON `configs/<env>.json` (значение передаётся через `-Denv=...`) и прокидывает блок
+`nats` в `NatsConfigProvider`:
 
 ```json
 {
@@ -219,77 +240,101 @@ Allure.
 }
 ```
 
-| Параметр | Назначение |
-| --- | --- |
-| `hosts` | URL JetStream-кластера для подключения. |
-| `streamName` | Базовое имя стрима без окруженческого префикса. |
-| `subscriptionRetryCount` / `subscriptionRetryDelayMs` | Количество попыток создать подписку и задержка между ними. |
-| `connectReconnectWaitSeconds` / `connectMaxReconnects` | Повторные подключения клиента к NATS. |
-| `searchTimeoutSeconds` | Таймаут ожидания сообщения по умолчанию. |
-| `subscriptionAckWaitSeconds` / `subscriptionInactiveThresholdSeconds` | Таймауты ack и неактивности JetStream-подписки. |
-| `subscriptionBufferSize` | Размер буфера полученных сообщений. |
-| `uniqueDuplicateWindowMs` | Окно контроля дублей при использовании `unique()`. |
-| `failOnDeserialization` | Если `true`, клиент падает при ошибке десериализации payload. |
+Полное имя стрима формируется как `natsStreamPrefix + streamName`; хелпер `buildWalletSubject(...)` дополнительно добавляет
+окруженческий префикс и wildcard-сегмент для канала.
 
-Полное имя стрима вычисляется как `natsStreamPrefix + streamName`, где префикс берётся из имени окружения.
+#### Настройки клиента
 
-### Руководство по использованию
+- `hosts` (`nats.hosts`) — список URL JetStream-кластера, к которым подключается клиент.
+- `streamName` (`nats.streamName`) — базовое имя стрима без окруженческого префикса; окружение добавляется через `natsStreamPrefix`.
+- `subscriptionRetryCount` / `subscriptionRetryDelayMs` (`nats.subscriptionRetryCount` / `nats.subscriptionRetryDelayMs`) — количество попыток создания подписки и пауза между ними.
+- `connectReconnectWaitSeconds` / `connectMaxReconnects` (`nats.connectReconnectWaitSeconds` / `nats.connectMaxReconnects`) — стратегия переподключений при потере соединения.
+- `searchTimeoutSeconds` (`nats.searchTimeoutSeconds`) — таймаут ожидания сообщения по умолчанию; метод `.within(...)` переопределяет его локально.
+- `subscriptionAckWaitSeconds` / `subscriptionInactiveThresholdSeconds` (`nats.subscriptionAckWaitSeconds` / `nats.subscriptionInactiveThresholdSeconds`) — таймауты ack и неактивности JetStream-подписки.
+- `subscriptionBufferSize` (`nats.subscriptionBufferSize`) — размер буфера сообщений на подписку в памяти клиента.
+- `uniqueDuplicateWindowMs` (`nats.uniqueDuplicateWindowMs`) — окно, в пределах которого работает контроль дублей для `.unique()`.
+- `failOnDeserialization` (`nats.failOnDeserialization`) — при значении `true` ожидание завершается ошибкой, если payload нельзя десериализовать.
 
-**Поиск события по subject.**
+## Сценарии использования
 
-```java
-NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
-        .from(natsClient.buildWalletSubject(playerId.toString(), walletId.toString()))
-        .with("$.playerId", playerId.toString())
-        .fetch();
-```
+### Методы fluent API
 
-Метод `from` задаёт subject подписки, а `with` принимает JsonPath и ожидаемое значение payload.
+NATS-DSL полностью перешёл на JSONPath- и metadata-фильтры, повторяя подход Kafka-клиента и делая поиск сообщений детерминированным.
 
-**Контроль уникальности события.**
+- `natsClient.expect(Class<T>)` — стартует построение ожидания для DTO и подхватывает таймаут по умолчанию из конфигурации.
+- `.from(String subject)` — задаёт subject JetStream, с которого нужно читать события. Хелпер `buildWalletSubject(...)` помогает формировать его из идентификаторов игрока/кошелька.
+- `.with(String jsonPath, Object value)` — добавляет JSONPath-фильтр к payload. Значение сериализуется в строку; `null` и пустые строки игнорируются. Можно комбинировать выражения любой вложенности: `$.playerId`, `$.data.limit.amount`, `data.balance`.
+- `.withType(String type)` — проверяет metadata-поле `type`, удобно для разграничения событий одного DTO.
+- `.withSequence(long sequence)` — фиксирует ожидаемый порядковый номер сообщения в стриме.
+- `.unique()` — включает контроль дублей, используя окно `uniqueDuplicateWindowMs` из конфигурации.
+- `.unique(Duration window)` — задаёт собственное окно для поиска дублей; повторяющиеся сообщения приводят к `NatsDuplicateMessageException` и отдельному аттачу.
+- `.within(Duration timeout)` — переопределяет таймаут ожидания только для текущего запроса.
+- `.fetch()` — выполняет поиск сообщения, возвращает `NatsMessage<T>` и формирует аттачи даже при таймауте или ошибке.
 
-```java
-NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
-        .from(subject)
-        .unique(Duration.ofSeconds(5))
-        .fetch();
-```
+Все фильтры применяются одновременно, поэтому сообщение должно удовлетворять каждому условию сразу.
 
-`unique(Duration)` ограничивает окно поиска дублей. Повторное событие в пределах окна вызывает `NatsDuplicateMessageException`
-и отдельный Allure-аттач.
-
-**Асинхронный сценарий.**
+### Комплексный пример
 
 ```java
-CompletableFuture<NatsMessage<WalletLimitEvent>> future = natsClient.expect(WalletLimitEvent.class)
-        .from(subject)
-        .within(Duration.ofSeconds(20))
-        .fetchAsync();
+step("NATS: Получаем событие о создании лимита", () -> {
+    String subject = natsClient.buildWalletSubject(playerId.toString(), walletId.toString());
 
-// ... действия теста ...
+    NatsMessage<WalletLimitEvent> message = natsClient.expect(WalletLimitEvent.class)
+            .from(subject)
+            .with("$.playerId", playerId.toString())
+            .with("$.limitType", expectedLimitType)
+            .withType("LimitCreatedEvent")
+            .withSequence(expectedSequence)
+            .unique(Duration.ofSeconds(5))
+            .within(Duration.ofSeconds(30))
+            .fetch();
 
-NatsMessage<WalletLimitEvent> message = future.join();
+    assertThat(message.getPayload().limitType()).isEqualTo(expectedLimitType);
+});
 ```
 
-`fetchAsync()` возвращает `CompletableFuture`, который завершится найденным сообщением или таймаутом.
+Комбинируйте `.unique()` и `within(...)`, чтобы гибко управлять таймаутами и проверкой дублей.
+
+### Интеграция с Allure
+
+Каждый поиск формирует единый набор вложений:
+
+- **Search Info** — subject, таймаут, тип DTO и полный список JSONPath/metadata-фильтров.
+- **Found Message** — форматированный payload с метаданными JetStream.
+- **Duplicate Message** — появляется при нарушении `.unique()`.
+- **Message Not Found** — содержит информацию о таймауте и применённых фильтрах.
 
 ---
 
 ## Redis Test Client
 
-Redis-клиент из `kafka-api` помогает автотестам проверять JSON-структуры в Redis с поддержкой JsonPath-фильтров и Allure-аттачей.
+Redis-клиент из `kafka-api` повторяет знакомую структуру Kafka- и NATS-модулей: fluent DSL описывает ожидание значения по ключу,
+конфигурация хранится во внешних JSON/YAML файлах, а результат сопровождён информативными аттачами в Allure.
 
-### Основные возможности
+### Архитектура и ключевые компоненты
 
-- **Fluent API.** Цепочка `key(...).with(...).withAtLeast(...).within(...).fetch()` знакома по Kafka-клиенту.
-- **JsonPath-фильтры.** Проверяют значения любой глубины вложенности.
-- **Гибкий ретрай.** Интервалы и количество попыток управляются в конфигурации `redis.aggregate`.
-- **Типобезопасные DTO.** Ответ десериализуется в типы, зарегистрированные в `RedisTypeMappingRegistry`.
-- **Allure-интеграция.** Каждый вызов сопровождается информативными вложениями.
+- **`GenericRedisClient`.** Точечный бин для каждого инстанса, разворачиваемого из конфигурации. Инициализирует билдер ожидания через
+  `.key(...)` и прокидывает типы/зависимости.
+- **`RedisExpectationBuilder`.** Fluent API, который применяет JsonPath-фильтры, управляет таймаутом и формирует отчёт об успешном
+  чтении или таймауте.
+- **`RedisTypeMappingRegistry`.** Реестр `TypeReference`, связывающий логические имена клиентов (`wallet`, `player`) с DTO для
+  десериализации ответа.
+- **`RedisAwaitilityProperties`.** Настройки повторных попыток (`retryAttempts`, `retryDelay`) и таймаутов, используемые по
+  умолчанию билдером.
 
-### Конфигурация Spring
+### Подключение и конфигурация
 
-Опишите бин `RedisTypeMappingRegistry`, который связывает имена клиентов с `TypeReference` нужного DTO:
+#### Зависимость Gradle
+
+```gradle
+dependencies {
+    testImplementation project(":kafka-api")
+}
+```
+
+#### Spring-конфигурация типов
+
+Опишите бин `RedisTypeMappingRegistry`, чтобы модули тестов получили типобезопасный доступ к значениям:
 
 ```java
 @Configuration
@@ -304,11 +349,12 @@ public class RedisConfig {
 }
 ```
 
-Каждый клиент из конфигурации разворачивается в бин `redis<Имя>Client`. Например, `clients.wallet` создаёт `redisWalletClient`.
+Каждый блок `clients.<name>` из конфигурации разворачивается в бин `redis<Имя>Client`, поэтому `clients.wallet` создаёт
+`redisWalletClient`, а `clients.player` — `redisPlayerClient`.
 
-### Конфигурация приложения
+#### Настройки клиента
 
-Блок `redis` в `application.yml` или окруженческом JSON содержит настройки ретраев и подключений:
+Блок `redis` в `application.yml` или `configs/<env>.json` управляет ретраями, подключениями и пулами Lettuce:
 
 ```yaml
 redis:
@@ -337,48 +383,61 @@ redis:
       timeout: 5s
 ```
 
-| Параметр | Назначение |
-| --- | --- |
-| `aggregate.retryAttempts` / `aggregate.retryDelayMs` | Количество повторов чтения и пауза между ними. |
-| `aggregate.maxGamblingCount` / `aggregate.maxIframeCount` | Границы агрегатов, используемые тестами. |
-| `clients.<name>` | Подключение к конкретному Redis-инстансу и имя создаваемого бина `redis<Имя>Client`. |
-| `timeout` | Таймаут операций Lettuce (поддерживаются ISO 8601 и единицы с суффиксом `ms`). |
-| `password` | Опциональный пароль для подключения. |
-| `lettucePool.*` | Параметры пула соединений: лимиты активных/свободных коннектов, ожидание и завершение. |
+- `aggregate.retryAttempts` / `aggregate.retryDelayMs` — количество повторов чтения и задержка между ними для Awaitility.
+- `aggregate.maxGamblingCount` / `aggregate.maxIframeCount` — границы агрегатов, которые используют вспомогательные хелперы тестов.
+- `clients.<name>` — описание Redis-инстанса и имя создаваемого бина `redis<Имя>Client`.
+- `timeout` — таймаут операций Lettuce; поддерживаются ISO 8601 (`PT5S`) и значения с суффиксами (`5000ms`).
+- `password` — опциональный пароль для подключения.
+- `lettucePool.*` — параметры пула: лимиты активных/свободных подключений, ожидание и таймаут завершения.
 
-### Руководство по использованию
+### Сценарии использования
 
-**Проверка агрегата кошелька.**
+#### Методы fluent API
+
+- `redis<Имя>Client.key(String key)` — стартует ожидание для конкретного ключа, проверяя, что он не пустой.
+- `.with(String jsonPath, Object value)` — сравнивает значение JsonPath с ожидаемым, корректно обрабатывая числа и строки.
+- `.with(String jsonPath, Predicate<Object> predicate)` / `.with(..., String description)` — позволяет описать произвольное условие и
+  человекочитаемое описание, которое попадёт в аттач.
+- `.withAtLeast(String jsonPath, Number threshold)` — проверяет, что числовое значение не меньше порога.
+- `.within(Duration timeout)` — переопределяет таймаут только для текущего запроса; иначе используется значение из
+  `RedisAwaitilityProperties`.
+- `.fetch()` — выполняет чтение с ретраями, возвращает десериализованный DTO и формирует аттачи для Allure.
+
+Фильтры применяются одновременно: значение должно удовлетворять каждому JsonPath-условию, чтобы запрос завершился успехом.
+
+#### Комплексный пример
 
 ```java
-step("Redis(Wallet): Проверяем агрегат кошелька", () -> {
+step("Redis: Проверяем агрегат кошелька и связанный кеш", () -> {
     WalletFullData aggregate = redisWalletClient.key("wallet:aggregate:" + playerId)
             .with("$.playerId", playerId)
+            .with("$.metadata.environment", environmentCode)
             .withAtLeast("$.balances.main", BigDecimal.ZERO)
+            .with("$.limits", value -> !((Collection<?>) value).isEmpty(), "contains at least one limit")
+            .within(Duration.ofSeconds(15))
             .fetch();
 
-    assertAll("Поля агрегата кошелька",
-            () -> assertEquals(playerId, aggregate.playerId(), "then.redis.wallet.player_id"),
-            () -> assertTrue(aggregate.balances().main().compareTo(BigDecimal.ZERO) >= 0, "then.redis.wallet.balance.non_negative")
-    );
-});
-```
-
-**Чтение связанных кошельков с пользовательским таймаутом.**
-
-```java
-step("Redis(Player): Считываем список кошельков с пользовательским таймаутом", () -> {
     Map<String, WalletData> wallets = redisPlayerClient.key("player:wallets:" + playerId)
-            .with("$.metadata.environment", "beta-09")
-            .within(Duration.ofSeconds(15))
+            .with("$.entries['" + playerId + "'].currency", aggregate.balances().currency())
             .fetch();
 
     assertNotNull(wallets.get(playerId), "then.redis.player.wallet_present");
 });
 ```
 
-Метод `key` стартует билдер для конкретного ключа, `with` и `withAtLeast` проверяют значения через JsonPath, а `within` переопределяет
-таймаут. При истечении времени выбрасывается `RedisRetryExhaustedException` с подробными аттачами.
+Таймаут и фильтры можно комбинировать в любой последовательности. При истечении времени будет выброшено
+`RedisRetryExhaustedException` с подробными причинами последней попытки.
+
+### Интеграция с Allure
+
+Каждый вызов `fetch()` формирует стандартные вложения:
+
+- **Search Info** — имя бина, ключ, таймаут и полный список JsonPath-фильтров.
+- **Found Value** — форматированный JSON найденного значения.
+- **Value Not Found** — итоговая причина таймаута и фактическое время ожидания.
+- **Deserialization Error** — исходный JSON и сообщение Jackson, если десериализация провалилась.
+
+Эти аттачи упрощают анализ Redis-проверок и полностью соответствуют стилю Kafka/NATS клиентов.
 
 ---
 
