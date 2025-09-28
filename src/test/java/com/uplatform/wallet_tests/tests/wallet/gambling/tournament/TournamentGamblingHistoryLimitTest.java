@@ -18,7 +18,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
@@ -143,13 +142,10 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.lastTransactionId.equals(payload.getUuid());
-
             ctx.lastTournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.lastTransactionId)
                     .fetch();
 
             assertNotNull(ctx.lastTournamentEvent, "nats.tournament_won_from_gamble");

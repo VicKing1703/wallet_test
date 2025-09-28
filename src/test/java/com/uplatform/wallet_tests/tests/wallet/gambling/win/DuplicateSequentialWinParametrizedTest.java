@@ -22,7 +22,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -144,13 +143,10 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.firstWinRequest.getTransactionId().equals(payload.getUuid());
-
             ctx.firstWinNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.WON_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.firstWinRequest.getTransactionId())
                     .fetch();
 
             assertNotNull(ctx.firstWinNatsEvent, "nats.won_from_gamble");

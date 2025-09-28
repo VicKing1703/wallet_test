@@ -20,7 +20,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -157,13 +156,10 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.lastTransactionId.equals(payload.getUuid());
-
             ctx.lastBetEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.lastTransactionId)
                     .fetch();
 
             assertNotNull(ctx.lastBetEvent, "nats.betted_from_gamble");

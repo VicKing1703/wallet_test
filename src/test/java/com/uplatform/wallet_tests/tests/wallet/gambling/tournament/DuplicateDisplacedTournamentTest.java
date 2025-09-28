@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 
 import static io.qameta.allure.Allure.step;
@@ -128,13 +127,10 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.lastMadeTournamentTransactionId.equals(payload.getUuid());
-
             ctx.lastTournamentNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.lastMadeTournamentTransactionId)
                     .fetch();
 
             assertNotNull(ctx.lastTournamentNatsEvent, "nats.tournament_won_from_gamble_event");

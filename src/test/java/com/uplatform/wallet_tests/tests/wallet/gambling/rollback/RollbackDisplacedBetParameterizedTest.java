@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -188,13 +187,10 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, natsTypeHeader) ->
-                    NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(natsTypeHeader) &&
-                            ctx.lastMadeBetTransactionId.equals(payload.getUuid());
-
             ctx.lastBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.lastMadeBetTransactionId)
                     .fetch();
 
             assertNotNull(ctx.lastBetNatsEvent, "nats.betted_from_gamble");

@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -143,13 +142,10 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.lastMadeWinTransactionId.equals(payload.getUuid());
-
             ctx.lastWinNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.WON_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.lastMadeWinTransactionId)
                     .fetch();
 
             assertNotNull(ctx.lastWinNatsEvent, "nats.win_event");

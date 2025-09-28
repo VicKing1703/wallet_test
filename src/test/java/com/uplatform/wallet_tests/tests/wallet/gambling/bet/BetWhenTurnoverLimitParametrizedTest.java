@@ -25,7 +25,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -100,12 +99,9 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
                     registeredPlayer.getWalletData().playerUUID(),
                     registeredPlayer.getWalletData().walletUUID());
 
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
-
             var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .with(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
                     .fetch();
 
             assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
