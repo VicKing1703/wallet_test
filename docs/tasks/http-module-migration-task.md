@@ -10,8 +10,8 @@
   - [ ] Добавить необходимые зависимости (`spring-cloud-starter-openfeign`, `feign-okhttp`, `spring-boot-starter-web`, `okhttp3`, при необходимости AOP) в `kafka-api/build.gradle`.
   - [ ] Создать пакеты `api/http/config` и `api/http/exceptions`.
 - [ ] Перенести инфраструктуру HTTP:
-  - [ ] Переместить `AllureFeignLogger`, `AllureFeignLoggerConfig`, вспомогательные конфигурации и исключения в новый пакет модуля `kafka-api`.
-  - [ ] Обновить импорты и модификаторы доступа, убедиться в отсутствии зависимостей от тестовых DTO/клиентов.
+  - [ ] Переместить в `kafka-api` общие конфигурации, свойства и исключения, необходимые для HTTP.
+  - [ ] Оставить `AllureFeignLogger` и сопутствующие конфигурации в тестовом модуле, подключив их через точки расширения `kafka-api`.
 - [ ] Добавить автоконфигурацию:
   - [ ] Реализовать `HttpApiAutoConfiguration` c условными бин-провайдерами (`@ConditionalOnClass`, `@ConditionalOnMissingBean`).
   - [ ] Зарегистрировать автоконфигурацию в `META-INF/spring.factories`.

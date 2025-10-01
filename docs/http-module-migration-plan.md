@@ -7,7 +7,7 @@
 
 ## 2. Обзор текущего состояния
 - HTTP-конфигурация и логгер находятся в `src/test/java/com/uplatform/wallet_tests/api/http/config` вместе с исключениями (`exceptions`).
-- `AllureFeignLoggerConfig` и `AllureFeignLogger` используют `AllureAttachmentService`, который уже живёт в `kafka-api` и экспортируется в виде бина.
+- `AllureFeignLoggerConfig` и `AllureFeignLogger` используют `AllureAttachmentService`, поэтому важно оставить их в тестовом модуле как частный случай отчётности.
 - Автоконфигурации `kafka-api` перечислены в `META-INF/spring.factories`, сейчас там только `RedisApiAutoConfiguration`.
 - Конфигурационные классы `EnvironmentConfigurationProvider`, `DynamicPropertiesConfigurator`, `ApiConfig` и др. расположены в `kafka-api` и уже публикуют настройки HTTP в виде свойств `app.api.*`.
 
@@ -23,7 +23,7 @@
 
 ## 4. Целевое состояние
 - В `kafka-api` появляется пакет `com.uplatform.wallet_tests.api.http` c подпакетами `config` и `exceptions`.
-- Добавлена автоконфигурация `HttpApiAutoConfiguration`, регистрирующая бин `Feign.Builder`, `Request.Options`, `AllureFeignLogger`, алиасы свойств и т.д.
+- Добавлена автоконфигурация `HttpApiAutoConfiguration`, регистрирующая общие бины (`Feign.Builder`, `Request.Options`, таймауты и т.д.) и предоставляющая точки расширения под тестовые кастомизации.
 - В `META-INF/spring.factories` перечислены `RedisApiAutoConfiguration` и новая `HttpApiAutoConfiguration`.
 - Тестовый модуль подключает инфраструктуру из `kafka-api`, сохраняя свои Feign-клиенты и DTO.
 - В JSON-конфигурации используется новая структура `http.services.*`, но `DynamicPropertiesConfigurator` продолжает публиковать `app.api.*` для обратной совместимости.
@@ -35,9 +35,8 @@
    - Создать пакеты `api/http/config` и `api/http/exceptions` в `kafka-api`.
 
 2. **Перенести инфраструктурные классы**
-   - Переместить `AllureFeignLogger`, `AllureFeignLoggerConfig`, `FeignClientConfiguration` (если есть), исключения (`FeignClientException`, `FeignResponseValidationException` и т.д.) в `kafka-api`.
-   - Обновить пакеты/импорты, скорректировать модификаторы доступа (должны быть `public`).
-   - Привязать все классы к уже существующему `AllureAttachmentService` из `kafka-api`.
+   - Переместить в `kafka-api` только общие части (`HttpApiAutoConfiguration`, `HttpModuleProperties`, исключения и т.д.).
+   - Оставить `AllureFeignLogger` и `AllureFeignLoggerConfig` в тестовом модуле, но предоставить им точку подключения (бин `httpApiLogger`) через автоконфигурацию модуля.
 
 3. **Настроить автоконфигурацию**
    - Создать класс `HttpApiAutoConfiguration` с аннотацией `@Configuration` и условием `@ConditionalOnClass(Feign.class)`.

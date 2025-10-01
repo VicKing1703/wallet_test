@@ -1,6 +1,5 @@
 package com.uplatform.wallet_tests.api.http.config;
 
-import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
 import feign.Client;
 import feign.Logger;
@@ -10,6 +9,7 @@ import okhttp3.ConnectionPool;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.openfeign.FeignBuilderCustomizer;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -41,12 +41,18 @@ public class HttpApiAutoConfiguration {
         return new OkHttpClient(okHttpClient);
     }
 
-    @Bean
-    @ConditionalOnMissingBean
-    public FeignBuilderCustomizer allureFeignLoggerCustomizer(Logger.Level feignLoggerLevel,
-                                                              AllureAttachmentService attachmentService) {
+    @Bean(name = "httpApiLogger")
+    @ConditionalOnMissingBean(name = "httpApiLogger")
+    public Logger httpApiLogger() {
+        return new Logger.ErrorLogger();
+    }
+
+    @Bean(name = "httpApiFeignCustomizer")
+    @ConditionalOnMissingBean(name = "httpApiFeignCustomizer")
+    public FeignBuilderCustomizer httpApiFeignCustomizer(@Qualifier("httpApiLogger") Logger logger,
+                                                         Logger.Level feignLoggerLevel) {
         return builder -> builder
-                .logger(new AllureFeignLogger(attachmentService))
+                .logger(logger)
                 .logLevel(feignLoggerLevel);
     }
 
