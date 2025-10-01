@@ -4,7 +4,7 @@
     "defaults": {
       "baseUrl": "https://beta-09.b2bdev.pro",
       "concurrency": {
-        "requestTimeoutMs": 1000,
+        "requestTimeoutMs": 5000,
         "defaultRequestCount": 2
       }
     },
