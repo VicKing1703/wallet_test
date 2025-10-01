@@ -1,5 +1,10 @@
 package com.uplatform.wallet_tests.config;
 
+import com.uplatform.wallet_tests.api.http.config.HttpConcurrencyProperties;
+import com.uplatform.wallet_tests.api.http.config.HttpDefaultsProperties;
+import com.uplatform.wallet_tests.api.http.config.HttpModuleProperties;
+import com.uplatform.wallet_tests.api.http.config.HttpServiceProperties;
+import com.uplatform.wallet_tests.api.http.config.HttpServiceCredentials;
 import com.uplatform.wallet_tests.api.redis.config.RedisInstanceProperties;
 import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
 import org.springframework.context.ApplicationContextInitializer;
@@ -27,21 +32,75 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
 
         List<String> properties = new ArrayList<>();
 
-        if (config.getApi() != null) {
-            properties.add("app.api.fapi.base-url=" + config.getApi().getBaseUrl());
-            properties.add("app.api.cap.base-url=https://cap." + config.getApi().getBaseUrl().replace("https://", ""));
-            properties.add("app.api.manager.base-url=" + config.getApi().getBaseUrl());
-            if (config.getApi().getCapCredentials() != null) {
-                properties.add("app.api.cap.credentials.username=" + config.getApi().getCapCredentials().getUsername());
-                properties.add("app.api.cap.credentials.password=" + config.getApi().getCapCredentials().getPassword());
+        HttpModuleProperties httpConfig = config.getHttp();
+        if (httpConfig != null) {
+            HttpDefaultsProperties defaults = httpConfig.getDefaults();
+            HttpConcurrencyProperties concurrency = defaults != null ? defaults.getConcurrency() : null;
+
+            if (concurrency != null) {
+                if (concurrency.getRequestTimeoutMs() != null) {
+                    properties.add("app.http.defaults.concurrency.request-timeout-ms=" + concurrency.getRequestTimeoutMs());
+                    properties.add("app.api.concurrency.request-timeout-ms=" + concurrency.getRequestTimeoutMs());
+                }
+                if (concurrency.getDefaultRequestCount() != null) {
+                    properties.add("app.http.defaults.concurrency.default-request-count=" + concurrency.getDefaultRequestCount());
+                    properties.add("app.api.concurrency.default-request-count=" + concurrency.getDefaultRequestCount());
+                }
             }
-            if (config.getApi().getManager() != null) {
-                properties.add("app.api.manager.secret=" + config.getApi().getManager().getSecret());
-                properties.add("app.api.manager.casino-id=" + config.getApi().getManager().getCasinoId());
+
+            if (defaults != null && defaults.getBaseUrl() != null) {
+                properties.add("app.http.defaults.base-url=" + defaults.getBaseUrl());
             }
-            if (config.getApi().getConcurrency() != null) {
-                properties.add("app.api.concurrency.request-timeout-ms=" + config.getApi().getConcurrency().getRequestTimeoutMs());
-                properties.add("app.api.concurrency.default-request-count=" + config.getApi().getConcurrency().getDefaultRequestCount());
+
+            if (httpConfig.getServices() != null) {
+                httpConfig.getServices().forEach((serviceId, serviceProperties) -> {
+                    if (serviceProperties == null) {
+                        return;
+                    }
+                    String prefix = "app.http.services." + serviceId + ".";
+                    if (serviceProperties.getBaseUrl() != null) {
+                        properties.add(prefix + "base-url=" + serviceProperties.getBaseUrl());
+                        if ("fapi".equals(serviceId)) {
+                            properties.add("app.api.fapi.base-url=" + serviceProperties.getBaseUrl());
+                        }
+                        if ("manager".equals(serviceId)) {
+                            properties.add("app.api.manager.base-url=" + serviceProperties.getBaseUrl());
+                        }
+                        if ("cap".equals(serviceId)) {
+                            properties.add("app.api.cap.base-url=" + serviceProperties.getBaseUrl());
+                        }
+                    }
+
+                    HttpServiceCredentials credentials = serviceProperties.getCredentials();
+                    if (credentials != null) {
+                        if (credentials.getUsername() != null) {
+                            properties.add(prefix + "credentials.username=" + credentials.getUsername());
+                            if ("cap".equals(serviceId)) {
+                                properties.add("app.api.cap.credentials.username=" + credentials.getUsername());
+                            }
+                        }
+                        if (credentials.getPassword() != null) {
+                            properties.add(prefix + "credentials.password=" + credentials.getPassword());
+                            if ("cap".equals(serviceId)) {
+                                properties.add("app.api.cap.credentials.password=" + credentials.getPassword());
+                            }
+                        }
+                    }
+
+                    if (serviceProperties.getSecret() != null) {
+                        properties.add(prefix + "secret=" + serviceProperties.getSecret());
+                        if ("manager".equals(serviceId)) {
+                            properties.add("app.api.manager.secret=" + serviceProperties.getSecret());
+                        }
+                    }
+
+                    if (serviceProperties.getCasinoId() != null) {
+                        properties.add(prefix + "casino-id=" + serviceProperties.getCasinoId());
+                        if ("manager".equals(serviceId)) {
+                            properties.add("app.api.manager.casino-id=" + serviceProperties.getCasinoId());
+                        }
+                    }
+                });
             }
         }
 
