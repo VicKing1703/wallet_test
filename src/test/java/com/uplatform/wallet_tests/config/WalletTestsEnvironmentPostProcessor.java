@@ -50,12 +50,14 @@ public class WalletTestsEnvironmentPostProcessor implements EnvironmentConfigPos
             http.setServices(services);
         }
 
+        final Map<String, HttpServiceProperties> targetServices = services;
+
         httpOverrides.getServices().forEach((serviceId, override) -> {
             if (override == null) {
                 return;
             }
 
-            HttpServiceProperties service = services.computeIfAbsent(serviceId, id -> new HttpServiceProperties());
+            HttpServiceProperties service = targetServices.computeIfAbsent(serviceId, id -> new HttpServiceProperties());
 
             if (override.getSecret() != null) {
                 service.setSecret(override.getSecret());
