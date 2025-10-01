@@ -77,6 +77,7 @@ public class EnvironmentConfigurationProvider implements KafkaConfigProvider, Re
             for (EnvironmentConfigPostProcessor postProcessor : postProcessors) {
                 postProcessor.postProcess(this.environmentConfig, rawNode, objectMapper);
             }
+            this.environmentConfig.normalize();
         }
         log.info("Successfully loaded configuration for environment '{}'", environmentConfig.getName());
     }

@@ -35,7 +35,7 @@ public class EnvironmentConfig {
         if (http == null && api != null) {
             http = HttpModuleProperties.fromLegacy(api);
         }
-        if (http != null && api == null) {
+        if (http != null) {
             api = http.toLegacyApiConfig();
         }
     }
