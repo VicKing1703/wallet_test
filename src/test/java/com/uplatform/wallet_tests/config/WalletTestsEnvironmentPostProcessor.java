@@ -44,12 +44,11 @@ public class WalletTestsEnvironmentPostProcessor implements EnvironmentConfigPos
             config.setHttp(http);
         }
 
-        Map<String, HttpServiceProperties> services = Optional.ofNullable(http.getServices())
-                .orElseGet(() -> {
-                    Map<String, HttpServiceProperties> map = new LinkedHashMap<>();
-                    http.setServices(map);
-                    return map;
-                });
+        Map<String, HttpServiceProperties> services = http.getServices();
+        if (services == null) {
+            services = new LinkedHashMap<>();
+            http.setServices(services);
+        }
 
         httpOverrides.getServices().forEach((serviceId, override) -> {
             if (override == null) {
