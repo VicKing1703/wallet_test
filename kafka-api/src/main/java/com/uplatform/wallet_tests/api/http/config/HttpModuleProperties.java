@@ -1,9 +1,9 @@
 package com.uplatform.wallet_tests.api.http.config;
 
 import com.uplatform.wallet_tests.config.ApiConfig;
+import com.uplatform.wallet_tests.config.ApiConfig.Credentials;
+import com.uplatform.wallet_tests.config.ApiConfig.ManagerConfig;
 import com.uplatform.wallet_tests.config.ConcurrencyConfig;
-import com.uplatform.wallet_tests.config.Credentials;
-import com.uplatform.wallet_tests.config.ManagerConfig;
 import lombok.Data;
 
 import java.util.LinkedHashMap;

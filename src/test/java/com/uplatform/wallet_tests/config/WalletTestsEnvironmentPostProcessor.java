@@ -27,8 +27,14 @@ public class WalletTestsEnvironmentPostProcessor implements EnvironmentConfigPos
 
         WalletTestsConfig walletTests = mapper.convertValue(walletNode, WalletTestsConfig.class);
 
-        if (config.getPlatform() == null && walletTests.getPlatform() != null) {
-            config.setPlatform(walletTests.getPlatform());
+        PlatformConfig overridesPlatform = walletTests.getPlatform();
+        if (config.getPlatform() == null && overridesPlatform != null) {
+            EnvironmentConfig.PlatformConfig platform = new EnvironmentConfig.PlatformConfig();
+            platform.setCurrency(overridesPlatform.getCurrency());
+            platform.setCountry(overridesPlatform.getCountry());
+            platform.setNodeId(overridesPlatform.getNodeId());
+            platform.setGroupId(overridesPlatform.getGroupId());
+            config.setPlatform(platform);
         }
 
         WalletHttpOverrides httpOverrides = walletTests.getHttp();

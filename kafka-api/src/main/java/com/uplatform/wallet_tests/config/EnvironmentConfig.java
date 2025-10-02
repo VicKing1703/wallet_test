@@ -39,5 +39,13 @@ public class EnvironmentConfig {
             api = http.toLegacyApiConfig();
         }
     }
+
+    @Data
+    public static class PlatformConfig {
+        private String currency;
+        private String country;
+        private String nodeId;
+        private String groupId;
+    }
 }
 
