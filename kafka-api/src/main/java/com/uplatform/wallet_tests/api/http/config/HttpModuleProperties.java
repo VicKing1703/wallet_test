@@ -9,12 +9,13 @@ import lombok.Data;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Data
 public class HttpModuleProperties {
     private HttpDefaultsProperties defaults = new HttpDefaultsProperties();
-    private Map<String, HttpServiceProperties> services = new LinkedHashMap<>();
+    private Map<String, Map<String, Object>> services = new LinkedHashMap<>();
 
     public static HttpModuleProperties fromLegacy(ApiConfig legacy) {
         if (legacy == null) {
@@ -32,27 +33,27 @@ public class HttpModuleProperties {
         }
         module.setDefaults(defaults);
 
-        Map<String, HttpServiceProperties> services = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> services = new LinkedHashMap<>();
 
-        HttpServiceProperties fapi = new HttpServiceProperties();
-        fapi.setBaseUrl(legacy.getBaseUrl());
+        Map<String, Object> fapi = new LinkedHashMap<>();
+        fapi.put("baseUrl", legacy.getBaseUrl());
         services.put("fapi", fapi);
 
-        HttpServiceProperties manager = new HttpServiceProperties();
-        manager.setBaseUrl(legacy.getBaseUrl());
+        Map<String, Object> manager = new LinkedHashMap<>();
+        manager.put("baseUrl", legacy.getBaseUrl());
         if (legacy.getManager() != null) {
-            manager.setSecret(legacy.getManager().getSecret());
-            manager.setCasinoId(legacy.getManager().getCasinoId());
+            putIfNotNull(manager, "secret", legacy.getManager().getSecret());
+            putIfNotNull(manager, "casinoId", legacy.getManager().getCasinoId());
         }
         services.put("manager", manager);
 
-        HttpServiceProperties cap = new HttpServiceProperties();
-        cap.setBaseUrl(resolveCapBaseUrl(legacy.getBaseUrl()));
+        Map<String, Object> cap = new LinkedHashMap<>();
+        cap.put("baseUrl", resolveCapBaseUrl(legacy.getBaseUrl()));
         if (legacy.getCapCredentials() != null) {
-            HttpServiceCredentials credentials = new HttpServiceCredentials();
-            credentials.setUsername(legacy.getCapCredentials().getUsername());
-            credentials.setPassword(legacy.getCapCredentials().getPassword());
-            cap.setCredentials(credentials);
+            Map<String, Object> credentials = new LinkedHashMap<>();
+            putIfNotNull(credentials, "username", legacy.getCapCredentials().getUsername());
+            putIfNotNull(credentials, "password", legacy.getCapCredentials().getPassword());
+            cap.put("credentials", credentials);
         }
         services.put("cap", cap);
 
@@ -77,36 +78,39 @@ public class HttpModuleProperties {
             apiConfig.setConcurrency(concurrencyConfig);
         }
 
-        Map<String, HttpServiceProperties> services = Optional.ofNullable(getServices()).orElseGet(LinkedHashMap::new);
+        Map<String, Map<String, Object>> services = Optional.ofNullable(getServices()).orElseGet(LinkedHashMap::new);
 
-        HttpServiceProperties managerService = services.get("manager");
+        Map<String, Object> managerService = services.get("manager");
         if (managerService != null) {
             if (apiConfig.getBaseUrl() == null) {
-                apiConfig.setBaseUrl(managerService.getBaseUrl());
+                apiConfig.setBaseUrl(asString(managerService.get("baseUrl")));
             }
-            ManagerConfig managerConfig = new ManagerConfig();
-            managerConfig.setSecret(managerService.getSecret());
-            managerConfig.setCasinoId(managerService.getCasinoId());
-            apiConfig.setManager(managerConfig);
+            if (managerService.containsKey("secret") || managerService.containsKey("casinoId")) {
+                ManagerConfig managerConfig = new ManagerConfig();
+                managerConfig.setSecret(asString(managerService.get("secret")));
+                managerConfig.setCasinoId(asString(managerService.get("casinoId")));
+                apiConfig.setManager(managerConfig);
+            }
         }
 
-        HttpServiceProperties capService = services.get("cap");
+        Map<String, Object> capService = services.get("cap");
         if (capService != null) {
             if (apiConfig.getBaseUrl() == null) {
-                apiConfig.setBaseUrl(capService.getBaseUrl());
+                apiConfig.setBaseUrl(asString(capService.get("baseUrl")));
             }
-            if (capService.getCredentials() != null) {
+            Map<String, Object> credentialsMap = asMap(capService.get("credentials"));
+            if (credentialsMap != null && (!credentialsMap.isEmpty())) {
                 Credentials credentials = new Credentials();
-                credentials.setUsername(capService.getCredentials().getUsername());
-                credentials.setPassword(capService.getCredentials().getPassword());
+                credentials.setUsername(asString(credentialsMap.get("username")));
+                credentials.setPassword(asString(credentialsMap.get("password")));
                 apiConfig.setCapCredentials(credentials);
             }
         }
 
         if (apiConfig.getBaseUrl() == null) {
-            HttpServiceProperties fapiService = services.get("fapi");
+            Map<String, Object> fapiService = services.get("fapi");
             if (fapiService != null) {
-                apiConfig.setBaseUrl(fapiService.getBaseUrl());
+                apiConfig.setBaseUrl(asString(fapiService.get("baseUrl")));
             }
         }
         return apiConfig;
@@ -120,5 +124,25 @@ public class HttpModuleProperties {
         String protocol = lowerCase.startsWith("https://") ? "https://" : lowerCase.startsWith("http://") ? "http://" : "";
         String withoutProtocol = protocol.isEmpty() ? baseUrl : baseUrl.substring(protocol.length());
         return protocol + "cap." + withoutProtocol;
+    }
+
+    private static void putIfNotNull(Map<String, Object> target, String key, Object value) {
+        if (value != null) {
+            target.put(key, value);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            map.forEach((k, v) -> result.put(Objects.toString(k, null), v));
+            return result;
+        }
+        return null;
+    }
+
+    private static String asString(Object value) {
+        return value == null ? null : value.toString();
     }
 }

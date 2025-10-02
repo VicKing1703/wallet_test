@@ -45,7 +45,7 @@
    - Добавить новую автоконфигурацию в `spring.factories` (`EnableAutoConfiguration`).
 
 4. **Расширить работу с конфигурацией**
-   - Разработать модели `HttpModuleProperties`, `HttpServiceProperties`, `HttpClientCredentials` (по итогам стандартизации).
+   - Разработать модель `HttpModuleProperties` и общий формат `services` без тестовых DTO; приватные POJO для секретов оставить в тестовом модуле.
    - Добавить бин `@ConfigurationProperties("app.http")` для публикации настроек.
    - В `DynamicPropertiesConfigurator` реализовать генерацию алиасов `app.api.*` => `app.http.services.*` и наоборот.
    - Реализовать миграционный слой: если в JSON остался старый блок `api`, преобразовать его в новые свойства при загрузке.

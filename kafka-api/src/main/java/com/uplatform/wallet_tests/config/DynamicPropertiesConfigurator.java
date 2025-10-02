@@ -3,8 +3,6 @@ package com.uplatform.wallet_tests.config;
 import com.uplatform.wallet_tests.api.http.config.HttpConcurrencyProperties;
 import com.uplatform.wallet_tests.api.http.config.HttpDefaultsProperties;
 import com.uplatform.wallet_tests.api.http.config.HttpModuleProperties;
-import com.uplatform.wallet_tests.api.http.config.HttpServiceProperties;
-import com.uplatform.wallet_tests.api.http.config.HttpServiceCredentials;
 import com.uplatform.wallet_tests.api.redis.config.RedisInstanceProperties;
 import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
 import org.springframework.context.ApplicationContextInitializer;
@@ -13,7 +11,9 @@ import org.springframework.test.context.support.TestPropertySourceUtils;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DynamicPropertiesConfigurator implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
@@ -58,46 +58,52 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
                         return;
                     }
                     String prefix = "app.http.services." + serviceId + ".";
-                    if (serviceProperties.getBaseUrl() != null) {
-                        properties.add(prefix + "base-url=" + serviceProperties.getBaseUrl());
+                    String baseUrl = valueAsString(serviceProperties.get("baseUrl"));
+                    if (baseUrl != null) {
+                        properties.add(prefix + "base-url=" + baseUrl);
                         if ("fapi".equals(serviceId)) {
-                            properties.add("app.api.fapi.base-url=" + serviceProperties.getBaseUrl());
+                            properties.add("app.api.fapi.base-url=" + baseUrl);
                         }
                         if ("manager".equals(serviceId)) {
-                            properties.add("app.api.manager.base-url=" + serviceProperties.getBaseUrl());
+                            properties.add("app.api.manager.base-url=" + baseUrl);
                         }
                         if ("cap".equals(serviceId)) {
-                            properties.add("app.api.cap.base-url=" + serviceProperties.getBaseUrl());
+                            properties.add("app.api.cap.base-url=" + baseUrl);
                         }
                     }
 
-                    HttpServiceCredentials credentials = serviceProperties.getCredentials();
+                    @SuppressWarnings("unchecked")
+                    var credentials = valueAsMap(serviceProperties.get("credentials"));
                     if (credentials != null) {
-                        if (credentials.getUsername() != null) {
-                            properties.add(prefix + "credentials.username=" + credentials.getUsername());
+                        String username = valueAsString(credentials.get("username"));
+                        if (username != null) {
+                            properties.add(prefix + "credentials.username=" + username);
                             if ("cap".equals(serviceId)) {
-                                properties.add("app.api.cap.credentials.username=" + credentials.getUsername());
+                                properties.add("app.api.cap.credentials.username=" + username);
                             }
                         }
-                        if (credentials.getPassword() != null) {
-                            properties.add(prefix + "credentials.password=" + credentials.getPassword());
+                        String password = valueAsString(credentials.get("password"));
+                        if (password != null) {
+                            properties.add(prefix + "credentials.password=" + password);
                             if ("cap".equals(serviceId)) {
-                                properties.add("app.api.cap.credentials.password=" + credentials.getPassword());
+                                properties.add("app.api.cap.credentials.password=" + password);
                             }
                         }
                     }
 
-                    if (serviceProperties.getSecret() != null) {
-                        properties.add(prefix + "secret=" + serviceProperties.getSecret());
+                    String secret = valueAsString(serviceProperties.get("secret"));
+                    if (secret != null) {
+                        properties.add(prefix + "secret=" + secret);
                         if ("manager".equals(serviceId)) {
-                            properties.add("app.api.manager.secret=" + serviceProperties.getSecret());
+                            properties.add("app.api.manager.secret=" + secret);
                         }
                     }
 
-                    if (serviceProperties.getCasinoId() != null) {
-                        properties.add(prefix + "casino-id=" + serviceProperties.getCasinoId());
+                    String casinoId = valueAsString(serviceProperties.get("casinoId"));
+                    if (casinoId != null) {
+                        properties.add(prefix + "casino-id=" + casinoId);
                         if ("manager".equals(serviceId)) {
-                            properties.add("app.api.manager.casino-id=" + serviceProperties.getCasinoId());
+                            properties.add("app.api.manager.casino-id=" + casinoId);
                         }
                     }
                 });
@@ -190,5 +196,19 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
 
     private static String formatDuration(Duration duration) {
         return duration.toMillis() + "ms";
+    }
+
+    private static String valueAsString(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> valueAsMap(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> result = new LinkedHashMap<>();
+            map.forEach((k, v) -> result.put(k == null ? null : k.toString(), v));
+            return result;
+        }
+        return null;
     }
 }
