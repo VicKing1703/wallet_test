@@ -3,6 +3,7 @@ package com.uplatform.wallet_tests.tests.base;
 import com.uplatform.wallet_tests.allure.CustomSuiteExtension;
 import com.uplatform.wallet_tests.config.DynamicPropertiesConfigurator;
 import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.config.WalletTestsPropertiesConfigurator;
 import com.uplatform.wallet_tests.tests.default_steps.facade.DefaultTestSteps;
 import com.uplatform.wallet_tests.tests.util.facade.TestUtils;
 import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
@@ -25,7 +26,7 @@ import org.springframework.test.context.ContextConfiguration;
 
 @ExtendWith(CustomSuiteExtension.class)
 @SpringBootTest
-@ContextConfiguration(initializers = DynamicPropertiesConfigurator.class)
+@ContextConfiguration(initializers = {DynamicPropertiesConfigurator.class, WalletTestsPropertiesConfigurator.class})
 @Execution(ExecutionMode.CONCURRENT)
 public abstract class BaseTest {
 
