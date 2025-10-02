@@ -3,7 +3,6 @@ package com.uplatform.wallet_tests.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.uplatform.wallet_tests.api.http.config.HttpModuleProperties;
-import com.uplatform.wallet_tests.api.http.config.HttpServiceCredentials;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -65,7 +64,7 @@ public class WalletTestsEnvironmentPostProcessor implements EnvironmentConfigPos
                 service.put("casinoId", override.getCasinoId());
             }
 
-            HttpServiceCredentials overridesCredentials = override.getCredentials();
+            Credentials overridesCredentials = override.getCredentials();
             if (overridesCredentials != null) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> credentials = Optional.ofNullable((Map<String, Object>) service.get("credentials"))

@@ -1,7 +1,6 @@
 package com.uplatform.wallet_tests.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.uplatform.wallet_tests.api.http.config.HttpServiceCredentials;
 import lombok.Data;
 
 @Data
@@ -9,5 +8,5 @@ import lombok.Data;
 public class WalletHttpServiceOverrides {
     private String secret;
     private String casinoId;
-    private HttpServiceCredentials credentials;
+    private Credentials credentials;
 }
