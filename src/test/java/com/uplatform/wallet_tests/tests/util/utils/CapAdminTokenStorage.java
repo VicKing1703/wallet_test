@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.util.utils;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

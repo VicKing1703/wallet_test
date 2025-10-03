@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.session;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.api.kafka.dto.GameSessionStartMessage;
 
@@ -37,7 +38,7 @@ class StartGameSessionTest extends BaseTest {
     @DisplayName("Старт реальной игровой сессии для дефолтного кошелька без бонуса")
     void shouldRegisterPlayerLaunchGameAndVerifySession() {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String secretKey = configProvider.getEnvironmentConfig().getApi().getManager().getSecret();
+        final String secretKey = HttpServiceHelper.getManagerSecret(configProvider.getEnvironmentConfig().getHttp());
 
         final  class TestContext {
             RegisteredPlayerData registeredPlayer;

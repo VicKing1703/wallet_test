@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.http.manager.dto.gambling;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

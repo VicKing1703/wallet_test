@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.tournament;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
@@ -39,7 +40,7 @@ class TournamentPositiveTest extends BaseTest {
     @DisplayName("Получение выигрыша в турнире игроком в игровой сессии")
     void shouldAwardTournamentWinAndVerify() {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

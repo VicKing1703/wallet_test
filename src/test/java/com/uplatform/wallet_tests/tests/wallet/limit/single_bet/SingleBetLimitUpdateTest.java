@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.single_bet;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;

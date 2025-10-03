@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.casino_loss;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -77,7 +78,7 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
     @MethodSource("periodProvider")
     @DisplayName("Изменение остатка CasinoLossLimit при получении роллбэка в казино")
     void test(NatsLimitIntervalType periodType) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

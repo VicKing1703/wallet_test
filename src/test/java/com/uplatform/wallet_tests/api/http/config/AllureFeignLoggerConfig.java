@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.http.config;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import feign.Logger;
 import org.springframework.context.annotation.Bean;

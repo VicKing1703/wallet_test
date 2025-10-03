@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -108,7 +109,7 @@ class BetWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
     void test(
             NatsGamblingTransactionOperation type
     ) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         step("Manager API: Совершение ставки", () -> {
             var request = BetRequestBody.builder()

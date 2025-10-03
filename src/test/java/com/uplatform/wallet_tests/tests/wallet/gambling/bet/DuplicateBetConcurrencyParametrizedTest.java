@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -98,7 +99,7 @@ class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
     @MethodSource("betOperationAndAmountProvider")
     @DisplayName("Идемпотентная обработка дублей ставок при одновременной отправке")
     void testConcurrentDuplicateBetsHandledIdempotently(NatsGamblingTransactionOperation operationParam, BigDecimal betAmountParam) throws InterruptedException {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         BigDecimal expectedBalanceAfterSuccessfulBet = initialAdjustmentAmount.subtract(betAmountParam);
 
         step(String.format("Manager API: Одновременная отправка дублирующихся ставок (тип: %s, сумма: %s)", operationParam, betAmountParam), () -> {

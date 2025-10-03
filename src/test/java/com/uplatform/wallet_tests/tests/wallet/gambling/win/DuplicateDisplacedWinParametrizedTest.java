@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -85,7 +86,7 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
     @MethodSource("winOperationAndAmountProvider")
     @DisplayName("Дублирование выигрыша, вытесненного из кеша")
     void testDuplicateDisplacedWinReturnsIdempotentResponse(NatsGamblingTransactionOperation operationParam, BigDecimal winAmountParam)  {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int winsToMakeToDisplace = maxGamblingCountInRedis + 1;

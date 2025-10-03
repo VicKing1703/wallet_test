@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.api.nats;
 
 import com.uplatform.wallet_tests.api.nats.config.NatsConfigProvider;
-import com.uplatform.wallet_tests.config.NatsConfig;
+import com.uplatform.wallet_tests.config.modules.nats.NatsConfig;
 import io.nats.client.*;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamManagement;
@@ -33,14 +33,14 @@ public class NatsConnectionManager {
     public NatsConnectionManager(NatsConfigProvider configProvider) {
         NatsConfig natsConfig = configProvider.getNatsConfig();
         this.streamPrefix = configProvider.getNatsStreamPrefix();
-        this.natsBaseName = natsConfig.getStreamName();
+        this.natsBaseName = natsConfig.streamName();
         this.streamName = this.streamPrefix + this.natsBaseName;
 
         Options options = buildOptions(natsConfig);
         try {
             this.connection = Nats.connect(options);
         } catch (Exception e) {
-            log.error("Failed to connect to NATS servers: {}", String.join(",", natsConfig.getHosts()), e);
+            log.error("Failed to connect to NATS servers: {}", String.join(",", natsConfig.hosts()), e);
             throw new IllegalStateException("NATS connection failed", e);
         }
 
@@ -55,9 +55,9 @@ public class NatsConnectionManager {
 
     private Options buildOptions(NatsConfig cfg) {
         return new Options.Builder()
-                .servers(cfg.getHosts().toArray(new String[0]))
-                .reconnectWait(Duration.ofSeconds(cfg.getConnectReconnectWaitSeconds()))
-                .maxReconnects(cfg.getConnectMaxReconnects())
+                .servers(cfg.hosts().toArray(new String[0]))
+                .reconnectWait(Duration.ofSeconds(cfg.connectReconnectWaitSeconds()))
+                .maxReconnects(cfg.connectMaxReconnects())
                 .connectionListener(this::connectionListener)
                 .errorListener(new SimpleErrorListener())
                 .build();

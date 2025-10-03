@@ -6,12 +6,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.annotation.PostConstruct;
 import com.uplatform.wallet_tests.api.http.config.HttpConfigProvider;
-import com.uplatform.wallet_tests.api.http.config.HttpModuleProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpModuleProperties;
 import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
 import com.uplatform.wallet_tests.api.nats.config.NatsConfigProvider;
 import com.uplatform.wallet_tests.api.redis.config.RedisConfigProvider;
-import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
-import com.uplatform.wallet_tests.config.RedisAggregateConfig;
+import com.uplatform.wallet_tests.config.modules.redis.RedisModuleProperties;
+import com.uplatform.wallet_tests.config.modules.redis.RedisAggregateConfig;
+import com.uplatform.wallet_tests.config.modules.kafka.KafkaConfig;
+import com.uplatform.wallet_tests.config.modules.nats.NatsConfig;
+import com.uplatform.wallet_tests.config.modules.kafka.KafkaModuleProperties;
+import com.uplatform.wallet_tests.config.modules.nats.NatsModuleProperties;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -73,18 +77,17 @@ public class EnvironmentConfigurationProvider implements KafkaConfigProvider, Re
                     : throwNonObjectNode(configFileName);
             this.rawEnvironmentNode = rawNode.deepCopy();
             this.environmentConfig = objectMapper.treeToValue(rawNode, EnvironmentConfig.class);
-            this.environmentConfig.normalize();
             for (EnvironmentConfigPostProcessor postProcessor : postProcessors) {
                 postProcessor.postProcess(this.environmentConfig, rawNode, objectMapper);
             }
-            this.environmentConfig.normalize();
         }
         log.info("Successfully loaded configuration for environment '{}'", environmentConfig.getName());
     }
 
     @Override
     public KafkaConfig getKafkaConfig() {
-        return environmentConfig.getKafka();
+        KafkaModuleProperties kafka = environmentConfig.getKafka();
+        return kafka != null ? kafka.toLegacyKafkaConfig() : null;
     }
 
 
@@ -95,7 +98,8 @@ public class EnvironmentConfigurationProvider implements KafkaConfigProvider, Re
 
     @Override
     public NatsConfig getNatsConfig() {
-        return environmentConfig.getNats();
+        NatsModuleProperties nats = environmentConfig.getNats();
+        return nats != null ? nats.toLegacyNatsConfig() : null;
     }
 
     @Override

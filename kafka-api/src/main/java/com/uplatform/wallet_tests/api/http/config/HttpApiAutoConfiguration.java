@@ -1,6 +1,9 @@
 package com.uplatform.wallet_tests.api.http.config;
 
 import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.config.modules.http.HttpModuleProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpDefaultsProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpConcurrencyProperties;
 import feign.Client;
 import feign.Logger;
 import feign.Request;

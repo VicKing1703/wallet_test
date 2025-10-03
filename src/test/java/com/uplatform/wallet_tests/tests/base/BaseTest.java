@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.base;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.allure.CustomSuiteExtension;
 import com.uplatform.wallet_tests.config.DynamicPropertiesConfigurator;

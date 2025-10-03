@@ -1,6 +1,8 @@
 package com.uplatform.wallet_tests.api.redis.config;
 
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import com.uplatform.wallet_tests.config.modules.redis.RedisModuleProperties;
+import com.uplatform.wallet_tests.config.modules.redis.RedisInstanceProperties;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;

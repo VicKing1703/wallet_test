@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.casino_loss;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
@@ -93,7 +94,7 @@ class CasinoLossLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTe
     @MethodSource("periodAndAmountProvider")
     @DisplayName("Пересчет CasinoLossLimit после ставки и уменьшения лимита")
     void updateCasinoLossLimitAfterBet(NatsLimitIntervalType periodType, BigDecimal newAmount) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
 
         final class TestData {

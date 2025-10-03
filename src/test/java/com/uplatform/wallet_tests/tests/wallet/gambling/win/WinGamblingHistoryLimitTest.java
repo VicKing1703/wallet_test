@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -86,7 +87,7 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
     @ParameterizedTest(name = "операция выигрыша = {0}")
     @MethodSource("winOperationProvider")
     void testWinGamblingHistoryCountLimitInRedis(NatsGamblingTransactionOperation operationParam) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int operationsToMake = maxGamblingCountInRedis + 1;

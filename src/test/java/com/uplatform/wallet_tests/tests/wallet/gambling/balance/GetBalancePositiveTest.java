@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.balance;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -26,7 +27,7 @@ class GetBalancePositiveTest extends BaseTest {
     @Test
     @DisplayName("Позитивный сценарий получения баланса игрока в игровой сессии")
     void shouldRegisterAdjustCreateSessionAndGetBalance() {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -86,7 +87,7 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
 
     @BeforeEach
     void setupForEachTest() {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         step("Default Step: Регистрация нового пользователя для теста", () -> {
             this.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
@@ -125,7 +126,7 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
     @MethodSource("winOperationAndAmountProvider")
     @DisplayName("Идемпотентная обработка дублей выигрышей при одновременной отправке")
     void testConcurrentDuplicateWinsHandledIdempotently(NatsGamblingTransactionOperation operationParam, BigDecimal winAmountParam) throws InterruptedException {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         BigDecimal expectedBalanceAfterSuccessfulWin = this.balanceAfterBet.add(winAmountParam);
 
         step(String.format("Manager API: Одновременная отправка дублирующихся выигрышей (тип: %s, сумма: %s)", operationParam, winAmountParam), () -> {

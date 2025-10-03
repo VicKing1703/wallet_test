@@ -1,8 +1,9 @@
 package com.uplatform.wallet_tests.config;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.uplatform.wallet_tests.api.http.config.HttpModuleProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpModuleProperties;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

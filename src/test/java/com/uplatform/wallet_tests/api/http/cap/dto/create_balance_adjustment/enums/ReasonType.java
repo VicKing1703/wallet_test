@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;

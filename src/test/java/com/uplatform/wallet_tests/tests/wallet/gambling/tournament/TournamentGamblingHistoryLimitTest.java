@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.tournament;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -74,7 +75,7 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
     @Test
     @DisplayName("Проверка вытеснения турнирных выигрышей из кэша Redis")
     void testTournamentHistoryCountLimitInRedis() {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int operationsToMake = maxGamblingCountInRedis + 1;

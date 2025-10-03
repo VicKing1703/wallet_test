@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.signature;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -163,7 +164,7 @@ class ManagerSignatureNegativeParametrizedTest extends BaseParameterizedTest {
             ApiEndpoints signaturePathSuffix,
             HeaderErrorType headerErrorType)
     {
-        final String validCasinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         Supplier<?> validBodySupplier;
         ManagerClientExecutor clientExecutor;

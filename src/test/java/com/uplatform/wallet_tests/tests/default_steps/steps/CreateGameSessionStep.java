@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.default_steps.steps;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.db.WalletDatabaseClient;
 import com.uplatform.wallet_tests.api.db.entity.wallet.WalletGameSession;

@@ -1,10 +1,10 @@
 package com.uplatform.wallet_tests.config;
 
-import com.uplatform.wallet_tests.api.http.config.HttpConcurrencyProperties;
-import com.uplatform.wallet_tests.api.http.config.HttpDefaultsProperties;
-import com.uplatform.wallet_tests.api.http.config.HttpModuleProperties;
-import com.uplatform.wallet_tests.api.redis.config.RedisInstanceProperties;
-import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpConcurrencyProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpDefaultsProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpModuleProperties;
+import com.uplatform.wallet_tests.config.modules.redis.RedisInstanceProperties;
+import com.uplatform.wallet_tests.config.modules.redis.RedisModuleProperties;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.support.TestPropertySourceUtils;
@@ -81,21 +81,21 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
             config.getDatabases().forEach((name, dbConfig) -> {
                 String dbNameForUrl = config.getName() + "_" + name;
                 String url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
-                        dbConfig.getHost(), dbConfig.getPort(), dbNameForUrl);
+                        dbConfig.host(), dbConfig.port(), dbNameForUrl);
 
                 properties.add("spring.datasource." + name + ".url=" + url);
-                properties.add("spring.datasource." + name + ".username=" + dbConfig.getUsername());
-                properties.add("spring.datasource." + name + ".password=" + dbConfig.getPassword());
-                properties.add("app.db.retry-timeout-seconds=" + dbConfig.getRetryTimeoutSeconds());
-                properties.add("app.db.retry-poll-interval-ms=" + dbConfig.getRetryPollIntervalMs());
-                properties.add("app.db.retry-poll-delay-ms=" + dbConfig.getRetryPollDelayMs());
+                properties.add("spring.datasource." + name + ".username=" + dbConfig.username());
+                properties.add("spring.datasource." + name + ".password=" + dbConfig.password());
+                properties.add("app.db.retry-timeout-seconds=" + dbConfig.retryTimeoutSeconds());
+                properties.add("app.db.retry-poll-interval-ms=" + dbConfig.retryPollIntervalMs());
+                properties.add("app.db.retry-poll-delay-ms=" + dbConfig.retryPollDelayMs());
             });
         }
 
         RedisModuleProperties redisProperties = config.getRedis();
 
         if (redisProperties != null) {
-            RedisAggregateConfig aggregateConfig = redisProperties.getAggregate();
+            var aggregateConfig = redisProperties.getAggregate();
             if (aggregateConfig != null) {
                 properties.add("app.redis.aggregate.max-gambling.count=" + aggregateConfig.maxGamblingCount());
                 properties.add("app.redis.aggregate.max-iframe.count=" + aggregateConfig.maxIframeCount());

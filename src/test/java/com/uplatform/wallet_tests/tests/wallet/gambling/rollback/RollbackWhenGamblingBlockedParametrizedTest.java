@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -100,7 +101,7 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
     @DisplayName("Получение роллбэка игроком с заблокированным гемблингом (беттинг разрешен):")
     void testRollbackWhenGamblingBlocked(BigDecimal betAmountParam, NatsGamblingTransactionOperation betTypeParam) {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

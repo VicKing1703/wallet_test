@@ -1,8 +1,11 @@
 package com.uplatform.wallet_tests.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.uplatform.wallet_tests.api.http.config.HttpModuleProperties;
-import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
+import com.uplatform.wallet_tests.config.modules.database.DatabaseInstanceConfig;
+import com.uplatform.wallet_tests.config.modules.http.HttpModuleProperties;
+import com.uplatform.wallet_tests.config.modules.kafka.KafkaModuleProperties;
+import com.uplatform.wallet_tests.config.modules.nats.NatsModuleProperties;
+import com.uplatform.wallet_tests.config.modules.redis.RedisModuleProperties;
 import lombok.Data;
 
 import java.util.Map;
@@ -11,13 +14,12 @@ import java.util.Map;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class EnvironmentConfig {
     private String name;
-    private ApiConfig api;
     private HttpModuleProperties http;
     private PlatformConfig platform;
     private Map<String, DatabaseInstanceConfig> databases;
     private RedisModuleProperties redis;
-    private KafkaConfig kafka;
-    private NatsConfig nats;
+    private KafkaModuleProperties kafka;
+    private NatsModuleProperties nats;
 
     public String getTopicPrefix() {
         return name + "_";
@@ -25,19 +27,6 @@ public class EnvironmentConfig {
 
     public String getNatsStreamPrefix() {
         return name + "_";
-    }
-
-    public void normalize() {
-        normalizeHttpConfig();
-    }
-
-    private void normalizeHttpConfig() {
-        if (http == null && api != null) {
-            http = HttpModuleProperties.fromLegacy(api);
-        }
-        if (http != null) {
-            api = http.toLegacyApiConfig();
-        }
     }
 
     @Data
@@ -48,4 +37,3 @@ public class EnvironmentConfig {
         private String groupId;
     }
 }
-

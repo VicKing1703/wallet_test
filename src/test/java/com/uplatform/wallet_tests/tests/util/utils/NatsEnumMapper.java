@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.util.utils;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.DirectionType;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.OperationType;
