@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.util.utils;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
 import feign.FeignException;
@@ -24,8 +25,8 @@ public class ConcurrencyRequestExecutor {
 
     @Autowired
     public ConcurrencyRequestExecutor(EnvironmentConfigurationProvider configProvider) {
-        this.requestTimeoutMs = configProvider.getEnvironmentConfig().getApi().getConcurrency().getRequestTimeoutMs();
-        this.numberOfConcurrentRequests = configProvider.getEnvironmentConfig().getApi().getConcurrency().getDefaultRequestCount();
+        this.requestTimeoutMs = configProvider.getEnvironmentConfig().getHttp().getDefaults().getConcurrency().getRequestTimeoutMs();
+        this.numberOfConcurrentRequests = configProvider.getEnvironmentConfig().getHttp().getDefaults().getConcurrency().getDefaultRequestCount();
     }
 
     @Getter

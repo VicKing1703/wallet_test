@@ -1,25 +1,46 @@
 {
   "name": "beta-09",
-  "api": {
-    "baseUrl": "https://beta-09.b2bdev.pro",
-    "capCredentials": {
-      "username": "admin",
-      "password": "admin"
+  "http": {
+    "defaults": {
+      "baseUrl": "https://beta-09.b2bdev.pro",
+      "concurrency": {
+        "requestTimeoutMs": 5000,
+        "defaultRequestCount": 2
+      }
     },
-    "manager": {
-      "secret": "d350a88f06bc4418f1e1d61c9fcd3f6cce60b5113f11ffa47348a15a1acbd92c",
-      "casinoId": "719180037cfb65df5546f4b61dbfcf82"
-    },
-    "concurrency": {
-      "requestTimeoutMs": 1000,
-      "defaultRequestCount": 2
+    "services": {
+      "fapi": {
+        "baseUrl": "https://beta-09.b2bdev.pro"
+      },
+      "cap": {
+        "baseUrl": "https://cap.beta-09.b2bdev.pro"
+      },
+      "manager": {
+        "baseUrl": "https://beta-09.b2bdev.pro"
+      }
     }
   },
-  "platform": {
-    "currency": "EUR",
-    "country": "LV",
-    "nodeId": "068f20a5-7c0a-4226-bf5e-6648c735a12b",
-    "groupId": "4c59ecfb-9571-4d2e-8e8b-4558636049fc"
+  "walletTests": {
+    "http": {
+      "services": {
+        "cap": {
+          "credentials": {
+            "username": "admin",
+            "password": "admin"
+          }
+        },
+        "manager": {
+          "secret": "d350a88f06bc4418f1e1d61c9fcd3f6cce60b5113f11ffa47348a15a1acbd92c",
+          "casinoId": "719180037cfb65df5546f4b61dbfcf82"
+        }
+      }
+    },
+    "platform": {
+      "currency": "EUR",
+      "country": "LV",
+      "nodeId": "068f20a5-7c0a-4226-bf5e-6648c735a12b",
+      "groupId": "4c59ecfb-9571-4d2e-8e8b-4558636049fc"
+    }
   },
   "databases": {
     "core": {

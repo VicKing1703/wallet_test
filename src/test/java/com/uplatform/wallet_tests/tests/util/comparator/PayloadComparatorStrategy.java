@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.util.comparator;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

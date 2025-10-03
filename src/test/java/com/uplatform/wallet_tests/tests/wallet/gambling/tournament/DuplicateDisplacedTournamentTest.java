@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.tournament;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -68,7 +69,7 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
     @Test
     @DisplayName("Дублирование турнирного начисления, вытесненного из кеша (ожидается ошибка валидации)")
     void testDuplicateDisplacedTournamentExpectingValidationError()  {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int tournamentsToMakeToDisplace = maxGamblingCountInRedis + 1;

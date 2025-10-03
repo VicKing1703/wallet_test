@@ -6,7 +6,7 @@ import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.exceptions.NatsDeserializationException;
 import com.uplatform.wallet_tests.api.nats.exceptions.NatsDuplicateMessageException;
 import com.uplatform.wallet_tests.api.nats.exceptions.NatsMessageNotFoundException;
-import com.uplatform.wallet_tests.config.NatsConfig;
+import com.uplatform.wallet_tests.config.modules.nats.NatsConfig;
 
 import java.time.Duration;
 import java.util.Map;
@@ -36,11 +36,11 @@ public class NatsClient {
         NatsConfig natsConfig = configProvider.getNatsConfig();
 
         this.streamPrefix = configProvider.getNatsStreamPrefix();
-        this.natsBaseName = natsConfig.getStreamName();
+        this.natsBaseName = natsConfig.streamName();
         String streamName = connectionManager.getStreamName();
 
-        this.searchTimeout = Duration.ofSeconds(natsConfig.getSearchTimeoutSeconds());
-        this.defaultUniqueWindow = Duration.ofMillis(natsConfig.getUniqueDuplicateWindowMs());
+        this.searchTimeout = Duration.ofSeconds(natsConfig.searchTimeoutSeconds());
+        this.defaultUniqueWindow = Duration.ofMillis(natsConfig.uniqueDuplicateWindowMs());
 
         this.subscriber = new NatsSubscriber(
                 connectionManager.getConnection(),
@@ -49,13 +49,13 @@ public class NatsClient {
                 attachmentHelper,
                 payloadMatcher,
                 searchTimeout,
-                Duration.ofSeconds(natsConfig.getSubscriptionAckWaitSeconds()),
-                Duration.ofSeconds(natsConfig.getSubscriptionInactiveThresholdSeconds()),
+                Duration.ofSeconds(natsConfig.subscriptionAckWaitSeconds()),
+                Duration.ofSeconds(natsConfig.subscriptionInactiveThresholdSeconds()),
                 streamName,
-                natsConfig.getSubscriptionBufferSize(),
-                natsConfig.getSubscriptionRetryCount(),
-                natsConfig.getSubscriptionRetryDelayMs(),
-                natsConfig.isFailOnDeserialization()
+                natsConfig.subscriptionBufferSize(),
+                natsConfig.subscriptionRetryCount(),
+                natsConfig.subscriptionRetryDelayMs(),
+                natsConfig.failOnDeserialization()
         );
 }
 

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.kafka.config;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.kafka.dto.GameSessionStartMessage;
 import com.uplatform.wallet_tests.api.kafka.dto.LimitMessage;

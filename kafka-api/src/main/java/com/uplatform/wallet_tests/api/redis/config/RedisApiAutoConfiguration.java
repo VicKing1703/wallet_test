@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.api.redis.config;
 
-import com.uplatform.wallet_tests.config.RedisAggregateConfig;
+import com.uplatform.wallet_tests.config.modules.redis.RedisAggregateConfig;
+import com.uplatform.wallet_tests.config.modules.redis.RedisModuleProperties;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -35,4 +36,3 @@ public class RedisApiAutoConfiguration {
         return new RedisClientBeanDefinitionRegistrar();
     }
 }
-

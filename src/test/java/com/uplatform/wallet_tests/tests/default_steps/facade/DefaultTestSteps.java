@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.default_steps.facade;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.default_steps.steps.CreateGameSessionStep;
 import com.uplatform.wallet_tests.tests.default_steps.steps.PlayerRegistrationStep;

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.http.manager.dto.betting;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import lombok.Builder;

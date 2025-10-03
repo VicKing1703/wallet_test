@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.http.fapi.dto.player_restrictions;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.http.fapi.dto.enums.RestrictionExpireType;
 import lombok.AllArgsConstructor;

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -112,7 +113,7 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
     @DisplayName("Роллбэк транзакции, вытесненной из Redis")
     void testApiRollbackForDynamicallyIdentifiedDisplacedBet(
             BigDecimal betAmountParam, NatsGamblingTransactionOperation typeParam) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int currentTransactionCountToMake = maxGamblingCountInRedis + 1;

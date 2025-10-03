@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -66,7 +67,7 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
 
     @BeforeAll
     void setup() {
-        final String validCasinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         step("Default Step: Регистрация нового пользователя", () -> {
             this.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
@@ -180,7 +181,7 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
             Integer expectedErrorCode,
             String expectedMessageSubstring)
     {
-        final String validCasinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         RefundRequestBody requestBody = RefundRequestBody.builder()
                 .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())

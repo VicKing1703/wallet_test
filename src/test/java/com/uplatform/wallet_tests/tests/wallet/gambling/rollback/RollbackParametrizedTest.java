@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
@@ -140,7 +141,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
             BigDecimal rollbackAmountParam,
             NatsGamblingTransactionOperation operationTypeParam) {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

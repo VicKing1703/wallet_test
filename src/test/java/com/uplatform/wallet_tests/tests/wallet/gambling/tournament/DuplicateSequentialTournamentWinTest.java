@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.tournament;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -60,7 +61,7 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
     @Test
     @DisplayName("Дублирование турнирного выигрыша при последовательной отправке идентичных запросов (ожидается ошибка валидации)")
     void testDuplicateSequentialTournamentWinExpectingValidationError()  {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

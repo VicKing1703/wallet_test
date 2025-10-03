@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -167,7 +168,7 @@ class WinNegativeParametrizedTest extends BaseParameterizedTest {
             GamblingErrors expectedErrorCode,
             String expectedMessageSubstring
     ) {
-        final String validCasinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             WinRequestBody request;

@@ -1,2 +1,3 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.uplatform.wallet_tests.api.redis.config.RedisApiAutoConfiguration
+com.uplatform.wallet_tests.api.redis.config.RedisApiAutoConfiguration,\
+com.uplatform.wallet_tests.api.http.config.HttpApiAutoConfiguration

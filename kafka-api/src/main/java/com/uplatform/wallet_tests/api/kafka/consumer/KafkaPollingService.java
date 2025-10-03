@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.api.kafka.consumer;
 
 import com.uplatform.wallet_tests.api.kafka.config.KafkaConfigProvider;
-import com.uplatform.wallet_tests.config.KafkaConfig;
+import com.uplatform.wallet_tests.config.modules.kafka.KafkaConfig;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.allure;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import io.qameta.allure.Allure;
 import io.qameta.allure.model.Label;

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.payment;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -197,7 +198,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = managerClient.bet(
-                    configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId(),
+                    HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp()),
                     utils.createSignature(ApiEndpoints.BET, ctx.betRequest),
                     ctx.betRequest);
 

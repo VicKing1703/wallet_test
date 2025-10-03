@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.turnover;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
@@ -94,7 +95,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
     @MethodSource("periodAndAmountProvider")
     @DisplayName("Пересчет TurnoverLimit после ставки и уменьшения лимита")
     void updateTurnoverLimitAfterBet(NatsLimitIntervalType periodType, BigDecimal newAmount) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
 
         final class TestData {

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.http.cap.client;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckRequest;

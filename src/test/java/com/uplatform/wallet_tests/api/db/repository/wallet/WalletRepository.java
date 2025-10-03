@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.db.repository.wallet;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.db.entity.wallet.Wallet;
 import org.springframework.data.jpa.repository.JpaRepository;

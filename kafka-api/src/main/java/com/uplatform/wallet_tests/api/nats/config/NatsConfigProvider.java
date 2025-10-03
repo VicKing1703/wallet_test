@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.api.nats.config;
 
-import com.uplatform.wallet_tests.config.NatsConfig;
+import com.uplatform.wallet_tests.config.modules.nats.NatsConfig;
 
 public interface NatsConfigProvider {
     NatsConfig getNatsConfig();

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.db.entity.wallet.converter;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.db.entity.wallet.enums.CouponCalcStatus;
 import jakarta.persistence.AttributeConverter;

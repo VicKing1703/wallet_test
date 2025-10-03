@@ -1,7 +1,10 @@
 package com.uplatform.wallet_tests.config;
 
-import com.uplatform.wallet_tests.api.redis.config.RedisInstanceProperties;
-import com.uplatform.wallet_tests.api.redis.config.RedisModuleProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpConcurrencyProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpDefaultsProperties;
+import com.uplatform.wallet_tests.config.modules.http.HttpModuleProperties;
+import com.uplatform.wallet_tests.config.modules.redis.RedisInstanceProperties;
+import com.uplatform.wallet_tests.config.modules.redis.RedisModuleProperties;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.support.TestPropertySourceUtils;
@@ -27,50 +30,72 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
 
         List<String> properties = new ArrayList<>();
 
-        if (config.getApi() != null) {
-            properties.add("app.api.fapi.base-url=" + config.getApi().getBaseUrl());
-            properties.add("app.api.cap.base-url=https://cap." + config.getApi().getBaseUrl().replace("https://", ""));
-            properties.add("app.api.manager.base-url=" + config.getApi().getBaseUrl());
-            if (config.getApi().getCapCredentials() != null) {
-                properties.add("app.api.cap.credentials.username=" + config.getApi().getCapCredentials().getUsername());
-                properties.add("app.api.cap.credentials.password=" + config.getApi().getCapCredentials().getPassword());
+        HttpModuleProperties httpConfig = config.getHttp();
+        if (httpConfig != null) {
+            HttpDefaultsProperties defaults = httpConfig.getDefaults();
+            HttpConcurrencyProperties concurrency = defaults != null ? defaults.getConcurrency() : null;
+
+            if (concurrency != null) {
+                if (concurrency.getRequestTimeoutMs() != null) {
+                    properties.add("app.http.defaults.concurrency.request-timeout-ms=" + concurrency.getRequestTimeoutMs());
+                    properties.add("app.api.concurrency.request-timeout-ms=" + concurrency.getRequestTimeoutMs());
+                }
+                if (concurrency.getDefaultRequestCount() != null) {
+                    properties.add("app.http.defaults.concurrency.default-request-count=" + concurrency.getDefaultRequestCount());
+                    properties.add("app.api.concurrency.default-request-count=" + concurrency.getDefaultRequestCount());
+                }
             }
-            if (config.getApi().getManager() != null) {
-                properties.add("app.api.manager.secret=" + config.getApi().getManager().getSecret());
-                properties.add("app.api.manager.casino-id=" + config.getApi().getManager().getCasinoId());
+
+            if (defaults != null && defaults.getBaseUrl() != null) {
+                properties.add("app.http.defaults.base-url=" + defaults.getBaseUrl());
             }
-            if (config.getApi().getConcurrency() != null) {
-                properties.add("app.api.concurrency.request-timeout-ms=" + config.getApi().getConcurrency().getRequestTimeoutMs());
-                properties.add("app.api.concurrency.default-request-count=" + config.getApi().getConcurrency().getDefaultRequestCount());
+
+            if (httpConfig.getServices() != null) {
+                httpConfig.getServices().forEach((serviceId, serviceProperties) -> {
+                    if (serviceProperties == null) {
+                        return;
+                    }
+                    String prefix = "app.http.services." + serviceId + ".";
+                    String baseUrl = valueAsString(serviceProperties.get("baseUrl"));
+                    if (baseUrl != null) {
+                        properties.add(prefix + "base-url=" + baseUrl);
+                        if ("fapi".equals(serviceId)) {
+                            properties.add("app.api.fapi.base-url=" + baseUrl);
+                        }
+                        if ("manager".equals(serviceId)) {
+                            properties.add("app.api.manager.base-url=" + baseUrl);
+                        }
+                        if ("cap".equals(serviceId)) {
+                            properties.add("app.api.cap.base-url=" + baseUrl);
+                        }
+                    }
+
+
+                });
             }
         }
 
-        if (config.getPlatform() != null) {
-            properties.add("app.settings.default.platform-node-id=" + config.getPlatform().getNodeId());
-            properties.add("app.settings.default.platform-group-id=" + config.getPlatform().getGroupId());
-            properties.add("app.settings.default.currency=" + config.getPlatform().getCurrency());
-            properties.add("app.settings.default.country=" + config.getPlatform().getCountry());
-        }
+
 
         if (config.getDatabases() != null) {
             config.getDatabases().forEach((name, dbConfig) -> {
                 String dbNameForUrl = config.getName() + "_" + name;
                 String url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
-                        dbConfig.getHost(), dbConfig.getPort(), dbNameForUrl);
+                        dbConfig.host(), dbConfig.port(), dbNameForUrl);
 
                 properties.add("spring.datasource." + name + ".url=" + url);
-                properties.add("spring.datasource." + name + ".username=" + dbConfig.getUsername());
-                properties.add("spring.datasource." + name + ".password=" + dbConfig.getPassword());
-                properties.add("app.db.retry-timeout-seconds=" + dbConfig.getRetryTimeoutSeconds());
-                properties.add("app.db.retry-poll-interval-ms=" + dbConfig.getRetryPollIntervalMs());
-                properties.add("app.db.retry-poll-delay-ms=" + dbConfig.getRetryPollDelayMs());
+                properties.add("spring.datasource." + name + ".username=" + dbConfig.username());
+                properties.add("spring.datasource." + name + ".password=" + dbConfig.password());
+                properties.add("app.db.retry-timeout-seconds=" + dbConfig.retryTimeoutSeconds());
+                properties.add("app.db.retry-poll-interval-ms=" + dbConfig.retryPollIntervalMs());
+                properties.add("app.db.retry-poll-delay-ms=" + dbConfig.retryPollDelayMs());
             });
         }
 
         RedisModuleProperties redisProperties = config.getRedis();
 
         if (redisProperties != null) {
-            RedisAggregateConfig aggregateConfig = redisProperties.getAggregate();
+            var aggregateConfig = redisProperties.getAggregate();
             if (aggregateConfig != null) {
                 properties.add("app.redis.aggregate.max-gambling.count=" + aggregateConfig.maxGamblingCount());
                 properties.add("app.redis.aggregate.max-iframe.count=" + aggregateConfig.maxIframeCount());
@@ -132,4 +157,10 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
     private static String formatDuration(Duration duration) {
         return duration.toMillis() + "ms";
     }
+
+    private static String valueAsString(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+
 }

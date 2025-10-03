@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -121,7 +122,7 @@ class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
     @MethodSource("winLikeTransactionTypeProvider")
     @DisplayName("Попытка рефанда:")
     void test(BigDecimal winAmountParam, NatsGamblingTransactionOperation winOperationTypeParam) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.turnover;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -104,7 +105,7 @@ class TurnoverLimitWhenBetParameterizedTest extends BaseParameterizedTest {
             NatsGamblingTransactionOperation operationParam,
             NatsLimitIntervalType periodType
     ) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

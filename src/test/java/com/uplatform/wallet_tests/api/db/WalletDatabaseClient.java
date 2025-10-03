@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.db;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.db.entity.wallet.*;

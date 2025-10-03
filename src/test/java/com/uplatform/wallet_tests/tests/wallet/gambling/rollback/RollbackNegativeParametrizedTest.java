@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -44,7 +45,7 @@ class RollbackNegativeParametrizedTest extends BaseParameterizedTest {
 
     @BeforeAll
     void setup() {
-        final String validCasinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         step("Default Step: Регистрация нового пользователя", () -> {
             this.registeredPlayer = defaultTestSteps.registerNewPlayer(this.adjustmentAmount);
@@ -154,7 +155,7 @@ class RollbackNegativeParametrizedTest extends BaseParameterizedTest {
             Integer expectedErrorCode,
             String expectedMessageSubstring)
     {
-        final String validCasinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         var request = RollbackRequestBody.builder()
                 .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())

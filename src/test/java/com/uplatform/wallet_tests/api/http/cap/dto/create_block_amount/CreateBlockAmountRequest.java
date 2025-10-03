@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount;
+import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import lombok.Builder;
 import lombok.Data;
 
