@@ -1,14 +1,18 @@
-# Kafka Test Client
+# kafka-api Module
 
-Kafka-клиент из модуля `kafka-api` помогает автотестам находить события в нужных топиках, ждать их появления и
-прикладывать подробные артефакты в Allure. Он работает асинхронно, потокобезопасен и интегрируется со Spring Boot
-через стандартные бины конфигурации.
+Универсальный тестовый модуль для интеграции с внешними системами: **Kafka**, **NATS**, **Redis** и **HTTP API**.
+Все клиенты используют единый fluent DSL, централизованную конфигурацию через JSON и автоматическую генерацию Allure-аттачей.
 
 ## Оглавление
 
-- [Kafka Test Client](#kafka-test-client)
+- [HTTP Test Client](#http-test-client)
   - [Архитектура](#архитектура)
   - [Подключение и конфигурация](#подключение-и-конфигурация)
+  - [Использование](#использование)
+  - [Интеграция с Allure](#интеграция-с-allure)
+- [Kafka Test Client](#kafka-test-client)
+  - [Архитектура](#архитектура-1)
+  - [Подключение и конфигурация](#подключение-и-конфигурация-1)
     - [DTO и сопоставление топиков](#dto-и-сопоставление-топиков)
     - [Зависимость Gradle](#зависимость-gradle)
     - [Spring-конфигурация реестра топиков](#spring-конфигурация-реестра-топиков)
@@ -16,30 +20,159 @@ Kafka-клиент из модуля `kafka-api` помогает автотес
   - [Сценарии использования](#сценарии-использования)
     - [Методы fluent API](#методы-fluent-api)
     - [Комплексный пример](#комплексный-пример)
-  - [Интеграция с Allure](#интеграция-с-allure)
+  - [Интеграция с Allure](#интеграция-с-allure-1)
 - [NATS Test Client](#nats-test-client)
   - [Архитектура и ключевые компоненты](#архитектура-и-ключевые-компоненты)
-  - [Подключение и конфигурация](#подключение-и-конфигурация-1)
+  - [Подключение и конфигурация](#подключение-и-конфигурация-2)
     - [Зависимость Gradle](#зависимость-gradle-1)
     - [Файл окружения](#файл-окружения)
     - [Настройки клиента](#настройки-клиента)
   - [Сценарии использования](#сценарии-использования-1)
     - [Методы fluent API](#методы-fluent-api-1)
     - [Комплексный пример](#комплексный-пример-1)
-  - [Интеграция с Allure](#интеграция-с-allure-1)
+  - [Интеграция с Allure](#интеграция-с-allure-2)
 - [Redis Test Client](#redis-test-client)
   - [Архитектура и ключевые компоненты](#архитектура-и-ключевые-компоненты-1)
-  - [Подключение и конфигурация](#подключение-и-конфигурация-2)
+  - [Подключение и конфигурация](#подключение-и-конфигурации-3)
     - [Зависимость Gradle](#зависимость-gradle-2)
     - [Spring-конфигурация типов](#spring-конфигурация-типов)
     - [Настройки клиента](#настройки-клиента-1)
   - [Сценарии использования](#сценарии-использования-2)
     - [Методы fluent API](#методы-fluent-api-2)
     - [Комплексный пример](#комплексный-пример-2)
-  - [Интеграция с Allure](#интеграция-с-allure-2)
+  - [Интеграция с Allure](#интеграция-с-allure-3)
 - [Материалы для визуализаций](#материалы-для-визуализаций)
 
-## Архитектура
+---
+
+## HTTP Test Client
+
+HTTP-клиент из модуля `kafka-api` построен на базе **Spring Cloud OpenFeign** и **OkHttp**. Конфигурация полностью автоматическая:
+достаточно добавить сервис в JSON, и он сразу доступен для использования.
+
+### Архитектура
+
+- **OpenFeign** — декларативный HTTP клиент через аннотации
+- **OkHttp** — транспорт с connection pooling (10 соединений, 5 минут keep-alive)
+- **DynamicPropertiesConfigurator** — автоматически регистрирует все сервисы из JSON как Spring properties
+- **Timeouts**: connect 10s, read/write 60s (переопределяется через `requestTimeoutMs`)
+- **Retry on connection failure** — включен
+
+---
+
+### Подключение и конфигурация
+
+#### Зависимость Gradle
+
+```gradle
+dependencies {
+    testImplementation project(":kafka-api")
+}
+```
+
+#### Настройки приложения
+
+Фрагмент `configs/<env>.json`:
+
+```json
+{
+  "http": {
+    "defaults": {
+      "baseUrl": "https://beta-09.b2bdev.pro",
+      "concurrency": {
+        "requestTimeoutMs": 5000,
+        "defaultRequestCount": 2
+      }
+    },
+    "services": {
+      "fapi": {
+        "baseUrl": "https://beta-09.b2bdev.pro"
+      },
+      "cap": {
+        "baseUrl": "https://cap.beta-09.b2bdev.pro"
+      },
+      "payment": {
+        "baseUrl": "https://payment.beta-09.b2bdev.pro",
+        "timeout": 10000
+      }
+    }
+  }
+}
+```
+
+**Автоматическая регистрация:** любой сервис из `http.services.*` становится доступен как `${app.api.<service-name>.*}`
+
+Примеры:
+```
+http.services.fapi    → ${app.api.fapi.base-url}
+http.services.cap     → ${app.api.cap.base-url}
+http.services.payment → ${app.api.payment.base-url}
+                      → ${app.api.payment.timeout}
+```
+
+Дополнительные свойства (кроме `baseUrl`) автоматически конвертируются из camelCase в kebab-case.
+
+---
+
+### Использование
+
+#### Создание Feign клиента
+
+```java
+@FeignClient(name = "fapiClient", url = "${app.api.fapi.base-url}")
+public interface FapiClient {
+
+    @GetMapping("/api/v1/wallets/{playerId}")
+    WalletResponse getWallet(@PathVariable("playerId") String playerId);
+
+    @PostMapping("/api/v1/transactions")
+    TransactionResponse createTransaction(@RequestBody TransactionRequest request);
+}
+```
+
+#### Активация клиентов
+
+```java
+@Configuration
+@EnableFeignClients(basePackages = "com.example.tests.api.http.clients")
+public class TestApiConfig {
+}
+```
+
+#### Использование в тестах
+
+```java
+@SpringBootTest
+public class WalletApiTest {
+
+    @Autowired
+    private FapiClient fapiClient;
+
+    @Test
+    void shouldGetWallet() {
+        step("HTTP: Получение кошелька", () -> {
+            WalletResponse wallet = fapiClient.getWallet(playerId);
+            assertThat(wallet.getBalance()).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+        });
+    }
+}
+```
+
+---
+
+### Интеграция с Allure
+
+Feign Logger автоматически логирует запросы и ответы с уровнем `FULL`: метод, URL, заголовки, тело, статус и время выполнения.
+
+---
+
+## Kafka Test Client
+
+Kafka-клиент из модуля `kafka-api` помогает автотестам находить события в нужных топиках, ждать их появления и
+прикладывать подробные артефакты в Allure. Он работает асинхронно, потокобезопасен и интегрируется со Spring Boot
+через стандартные бины конфигурации.
+
+### Архитектура
 
 Высокоуровневый обмен между тестом, клиентом и Kafka выглядит так:
 

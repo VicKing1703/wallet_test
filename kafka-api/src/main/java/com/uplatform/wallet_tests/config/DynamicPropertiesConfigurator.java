@@ -55,22 +55,22 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
                     if (serviceProperties == null) {
                         return;
                     }
-                    String prefix = "app.http.services." + serviceId + ".";
+
+                    // Automatically register baseUrl for any service
                     String baseUrl = valueAsString(serviceProperties.get("baseUrl"));
                     if (baseUrl != null) {
-                        properties.add(prefix + "base-url=" + baseUrl);
-                        if ("fapi".equals(serviceId)) {
-                            properties.add("app.api.fapi.base-url=" + baseUrl);
-                        }
-                        if ("manager".equals(serviceId)) {
-                            properties.add("app.api.manager.base-url=" + baseUrl);
-                        }
-                        if ("cap".equals(serviceId)) {
-                            properties.add("app.api.cap.base-url=" + baseUrl);
-                        }
+                        properties.add("app.api." + serviceId + ".base-url=" + baseUrl);
+                        // Keep legacy property for backward compatibility
+                        properties.add("app.http.services." + serviceId + ".base-url=" + baseUrl);
                     }
 
-
+                    // Automatically register all other service properties
+                    serviceProperties.forEach((key, value) -> {
+                        if (!"baseUrl".equals(key) && value != null) {
+                            String kebabKey = toKebabCase(key);
+                            properties.add("app.api." + serviceId + "." + kebabKey + "=" + valueAsString(value));
+                        }
+                    });
                 });
             }
         }
@@ -162,5 +162,10 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
         return value == null ? null : value.toString();
     }
 
-
+    private static String toKebabCase(String camelCase) {
+        if (camelCase == null || camelCase.isEmpty()) {
+            return camelCase;
+        }
+        return camelCase.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase();
+    }
 }
