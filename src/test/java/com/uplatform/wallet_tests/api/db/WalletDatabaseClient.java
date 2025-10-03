@@ -1,7 +1,5 @@
 package com.uplatform.wallet_tests.api.db;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.db.entity.wallet.*;
 import com.uplatform.wallet_tests.api.db.repository.wallet.*;
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
@@ -29,8 +27,7 @@ public class WalletDatabaseClient extends AbstractDatabaseClient {
                                 PlayerThresholdDepositRepository playerThresholdDepositRepository,
                                 WalletGameSessionRepository walletGameSessionRepository,
                                 WalletRepository walletRepository,
-                                BettingProjectionIframeHistoryRepository iframeHistoryRepository,
-                                ObjectMapper objectMapper) {
+                                BettingProjectionIframeHistoryRepository iframeHistoryRepository) {
         super(attachmentService);
         this.transactionRepository = transactionRepository;
         this.playerThresholdWinRepository = playerThresholdWinRepository;

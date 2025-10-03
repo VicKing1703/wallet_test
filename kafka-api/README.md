@@ -47,18 +47,23 @@
 
 ## HTTP Test Client
 
-HTTP-клиент из модуля `kafka-api` построен на базе **Spring Cloud OpenFeign** и **OkHttp**. Конфигурация полностью автоматическая:
-достаточно добавить сервис в JSON, и он сразу доступен для использования.
+HTTP-клиент из модуля `kafka-api` работает поверх **Spring Cloud OpenFeign** и **OkHttp**, предоставляя декларативный способ
+описания REST API через интерфейсы. Конфигурация читается из единых JSON-файлов окружений, автоматически регистрируется в
+Spring properties и не требует правок в `application.yml` при переключении стендов.
 
 ### Архитектура
 
-- **OpenFeign** — декларативный HTTP клиент через аннотации
-- **OkHttp** — транспорт с connection pooling (10 соединений, 5 минут keep-alive)
-- **DynamicPropertiesConfigurator** — автоматически регистрирует все сервисы из JSON как Spring properties
-- **Timeouts**: connect 10s, read/write 60s (переопределяется через `requestTimeoutMs`)
-- **Retry on connection failure** — включен
+Высокоуровневый обмен между тестом, Feign-клиентом и HTTP API выглядит так:
 
----
+![Диаграмма взаимодействия HTTP-клиента](src/main/resources/docs/images/http-architecture-diagram.jpg)
+
+### Ключевые компоненты
+
+- **OpenFeign** — декларативный HTTP-клиент через аннотации, маппинг методов на HTTP-запросы.
+- **OkHttp** — транспортный слой с connection pooling (10 соединений, 5 минут keep-alive по умолчанию).
+- **DynamicPropertiesConfigurator** — автоматически регистрирует все сервисы из JSON как Spring properties (`${app.api.<service>.*}`).
+- **HttpServicesProperties** — читает блок `http` из конфигурации и прокидывает настройки в property source.
+- **FeignLogger** — логирует запросы и ответы с уровнем `FULL`, формируя детальные аттачи для Allure.
 
 ### Подключение и конфигурация
 
@@ -72,7 +77,7 @@ dependencies {
 
 #### Настройки приложения
 
-Фрагмент `configs/<env>.json`:
+Блок `http` в `configs/<env>.json` содержит глобальные defaults и карту сервисов:
 
 ```json
 {
@@ -104,65 +109,107 @@ dependencies {
 
 Примеры:
 ```
-http.services.fapi    → ${app.api.fapi.base-url}
-http.services.cap     → ${app.api.cap.base-url}
-http.services.payment → ${app.api.payment.base-url}
-                      → ${app.api.payment.timeout}
+http.services.fapi.baseUrl    → ${app.api.fapi.base-url}
+http.services.cap.baseUrl     → ${app.api.cap.base-url}
+http.services.payment.baseUrl → ${app.api.payment.base-url}
+http.services.payment.timeout → ${app.api.payment.timeout}
 ```
 
-Дополнительные свойства (кроме `baseUrl`) автоматически конвертируются из camelCase в kebab-case.
+Дополнительные атрибуты (например, `timeout`, `username`, `password`) конвертируются из camelCase в kebab-case и доступны через
+те же Spring properties.
 
----
+- `defaults.baseUrl` — базовый URL для всех сервисов, не имеющих собственного `baseUrl`.
+- `defaults.concurrency.requestTimeoutMs` — глобальный таймаут запросов (используется вспомогательными хелперами).
+- `defaults.concurrency.defaultRequestCount` — количество параллельных запросов по умолчанию для bulk-сценариев.
+- `services.<name>.baseUrl` — полный URL сервиса; переопределяет глобальный `defaults.baseUrl`.
+- `services.<name>.timeout` — таймаут в миллисекундах для конкретного сервиса; если не указан, используется `60000ms` (read/write timeout OkHttp).
 
 ### Использование
 
 #### Создание Feign клиента
 
+Описываете интерфейс с аннотациями Spring MVC, ссылаясь на property из конфигурации:
+
 ```java
+package com.uplatform.wallet_tests.api.http.clients;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.*;
+
 @FeignClient(name = "fapiClient", url = "${app.api.fapi.base-url}")
 public interface FapiClient {
 
     @GetMapping("/api/v1/wallets/{playerId}")
-    WalletResponse getWallet(@PathVariable("playerId") String playerId);
+    WalletResponse getWallet(@PathVariable("playerId") String playerId,
+                              @RequestHeader("Authorization") String authToken);
 
     @PostMapping("/api/v1/transactions")
-    TransactionResponse createTransaction(@RequestBody TransactionRequest request);
+    TransactionResponse createTransaction(@RequestBody TransactionRequest request,
+                                           @RequestHeader("X-Request-Id") String requestId);
 }
 ```
+
+Feign автоматически сериализует `@RequestBody` в JSON и десериализует тело ответа в указанный тип.
 
 #### Активация клиентов
 
+Добавьте `@EnableFeignClients` в Spring-конфигурацию тестов, указав пакет, в котором лежат интерфейсы:
+
 ```java
 @Configuration
-@EnableFeignClients(basePackages = "com.example.tests.api.http.clients")
-public class TestApiConfig {
+@EnableFeignClients(basePackages = "com.uplatform.wallet_tests.api.http.clients")
+public class TestHttpConfig {
 }
 ```
 
+Spring автоматически создаёт бины-прокси для всех найденных `@FeignClient` интерфейсов.
+
 #### Использование в тестах
+
+Внедряете клиент через `@Autowired` и вызываете методы в Allure-steps:
 
 ```java
 @SpringBootTest
-public class WalletApiTest {
+public class WalletHttpApiTest {
 
     @Autowired
     private FapiClient fapiClient;
 
     @Test
-    void shouldGetWallet() {
-        step("HTTP: Получение кошелька", () -> {
-            WalletResponse wallet = fapiClient.getWallet(playerId);
+    void shouldGetWalletAndCreateTransaction() {
+        String playerId = "test-player-123";
+        String token = "Bearer " + generateTestToken();
+
+        step("HTTP: Получение кошелька игрока", () -> {
+            WalletResponse wallet = fapiClient.getWallet(playerId, token);
             assertThat(wallet.getBalance()).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+        });
+
+        step("HTTP: Создание транзакции", () -> {
+            TransactionRequest request = new TransactionRequest(playerId, BigDecimal.TEN, "BET");
+            TransactionResponse response = fapiClient.createTransaction(request, UUID.randomUUID().toString());
+            assertThat(response.getStatus()).isEqualTo("SUCCESS");
         });
     }
 }
 ```
 
+Feign автоматически подставляет `baseUrl` из property, добавляет заголовки и обрабатывает ошибки согласно статусу HTTP.
+
 ---
 
 ### Интеграция с Allure
 
-Feign Logger автоматически логирует запросы и ответы с уровнем `FULL`: метод, URL, заголовки, тело, статус и время выполнения.
+`FeignLogger` с уровнем `FULL` логирует каждый запрос и ответ:
+
+- **Request** — HTTP-метод, URL, заголовки, тело запроса.
+- **Response** — статус, заголовки, тело ответа, время выполнения.
+- **Error** — при статусах 4xx/5xx или сетевых ошибках логирует исключение и payload.
+
+Логи автоматически прикрепляются к текущему Allure-step, формируя подробный отчёт для каждого HTTP-взаимодействия.
+
+Пример того, как это выглядит в Allure:
+![Allure-отчёт с HTTP-аттачами](src/main/resources/docs/images/http-allure-report-example.jpg)
 
 ---
 
@@ -319,7 +366,7 @@ step("Kafka: Получение сообщения из топика limits.v2",
 - **Deserialization Error** — подробности ошибки Jackson и исходный payload.
 
 Пример того, как это выглядит в Allure:
-![Allure-отчёт с Kafka-аттачами](src/main/resources/docs/images/allure-report-example.jpg)
+![Allure-отчёт с Kafka-аттачами](src/main/resources/docs/images/kafka-allure-report-example.jpg)
 ---
 
 ## NATS Test Client
@@ -327,7 +374,13 @@ step("Kafka: Получение сообщения из топика limits.v2",
 Клиент NATS в модуле `kafka-api` работает поверх JetStream, повторяя знакомый по Kafka и Redis подход: ожидания описываются через
 fluent API, параметры читаются из единого JSON-конфига, а результат сопровождается аттачами в Allure.
 
-### Архитектура и ключевые компоненты
+### Архитектура
+
+Высокоуровневый обмен между тестом, клиентом и NATS JetStream выглядит так:
+
+![Диаграмма взаимодействия NATS-клиента](src/main/resources/docs/images/nats-architecture-diagram.jpg)
+
+### Ключевые компоненты
 
 - **`NatsClient`.** Фасад, который собирает ожидание (`expect(...)`) и делегирует поиск в `NatsSubscriber`.
 - **`NatsSubscriber`.** Управляет JetStream-подпиской в отдельном dispatcher'е, применяет фильтры и следит за таймаутами.
@@ -437,6 +490,9 @@ step("NATS: Получаем событие о создании лимита", (
 - **Duplicate Message** — появляется при нарушении `.unique()`.
 - **Message Not Found** — содержит информацию о таймауте и применённых фильтрах.
 
+Пример того, как это выглядит в Allure:
+![Allure-отчёт с NATS-аттачами](src/main/resources/docs/images/nats-allure-report-example.jpg)
+
 ---
 
 ## Redis Test Client
@@ -444,7 +500,13 @@ step("NATS: Получаем событие о создании лимита", (
 Redis-клиент из `kafka-api` повторяет знакомую структуру Kafka- и NATS-модулей: fluent DSL описывает ожидание значения по ключу,
 конфигурация хранится во внешних JSON/YAML файлах, а результат сопровождён информативными аттачами в Allure.
 
-### Архитектура и ключевые компоненты
+### Архитектура
+
+Высокоуровневый обмен между тестом, клиентом и Redis выглядит так:
+
+![Диаграмма взаимодействия Redis-клиента](src/main/resources/docs/images/redis-architecture-diagram.jpg)
+
+### Ключевые компоненты
 
 - **`GenericRedisClient`.** Точечный бин для каждого инстанса, разворачиваемого из конфигурации. Инициализирует билдер ожидания через
   `.key(...)` и прокидывает типы/зависимости.
@@ -572,12 +634,6 @@ step("Redis: Проверяем агрегат кошелька и связан�
 
 Эти аттачи упрощают анализ Redis-проверок и полностью соответствуют стилю Kafka/NATS клиентов.
 
----
+Пример того, как это выглядит в Allure:
+![Allure-отчёт с Redis-аттачами](src/main/resources/docs/images/redis-allure-report-example.jpg)
 
-## Материалы для визуализаций
-
-- `docs/images/kafka-architecture-diagram.png` — путь для PNG/WEBP диаграммы, экспортированной из Mermaid-сценария выше.
-- `docs/images/allure-report-example.png` — путь для скриншота отчёта Allure с аттачами Kafka.
-
-Храните файлы в каталоге `docs/images` в корне репозитория и подключайте их из README через относительный путь
-`../docs/images/<filename>`.

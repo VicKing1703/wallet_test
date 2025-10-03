@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.db;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import com.uplatform.wallet_tests.api.db.repository.player.AccountPropertyRepository;

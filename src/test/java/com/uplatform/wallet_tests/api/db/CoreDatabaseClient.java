@@ -1,7 +1,5 @@
 package com.uplatform.wallet_tests.api.db;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGame;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGameSession;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreWallet;
@@ -30,8 +28,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
                               CoreGameSessionRepository coreGameSessionRepository,
                               CoreGameRepository coreGameRepository,
                               CoreWalletRepository coreWalletRepository,
-                              CoreGameProviderRepository coreGameProviderRepository,
-                              ObjectMapper objectMapper) {
+                              CoreGameProviderRepository coreGameProviderRepository) {
         super(attachmentService);
         this.coreGameSessionRepository = coreGameSessionRepository;
         this.coreGameRepository = coreGameRepository;
