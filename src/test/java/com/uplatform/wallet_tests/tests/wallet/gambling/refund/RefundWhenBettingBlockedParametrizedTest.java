@@ -176,8 +176,8 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
             assertNotNull(response.getBody(), "manager_api.refund.body_not_null");
             assertAll("Проверка статус-кода и тела ответа при рефанде",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.refund.status_code"),
-                    () -> assertEquals(refundRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.refund.transaction_id"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().getBalance()), "manager_api.refund.balance")
+                    () -> assertEquals(refundRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.refund.transaction_id"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().balance()), "manager_api.refund.balance")
             );
         });
     }

@@ -203,8 +203,8 @@ class BetNegativeParametrizedTest extends BaseParameterizedTest {
 
             assertAll("Проверка деталей ошибки",
                     () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.error.status_code"),
-                    () -> assertEquals(expectedErrorCode.getCode(), error.getCode(), "manager_api.error.code"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(expectedMessageSubstring.toLowerCase()),
+                    () -> assertEquals(expectedErrorCode.getCode(), error.code(), "manager_api.error.code"),
+                    () -> assertTrue(error.message().toLowerCase().contains(expectedMessageSubstring.toLowerCase()),
                             "manager_api.error.message")
             );
         });

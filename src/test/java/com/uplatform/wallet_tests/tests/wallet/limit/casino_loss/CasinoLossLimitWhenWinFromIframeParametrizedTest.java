@@ -146,9 +146,9 @@ class CasinoLossLimitWhenWinFromIframeParametrizedTest extends BaseParameterized
 
             var limit = aggregate.limits().get(0);
             assertAll(
-                    () -> assertEquals(0, ctx.expectedRest.compareTo(limit.getRest()), "redis.aggregate.limit.rest"),
-                    () -> assertEquals(0, ctx.expectedSpent.compareTo(limit.getSpent()), "redis.aggregate.limit.spent"),
-                    () -> assertEquals(0, limitAmount.compareTo(limit.getAmount()), "redis.aggregate.limit.amount")
+                    () -> assertEquals(0, ctx.expectedRest.compareTo(limit.rest()), "redis.aggregate.limit.rest"),
+                    () -> assertEquals(0, ctx.expectedSpent.compareTo(limit.spent()), "redis.aggregate.limit.spent"),
+                    () -> assertEquals(0, limitAmount.compareTo(limit.amount()), "redis.aggregate.limit.amount")
             );
         });
     }

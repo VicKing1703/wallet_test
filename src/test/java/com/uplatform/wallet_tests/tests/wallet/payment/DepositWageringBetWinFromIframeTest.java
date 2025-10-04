@@ -144,7 +144,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
 
             assertAll("Проверка ответа от manager_api",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.make_payment.status_code"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.make_payment.body.success")
+                    () -> assertTrue(response.getBody().success(), "manager_api.make_payment.body.success")
             );
         });
 

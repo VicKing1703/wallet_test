@@ -180,8 +180,8 @@ class WinParametrizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа ставки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.bet.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.bet.body_not_null"),
-                    () -> assertEquals(request.getTransactionId(), response.getBody().getTransactionId(), "manager_api.bet.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(response.getBody().getBalance()), "manager_api.bet.body.balance")
+                    () -> assertEquals(request.getTransactionId(), response.getBody().transactionId(), "manager_api.bet.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(response.getBody().balance()), "manager_api.bet.body.balance")
             );
         });
 
@@ -203,8 +203,8 @@ class WinParametrizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа выигрыша",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.win.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.win.body_not_null"),
-                    () -> assertEquals(ctx.winRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.win.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterWin.compareTo(response.getBody().getBalance()), "manager_api.win.body.balance")
+                    () -> assertEquals(ctx.winRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.win.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterWin.compareTo(response.getBody().balance()), "manager_api.win.body.balance")
             );
         });
 

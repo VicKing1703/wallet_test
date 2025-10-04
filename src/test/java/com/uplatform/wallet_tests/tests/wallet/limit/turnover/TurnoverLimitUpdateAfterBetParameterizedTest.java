@@ -147,7 +147,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     ctx.registeredPlayer.getWalletData().playerUUID(),
                     ctx.registeredPlayer.getWalletData().walletUUID());
 
-            var expectedCreateAmount = new BigDecimal(ctx.createRequest.getAmount()).stripTrailingZeros().toPlainString();
+            var expectedCreateAmount = new BigDecimal(ctx.createRequest.amount()).stripTrailingZeros().toPlainString();
 
             ctx.createEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -155,7 +155,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     .with("$.event_type", NatsLimitEventType.CREATED.getValue())
                     .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
                     .with("$.limits[0].interval_type", periodType.getValue())
-                    .with("$.limits[0].currency_code", ctx.createRequest.getCurrency())
+                    .with("$.limits[0].currency_code", ctx.createRequest.currency())
                     .with("$.limits[0].amount", expectedCreateAmount)
                     .with("$.limits[0].status", true)
                     .fetch();
@@ -180,7 +180,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
             assertAll("manager_api.bet.response_validation",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.bet.status_code"),
-                    () -> assertEquals(ctx.betRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.bet.body.transactionId")
+                    () -> assertEquals(ctx.betRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.bet.body.transactionId")
             );
 
             step("Sub-step NATS: получение события betted_from_gamble", () -> {
@@ -240,10 +240,10 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     () -> assertEquals(ctx.createEvent.getPayload().getLimits().get(0).getExternalId(), updLimit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
                     () -> assertEquals(NatsLimitType.TURNOVER_FUNDS.getValue(), updLimit.getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), updLimit.getIntervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
-                    () -> assertEquals(0, newAmount.compareTo(updLimit.getAmount()), "nats.limit_changed_v2_event.limit.amount"),
+                    () -> assertEquals(0, newAmount.compareTo(updLimit.amount()), "nats.limit_changed_v2_event.limit.amount"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), updLimit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
-                    () -> assertNotNull(updLimit.getStartedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
-                    () -> assertNotNull(updLimit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
+                    () -> assertNotNull(updLimit.startedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
+                    () -> assertNotNull(updLimit.expiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                     () -> assertTrue(updLimit.getStatus(), "nats.limit_changed_v2_event.limit.status")
             );
         });
@@ -275,13 +275,13 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     () -> assertEquals(ctx.updateEvent.getPayload().getLimits().get(0).getExternalId(), redisLimit.getExternalID(), "redis.wallet_aggregate.limit.externalId"),
                     () -> assertEquals(NatsLimitType.TURNOVER_FUNDS.getValue(), redisLimit.getLimitType(), "redis.wallet_aggregate.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), redisLimit.getIntervalType(), "redis.wallet_aggregate.limit.intervalType"),
-                    () -> assertEquals(0, newAmount.compareTo(redisLimit.getAmount()), "redis.wallet_aggregate.limit.amount"),
-                    () -> assertEquals(0, expectedSpentAfterUpdate.compareTo(redisLimit.getSpent()), "redis.wallet_aggregate.limit.spent"),
-                    () -> assertEquals(0, expectedRestAfterUpdate.compareTo(redisLimit.getRest()), "redis.wallet_aggregate.limit.rest"),
+                    () -> assertEquals(0, newAmount.compareTo(redisLimit.amount()), "redis.wallet_aggregate.limit.amount"),
+                    () -> assertEquals(0, expectedSpentAfterUpdate.compareTo(redisLimit.spent()), "redis.wallet_aggregate.limit.spent"),
+                    () -> assertEquals(0, expectedRestAfterUpdate.compareTo(redisLimit.rest()), "redis.wallet_aggregate.limit.rest"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), redisLimit.getCurrencyCode(), "redis.wallet_aggregate.limit.currencyCode"),
-                    () -> assertNotNull(redisLimit.getStartedAt(), "redis.wallet_aggregate.limit.startedAt"),
-                    () -> assertNotNull(redisLimit.getExpiresAt(), "redis.wallet_aggregate.limit.expiresAt"),
-                    () -> assertTrue(redisLimit.isStatus(), "redis.wallet_aggregate.limit.status_is_true")
+                    () -> assertNotNull(redisLimit.startedAt(), "redis.wallet_aggregate.limit.startedAt"),
+                    () -> assertNotNull(redisLimit.expiresAt(), "redis.wallet_aggregate.limit.expiresAt"),
+                    () -> assertTrue(redisLimit.status(), "redis.wallet_aggregate.limit.status_is_true")
             );
         });
 
@@ -294,31 +294,31 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
             assertEquals(HttpStatus.OK, response.getStatusCode(), "cap.get_player_limits.status_code");
             assertNotNull(response.getBody(), "cap.get_player_limits.response_body_not_null");
-            assertNotNull(response.getBody().getData(), "cap.get_player_limits.response_body.data_list_not_null");
+            assertNotNull(response.getBody().data(), "cap.get_player_limits.response_body.data_list_not_null");
 
-            var capLimitOpt = response.getBody().getData().stream()
-                    .filter(l -> newAmount.compareTo(l.getAmount()) == 0)
+            var capLimitOpt = response.getBody().data().stream()
+                    .filter(l -> newAmount.compareTo(l.amount()) == 0)
                     .findFirst();
 
             assertTrue(capLimitOpt.isPresent(), "cap.get_player_limits.limit_not_found");
             var capLimit = capLimitOpt.get();
 
             assertAll("cap.get_player_limits.limit_content_validation",
-                    () -> assertTrue(capLimit.isStatus(), "cap.get_player_limits.limit.status_is_true"),
-                    () -> assertEquals(periodType.getValue(), capLimit.getPeriod().toString().toLowerCase(), "cap.get_player_limits.limit.intervalType"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), capLimit.getCurrency(), "cap.get_player_limits.limit.currency"),
-                    () -> assertEquals(0, newAmount.compareTo(capLimit.getAmount()), "cap.get_player_limits.limit.amount"),
-                    () -> assertEquals(0, expectedRestAfterUpdate.compareTo(capLimit.getRest()), "cap.get_player_limits.limit.rest"),
+                    () -> assertTrue(capLimit.status(), "cap.get_player_limits.limit.status_is_true"),
+                    () -> assertEquals(periodType.getValue(), capLimit.period().toString().toLowerCase(), "cap.get_player_limits.limit.intervalType"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), capLimit.currency(), "cap.get_player_limits.limit.currency"),
+                    () -> assertEquals(0, newAmount.compareTo(capLimit.amount()), "cap.get_player_limits.limit.amount"),
+                    () -> assertEquals(0, expectedRestAfterUpdate.compareTo(capLimit.rest()), "cap.get_player_limits.limit.rest"),
                     () -> {
-                        if (capLimit.getSpent() != null) {
-                            assertEquals(0, expectedSpentAfterUpdate.compareTo(capLimit.getSpent()),
+                        if (capLimit.spent() != null) {
+                            assertEquals(0, expectedSpentAfterUpdate.compareTo(capLimit.spent()),
                                     "cap.get_player_limits.limit.spent");
                         }
                     },
-                    () -> assertNotNull(capLimit.getCreatedAt(), "cap.get_player_limits.limit.createdAt"),
-                    () -> assertNull(capLimit.getDeactivatedAt(), "cap.get_player_limits.limit.deactivatedAt"),
-                    () -> assertNotNull(capLimit.getStartedAt(), "cap.get_player_limits.limit.startedAt"),
-                    () -> assertNotNull(capLimit.getExpiresAt(), "cap.get_player_limits.limit.expiresAt")
+                    () -> assertNotNull(capLimit.createdAt(), "cap.get_player_limits.limit.createdAt"),
+                    () -> assertNull(capLimit.deactivatedAt(), "cap.get_player_limits.limit.deactivatedAt"),
+                    () -> assertNotNull(capLimit.startedAt(), "cap.get_player_limits.limit.startedAt"),
+                    () -> assertNotNull(capLimit.expiresAt(), "cap.get_player_limits.limit.expiresAt")
             );
         });
 
@@ -331,27 +331,27 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
             assertFalse(response.getBody().isEmpty(), "fapi.get_turnover_limits.response_body_list_not_empty");
 
             var fapiLimitOpt = response.getBody().stream()
-                    .filter(l -> ctx.updateEvent.getPayload().getLimits().get(0).getExternalId().equals(l.getId()))
+                    .filter(l -> ctx.updateEvent.getPayload().getLimits().get(0).getExternalId().equals(l.id()))
                     .findFirst();
 
             assertTrue(fapiLimitOpt.isPresent(), "fapi.get_turnover_limits.limit_not_found");
             var fapiLimit = fapiLimitOpt.get();
 
             assertAll("fapi.get_turnover_limits.limit_content_validation",
-                    () -> assertEquals(ctx.updateEvent.getPayload().getLimits().get(0).getExternalId(), fapiLimit.getId(), "fapi.get_turnover_limits.limit.id"),
-                    () -> assertEquals(periodType.getValue(), fapiLimit.getType(), "fapi.get_turnover_limits.limit.type"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), fapiLimit.getCurrency(), "fapi.get_turnover_limits.limit.currency"),
-                    () -> assertTrue(fapiLimit.isStatus(), "fapi.get_turnover_limits.limit.status_is_true"),
-                    () -> assertEquals(0, newAmount.compareTo(fapiLimit.getAmount()), "fapi.get_turnover_limits.limit.amount"),
-                    () -> assertEquals(0, expectedRestAfterUpdate.compareTo(fapiLimit.getRest()), "fapi.get_turnover_limits.limit.rest"),
-                    () -> assertEquals(0, expectedSpentAfterUpdate.compareTo(fapiLimit.getSpent()), "fapi.get_turnover_limits.limit.spent"),
-                    () -> assertNotNull(fapiLimit.getStartedAt(), "fapi.get_turnover_limits.limit.startedAt"),
-                    () -> assertNotNull(fapiLimit.getExpiresAt(), "fapi.get_turnover_limits.limit.expiresAt"),
-                    () -> assertNull(fapiLimit.getDeactivatedAt(), "fapi.get_turnover_limits.limit.deactivatedAt"),
-                    () -> assertTrue(fapiLimit.isRequired(), "fapi.get_turnover_limits.limit.isRequired_flag"),
+                    () -> assertEquals(ctx.updateEvent.getPayload().getLimits().get(0).getExternalId(), fapiLimit.id(), "fapi.get_turnover_limits.limit.id"),
+                    () -> assertEquals(periodType.getValue(), fapiLimit.type(), "fapi.get_turnover_limits.limit.type"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), fapiLimit.currency(), "fapi.get_turnover_limits.limit.currency"),
+                    () -> assertTrue(fapiLimit.status(), "fapi.get_turnover_limits.limit.status_is_true"),
+                    () -> assertEquals(0, newAmount.compareTo(fapiLimit.amount()), "fapi.get_turnover_limits.limit.amount"),
+                    () -> assertEquals(0, expectedRestAfterUpdate.compareTo(fapiLimit.rest()), "fapi.get_turnover_limits.limit.rest"),
+                    () -> assertEquals(0, expectedSpentAfterUpdate.compareTo(fapiLimit.spent()), "fapi.get_turnover_limits.limit.spent"),
+                    () -> assertNotNull(fapiLimit.startedAt(), "fapi.get_turnover_limits.limit.startedAt"),
+                    () -> assertNotNull(fapiLimit.expiresAt(), "fapi.get_turnover_limits.limit.expiresAt"),
+                    () -> assertNull(fapiLimit.deactivatedAt(), "fapi.get_turnover_limits.limit.deactivatedAt"),
+                    () -> assertTrue(fapiLimit.required(), "fapi.get_turnover_limits.limit.isRequired_flag"),
                     () -> {
-                        assertNotNull(fapiLimit.getUpcomingChanges(), "fapi.get_turnover_limits.limit.upcomingChanges_list_not_null");
-                        assertTrue(fapiLimit.getUpcomingChanges().isEmpty(), "fapi.get_turnover_limits.limit.upcomingChanges_is_empty");
+                        assertNotNull(fapiLimit.upcomingChanges(), "fapi.get_turnover_limits.limit.upcomingChanges_list_not_null");
+                        assertTrue(fapiLimit.upcomingChanges().isEmpty(), "fapi.get_turnover_limits.limit.upcomingChanges_is_empty");
                     }
             );
         });

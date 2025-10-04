@@ -178,8 +178,8 @@ class BetParametrizedTest extends BaseParameterizedTest {
 
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                    () -> assertEquals(request.getTransactionId(), response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedBalance.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                    () -> assertEquals(request.getTransactionId(), response.getBody().transactionId(), "manager_api.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedBalance.compareTo(response.getBody().balance()), "manager_api.body.balance")
             );
         });
 

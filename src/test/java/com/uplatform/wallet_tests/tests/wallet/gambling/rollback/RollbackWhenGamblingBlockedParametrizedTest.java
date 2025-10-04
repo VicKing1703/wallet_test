@@ -176,8 +176,8 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
             assertNotNull(response.getBody(), "manager_api.rollback.body_not_null");
             assertAll("Проверка статус-кода и тела ответа при роллбэке",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.rollback.status_code"),
-                    () -> assertEquals(rollbackRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.rollback.transaction_id"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(response.getBody().getBalance()), "manager_api.rollback.balance")
+                    () -> assertEquals(rollbackRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.rollback.transaction_id"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(response.getBody().balance()), "manager_api.rollback.balance")
             );
         });
     }

@@ -138,8 +138,8 @@ class QueriesSignatureNegativeParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(headerErrorType.getExpectedStatus().value(), thrownException.status(), "manager_api.error.status_code"),
-                    () -> assertEquals(headerErrorType.getExpectedErrorCode(), error.getCode(), "manager_api.error.code"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(headerErrorType.getExpectedMessageSubstring().toLowerCase()), "manager_api.error.message_contains")
+                    () -> assertEquals(headerErrorType.getExpectedErrorCode(), error.code(), "manager_api.error.code"),
+                    () -> assertTrue(error.message().toLowerCase().contains(headerErrorType.getExpectedMessageSubstring().toLowerCase()), "manager_api.error.message_contains")
             );
         });
     }

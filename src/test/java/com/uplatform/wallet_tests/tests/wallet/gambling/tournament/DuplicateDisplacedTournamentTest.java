@@ -180,8 +180,8 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
             assertAll("Проверка идемпотентного ответа на дубликат вытесненного турнирного начисления",
                     () -> assertEquals(HttpStatus.OK, duplicateResponse.getStatusCode(), "manager_api.status_code"),
                     () -> assertNotNull(responseBody, "manager_api.response_body"),
-                    () -> assertEquals(duplicateTournamentAttemptRequest.getTransactionId(), responseBody.getTransactionId(), "manager_api.transaction_id"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(responseBody.getBalance()), "manager_api.balance")
+                    () -> assertEquals(duplicateTournamentAttemptRequest.getTransactionId(), responseBody.transactionId(), "manager_api.transaction_id"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(responseBody.balance()), "manager_api.balance")
             );
         });
     }

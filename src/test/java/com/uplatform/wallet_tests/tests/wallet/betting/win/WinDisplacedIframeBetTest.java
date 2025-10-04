@@ -111,8 +111,8 @@ class WinDisplacedIframeBetTest extends BaseTest {
                     assertNotNull(response.getBody(), "manager_api.make_payment.body_not_null");
                     assertAll("Проверка ответа API для iFrame ставки #" + currentBetNumber,
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                            () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
-                            () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode")
+                            () -> assertTrue(response.getBody().success(), "manager_api.body.success"),
+                            () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode")
                     );
                     ctx.currentCalculatedBalance = ctx.currentCalculatedBalance.subtract(singleBetAmount);
                 });
@@ -172,9 +172,9 @@ class WinDisplacedIframeBetTest extends BaseTest {
             assertNotNull(response.getBody(), "manager_api.body_not_null");
             assertAll("Проверка ответа API на выигрыш по вытесненной iFrame ставке",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.win.status_code"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.win.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.win.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.win.body.description")
+                    () -> assertTrue(response.getBody().success(), "manager_api.win.body.success"),
+                    () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.win.body.errorCode"),
+                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().description(), "manager_api.win.body.description")
             );
         });
     }

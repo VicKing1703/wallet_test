@@ -180,10 +180,10 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
                     () -> assertEquals(ctx.createEvent.getPayload().getLimits().get(0).getExternalId(), limit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
                     () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), limit.getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), limit.getIntervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
-                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(limit.getAmount()), "nats.limit_changed_v2_event.limit.amount"),
+                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(limit.amount()), "nats.limit_changed_v2_event.limit.amount"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), limit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
-                    () -> assertNotNull(limit.getStartedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
-                    () -> assertNotNull(limit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
+                    () -> assertNotNull(limit.startedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
+                    () -> assertNotNull(limit.expiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                     () -> assertTrue(limit.getStatus(), "nats.limit_changed_v2_event.limit.status")
             );
         });
@@ -213,10 +213,10 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
                     () -> assertEquals(ctx.resetEvent.getPayload().getLimits().get(0).getExternalId(), redisLimit.getExternalID(), "redis.wallet_aggregate.limit.externalId"),
                     () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), redisLimit.getLimitType(), "redis.wallet_aggregate.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), redisLimit.getIntervalType(), "redis.wallet_aggregate.limit.intervalType"),
-                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(redisLimit.getAmount()), "redis.wallet_aggregate.limit.amount"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(redisLimit.getSpent()), "redis.wallet_aggregate.limit.spent_is_zero"),
-                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(redisLimit.getRest()), "redis.wallet_aggregate.limit.rest_equals_amount"),
-                    () -> assertTrue(redisLimit.isStatus(), "redis.wallet_aggregate.limit.status_is_true")
+                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(redisLimit.amount()), "redis.wallet_aggregate.limit.amount"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(redisLimit.spent()), "redis.wallet_aggregate.limit.spent_is_zero"),
+                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(redisLimit.rest()), "redis.wallet_aggregate.limit.rest_equals_amount"),
+                    () -> assertTrue(redisLimit.status(), "redis.wallet_aggregate.limit.status_is_true")
             );
         });
 
@@ -229,29 +229,29 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
 
             assertEquals(HttpStatus.OK, response.getStatusCode(), "cap.get_player_limits.status_code");
             assertNotNull(response.getBody(), "cap.get_player_limits.response_body_not_null");
-            assertNotNull(response.getBody().getData(), "cap.get_player_limits.response_body.data_list_not_null");
+            assertNotNull(response.getBody().data(), "cap.get_player_limits.response_body.data_list_not_null");
 
-            var capLimitOpt = response.getBody().getData().stream()
-                    .filter(l -> LIMIT_AMOUNT.compareTo(l.getAmount()) == 0)
+            var capLimitOpt = response.getBody().data().stream()
+                    .filter(l -> LIMIT_AMOUNT.compareTo(l.amount()) == 0)
                     .findFirst();
 
             assertTrue(capLimitOpt.isPresent(), "cap.get_player_limits.limit_not_found");
             var capLimit = capLimitOpt.get();
 
             assertAll("cap.get_player_limits.limit_content_validation",
-                    () -> assertTrue(capLimit.isStatus(), "cap.get_player_limits.limit.status_is_true"),
-                    () -> assertEquals(periodType.getValue(), capLimit.getPeriod().toString().toLowerCase(), "cap.get_player_limits.limit.intervalType"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), capLimit.getCurrency(), "cap.get_player_limits.limit.currency"),
-                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(capLimit.getAmount()), "cap.get_player_limits.limit.amount"),
-                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(capLimit.getRest()), "cap.get_player_limits.limit.rest_equals_amount"),
+                    () -> assertTrue(capLimit.status(), "cap.get_player_limits.limit.status_is_true"),
+                    () -> assertEquals(periodType.getValue(), capLimit.period().toString().toLowerCase(), "cap.get_player_limits.limit.intervalType"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), capLimit.currency(), "cap.get_player_limits.limit.currency"),
+                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(capLimit.amount()), "cap.get_player_limits.limit.amount"),
+                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(capLimit.rest()), "cap.get_player_limits.limit.rest_equals_amount"),
                     () -> {
-                        if (capLimit.getSpent() != null) {
-                            assertEquals(0, BigDecimal.ZERO.compareTo(capLimit.getSpent()), "cap.get_player_limits.limit.spent_is_zero");
+                        if (capLimit.spent() != null) {
+                            assertEquals(0, BigDecimal.ZERO.compareTo(capLimit.spent()), "cap.get_player_limits.limit.spent_is_zero");
                         }
                     },
-                    () -> assertNull(capLimit.getDeactivatedAt(), "cap.get_player_limits.limit.deactivatedAt_is_null"),
-                    () -> assertNotNull(capLimit.getStartedAt(), "cap.get_player_limits.limit.startedAt"),
-                    () -> assertNotNull(capLimit.getExpiresAt(), "cap.get_player_limits.limit.expiresAt")
+                    () -> assertNull(capLimit.deactivatedAt(), "cap.get_player_limits.limit.deactivatedAt_is_null"),
+                    () -> assertNotNull(capLimit.startedAt(), "cap.get_player_limits.limit.startedAt"),
+                    () -> assertNotNull(capLimit.expiresAt(), "cap.get_player_limits.limit.expiresAt")
             );
         });
 
@@ -264,23 +264,23 @@ class DepositLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteriz
             assertFalse(response.getBody().isEmpty(), "fapi.get_deposit_limits.response_body_list_not_empty");
 
             var fapiLimitOpt = response.getBody().stream()
-                    .filter(l -> ctx.resetEvent.getPayload().getLimits().get(0).getExternalId().equals(l.getId()))
+                    .filter(l -> ctx.resetEvent.getPayload().getLimits().get(0).getExternalId().equals(l.id()))
                     .findFirst();
 
             assertTrue(fapiLimitOpt.isPresent(), "fapi.get_deposit_limits.limit_not_found");
             var fapiLimit = fapiLimitOpt.get();
 
             assertAll("fapi.get_deposit_limits.limit_content_validation",
-                    () -> assertEquals(ctx.resetEvent.getPayload().getLimits().get(0).getExternalId(), fapiLimit.getId(), "fapi.get_deposit_limits.limit.id"),
-                    () -> assertEquals(periodType.getValue(), fapiLimit.getType(), "fapi.get_deposit_limits.limit.type"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), fapiLimit.getCurrency(), "fapi.get_deposit_limits.limit.currency"),
-                    () -> assertTrue(fapiLimit.isStatus(), "fapi.get_deposit_limits.limit.status_is_true"),
-                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(fapiLimit.getAmount()), "fapi.get_deposit_limits.limit.amount"),
-                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(fapiLimit.getRest()), "fapi.get_deposit_limits.limit.rest_equals_amount"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(fapiLimit.getSpent()), "fapi.get_deposit_limits.limit.spent_is_zero"),
-                    () -> assertNotNull(fapiLimit.getStartedAt(), "fapi.get_deposit_limits.limit.startedAt"),
-                    () -> assertNotNull(fapiLimit.getExpiresAt(), "fapi.get_deposit_limits.limit.expiresAt"),
-                    () -> assertNull(fapiLimit.getDeactivatedAt(), "fapi.get_deposit_limits.limit.deactivatedAt")
+                    () -> assertEquals(ctx.resetEvent.getPayload().getLimits().get(0).getExternalId(), fapiLimit.id(), "fapi.get_deposit_limits.limit.id"),
+                    () -> assertEquals(periodType.getValue(), fapiLimit.type(), "fapi.get_deposit_limits.limit.type"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), fapiLimit.currency(), "fapi.get_deposit_limits.limit.currency"),
+                    () -> assertTrue(fapiLimit.status(), "fapi.get_deposit_limits.limit.status_is_true"),
+                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(fapiLimit.amount()), "fapi.get_deposit_limits.limit.amount"),
+                    () -> assertEquals(0, LIMIT_AMOUNT.compareTo(fapiLimit.rest()), "fapi.get_deposit_limits.limit.rest_equals_amount"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(fapiLimit.spent()), "fapi.get_deposit_limits.limit.spent_is_zero"),
+                    () -> assertNotNull(fapiLimit.startedAt(), "fapi.get_deposit_limits.limit.startedAt"),
+                    () -> assertNotNull(fapiLimit.expiresAt(), "fapi.get_deposit_limits.limit.expiresAt"),
+                    () -> assertNull(fapiLimit.deactivatedAt(), "fapi.get_deposit_limits.limit.deactivatedAt")
             );
         });
     }

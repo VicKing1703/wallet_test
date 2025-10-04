@@ -90,7 +90,7 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                var expectedAmount = new BigDecimal(request.getAmount()).stripTrailingZeros().toPlainString();
+                var expectedAmount = new BigDecimal(request.amount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                         .from(subject)
@@ -98,7 +98,7 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
                         .with("$.event_type", NatsLimitEventType.CREATED.getValue())
                         .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
                         .with("$.limits[0].interval_type", periodType.getValue())
-                        .with("$.limits[0].currency_code", request.getCurrency())
+                        .with("$.limits[0].currency_code", request.currency())
                         .with("$.limits[0].amount", expectedAmount)
                         .with("$.limits[0].status", true)
                         .fetch();
@@ -144,8 +144,8 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
                         () -> assertNotNull(ctx.winEvent.getPayload().getUuid(), "nats.won_from_iframe_event.payload.uuid_not_null"),
                         () -> assertDoesNotThrow(() -> UUID.fromString(ctx.winEvent.getPayload().getUuid()),
                                 "nats.won_from_iframe_event.payload.uuid_format"),
-                        () -> assertEquals(0, winAmount.compareTo(ctx.winEvent.getPayload().getAmount()), "nats.won_from_iframe_event.payload.amount"),
-                        () -> assertEquals(NatsBettingTransactionOperation.WIN, ctx.winEvent.getPayload().getType(), "nats.won_from_iframe_event.payload.operation"),
+                        () -> assertEquals(0, winAmount.compareTo(ctx.winEvent.getPayload().amount()), "nats.won_from_iframe_event.payload.amount"),
+                        () -> assertEquals(NatsBettingTransactionOperation.WIN, ctx.winEvent.getPayload().type(), "nats.won_from_iframe_event.payload.operation"),
                         () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.winEvent.getPayload().getBetId(), "nats.won_from_iframe_event.payload.betId")
                 );
             });
@@ -169,9 +169,9 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit_present");
                         var turnoverLimit = turnoverLimitOpt.get();
 
-                        assertEquals(0, ctx.expectedRestAmountAfterOperations.compareTo(turnoverLimit.getRest()), "redis.wallet.limit.rest");
-                        assertEquals(0, ctx.expectedSpentAmountAfterOperations.compareTo(turnoverLimit.getSpent()), "redis.wallet.limit.spent");
-                        assertEquals(0, limitAmountBase.compareTo(turnoverLimit.getAmount()), "redis.wallet.limit.amount");
+                        assertEquals(0, ctx.expectedRestAmountAfterOperations.compareTo(turnoverLimit.rest()), "redis.wallet.limit.rest");
+                        assertEquals(0, ctx.expectedSpentAmountAfterOperations.compareTo(turnoverLimit.spent()), "redis.wallet.limit.spent");
+                        assertEquals(0, limitAmountBase.compareTo(turnoverLimit.amount()), "redis.wallet.limit.amount");
                     }
             );
         });

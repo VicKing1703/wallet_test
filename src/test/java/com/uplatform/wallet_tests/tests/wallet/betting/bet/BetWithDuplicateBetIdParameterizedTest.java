@@ -93,9 +93,9 @@ class BetWithDuplicateBetIdParameterizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа первой (успешной) ставки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.first_bet.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.first_bet.body_is_null"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.first_bet.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.first_bet.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.first_bet.body.description")
+                    () -> assertTrue(response.getBody().success(), "manager_api.first_bet.body.success"),
+                    () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.first_bet.body.errorCode"),
+                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().description(), "manager_api.first_bet.body.description")
             );
         });
 
@@ -115,9 +115,9 @@ class BetWithDuplicateBetIdParameterizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа второй (неуспешной) ставки из-за дубликата betId",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.second_bet.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.second_bet.body_is_null"),
-                    () -> assertFalse(response.getBody().isSuccess(), "manager_api.second_bet.body.success"),
-                    () -> assertEquals(ALREADY_PROCESSED_REQUEST_ID.getDescription(), response.getBody().getDescription(), "manager_api.second_bet.body.description"),
-                    () -> assertEquals(ALREADY_PROCESSED_REQUEST_ID.getCode(), response.getBody().getErrorCode(), "manager_api.second_bet.body.errorCode")
+                    () -> assertFalse(response.getBody().success(), "manager_api.second_bet.body.success"),
+                    () -> assertEquals(ALREADY_PROCESSED_REQUEST_ID.getDescription(), response.getBody().description(), "manager_api.second_bet.body.description"),
+                    () -> assertEquals(ALREADY_PROCESSED_REQUEST_ID.getCode(), response.getBody().errorCode(), "manager_api.second_bet.body.errorCode")
             );
         });
     }

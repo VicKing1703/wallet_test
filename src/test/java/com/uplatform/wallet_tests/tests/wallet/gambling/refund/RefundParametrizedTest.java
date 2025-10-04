@@ -216,8 +216,8 @@ class RefundParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.refund.status_code"),
-                    () -> assertEquals(ctx.refundRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.refund.transaction_id"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().getBalance()), "manager_api.refund.balance")
+                    () -> assertEquals(ctx.refundRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.refund.transaction_id"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().balance()), "manager_api.refund.balance")
             );
         });
 

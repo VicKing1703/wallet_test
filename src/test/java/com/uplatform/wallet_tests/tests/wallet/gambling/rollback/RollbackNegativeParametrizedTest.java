@@ -185,8 +185,8 @@ class RollbackNegativeParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.rollback.status_code"),
-                    () -> assertEquals(expectedErrorCode, error.getCode(), "manager_api.rollback.error_code"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.rollback.error_message")
+                    () -> assertEquals(expectedErrorCode, error.code(), "manager_api.rollback.error_code"),
+                    () -> assertTrue(error.message().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.rollback.error_message")
             );
         });
     }

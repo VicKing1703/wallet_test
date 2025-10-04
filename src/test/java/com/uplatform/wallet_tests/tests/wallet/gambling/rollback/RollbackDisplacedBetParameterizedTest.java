@@ -170,12 +170,12 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
                     ctx.currentCalculatedBalance = ctx.currentCalculatedBalance.subtract(betAmountParam);
                     assertAll("Проверка ответа API для транзакции #" + currentBetNumber,
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                            () -> assertEquals(currentTxId, response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                            () -> assertEquals(0, ctx.currentCalculatedBalance.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                            () -> assertEquals(currentTxId, response.getBody().transactionId(), "manager_api.body.transactionId"),
+                            () -> assertEquals(0, ctx.currentCalculatedBalance.compareTo(response.getBody().balance()), "manager_api.body.balance")
                     );
 
                     if (currentBetNumber == currentTransactionCountToMake) {
-                        ctx.balanceFromApiAfterAllBets = response.getBody().getBalance();
+                        ctx.balanceFromApiAfterAllBets = response.getBody().balance();
                     }
                 });
             }
@@ -244,8 +244,8 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
             assertAll("Проверка ответа API на роллбэк вытесненной транзакции",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.rollback.status_code"),
-                    () -> assertEquals(rollbackRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.rollback.body.transactionId"),
-                    () -> assertEquals(0, expectedBalanceInApiResponse.compareTo(response.getBody().getBalance()), "manager_api.rollback.body.balance")
+                    () -> assertEquals(rollbackRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.rollback.body.transactionId"),
+                    () -> assertEquals(0, expectedBalanceInApiResponse.compareTo(response.getBody().balance()), "manager_api.rollback.body.balance")
             );
         });
     }

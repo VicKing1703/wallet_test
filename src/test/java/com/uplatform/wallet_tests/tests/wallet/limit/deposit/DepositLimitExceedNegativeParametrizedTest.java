@@ -147,11 +147,11 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
             var error = utils.parseFeignExceptionContent(ctx.depositException, ValidationErrorResponse.class);
 
             assertAll("fapi.deposit.error_response",
-                    () -> assertEquals(HttpStatus.BAD_REQUEST.value(), error.getCode(), "api.error.code"),
-                    () -> assertEquals("field:[amount] msg:[deposit limit: limit is exceeded]", error.getMessage(), "api.error.message"),
+                    () -> assertEquals(HttpStatus.BAD_REQUEST.value(), error.code(), "api.error.code"),
+                    () -> assertEquals("field:[amount] msg:[deposit limit: limit is exceeded]", error.message(), "api.error.message"),
                     () -> {
-                        assertNotNull(error.getErrors(), "api.error.errors_not_null");
-                        assertTrue(error.getErrors().get("amount").contains("Deposit limit: limit is exceeded."), "api.error.errors.value");
+                        assertNotNull(error.errors(), "api.error.errors_not_null");
+                        assertTrue(error.errors().get("amount").contains("Deposit limit: limit is exceeded."), "api.error.errors.value");
                     }
             );
         });

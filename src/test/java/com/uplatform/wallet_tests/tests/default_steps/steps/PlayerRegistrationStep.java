@@ -124,7 +124,7 @@ public class PlayerRegistrationStep {
             ctx.verifyContactResponse = this.publicClient.verifyContact(request);
             assertEquals(HttpStatus.OK, ctx.verifyContactResponse.getStatusCode(), "fapi.verify_contact.status_code");
             assertNotNull(ctx.verifyContactResponse.getBody(), "fapi.verify_contact.body_not_null");
-            assertNotNull(ctx.verifyContactResponse.getBody().getHash(), "fapi.verify_contact.hash");
+            assertNotNull(ctx.verifyContactResponse.getBody().hash(), "fapi.verify_contact.hash");
         });
 
         step("Public API: Выполнение полной регистрации пользователя", () -> {
@@ -133,7 +133,7 @@ public class PlayerRegistrationStep {
                     .country(this.defaultCountry)
                     .bonusChoice(BonusChoiceType.NONE)
                     .phone(ctx.verificationRequest.getContact().substring(1))
-                    .phoneConfirmation(ctx.verifyContactResponse.getBody().getHash())
+                    .phoneConfirmation(ctx.verifyContactResponse.getBody().hash())
                     .firstName(get(NAME))
                     .lastName(get(NAME))
                     .birthday("1991-05-15")

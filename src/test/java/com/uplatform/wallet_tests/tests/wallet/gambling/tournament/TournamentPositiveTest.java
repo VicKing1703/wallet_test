@@ -84,8 +84,8 @@ class TournamentPositiveTest extends BaseTest {
             assertAll(
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.tournament.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.tournament.body_not_null"),
-                    () -> assertEquals(ctx.tournamentRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.tournament.transaction_id"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(response.getBody().getBalance()), "manager_api.tournament.balance")
+                    () -> assertEquals(ctx.tournamentRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.tournament.transaction_id"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(response.getBody().balance()), "manager_api.tournament.balance")
             );
         });
 

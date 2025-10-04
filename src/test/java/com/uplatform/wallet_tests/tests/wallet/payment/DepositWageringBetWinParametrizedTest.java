@@ -207,7 +207,7 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
 
             assertAll("Проверка ответа ставки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.bet.status_code"),
-                    () -> assertEquals(ctx.betRequest.getTransactionId(), response.getBody().getTransactionId(), "manager_api.bet.body.transactionId")
+                    () -> assertEquals(ctx.betRequest.getTransactionId(), response.getBody().transactionId(), "manager_api.bet.body.transactionId")
             );
         });
 
@@ -259,7 +259,7 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
 
             assertAll("Проверка ответа выигрыша",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.win.status_code"),
-                    () -> assertEquals(ctx.winRequest.getTransactionId(), response.getBody().getTransactionId(), "manager_api.win.body.transactionId")
+                    () -> assertEquals(ctx.winRequest.getTransactionId(), response.getBody().transactionId(), "manager_api.win.body.transactionId")
             );
         });
 

@@ -131,8 +131,8 @@ class WinWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.win.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.win.body_not_null"),
-                    () -> assertEquals(transactionId, response.getBody().getTransactionId(), "manager_api.win.transactionId"),
-                    () -> assertTrue(response.getBody().getBalance().compareTo(BigDecimal.ZERO) > 0, "manager_api.win.balance")
+                    () -> assertEquals(transactionId, response.getBody().transactionId(), "manager_api.win.transactionId"),
+                    () -> assertTrue(response.getBody().balance().compareTo(BigDecimal.ZERO) > 0, "manager_api.win.balance")
             );
         });
     }

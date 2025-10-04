@@ -212,8 +212,8 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.refund_negative.status_code"),
-                    () -> assertEquals(expectedErrorCode, error.getCode(), "manager_api.refund_negative.error_code"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.refund_negative.error_message")
+                    () -> assertEquals(expectedErrorCode, error.code(), "manager_api.refund_negative.error_code"),
+                    () -> assertTrue(error.message().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.refund_negative.error_message")
             );
         });
     }

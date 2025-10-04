@@ -198,9 +198,9 @@ class CasinoLossLimitWhenRollbackFromGambleParametrizedTest extends BaseParamete
                     .fetch();
 
             assertAll(
-                    () -> assertEquals(0, ctx.expectedRestAmountAfterRollback.compareTo(aggregate.limits().get(0).getRest()), "redis.limit.rest"),
-                    () -> assertEquals(0, ctx.expectedSpentAmountAfterRollback.compareTo(aggregate.limits().get(0).getSpent()), "redis.limit.spent"),
-                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.limits().get(0).getAmount()), "redis.limit.amount")
+                    () -> assertEquals(0, ctx.expectedRestAmountAfterRollback.compareTo(aggregate.limits().get(0).rest()), "redis.limit.rest"),
+                    () -> assertEquals(0, ctx.expectedSpentAmountAfterRollback.compareTo(aggregate.limits().get(0).spent()), "redis.limit.spent"),
+                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.limits().get(0).amount()), "redis.limit.amount")
             );
         });
     }

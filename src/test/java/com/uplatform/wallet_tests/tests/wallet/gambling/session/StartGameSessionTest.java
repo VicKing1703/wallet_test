@@ -59,7 +59,7 @@ class StartGameSessionTest extends BaseTest {
 
         step("Public API: Получение списка игр и выбор случайной", () -> {
             var response = publicClient.getGames(1, 5);
-            var games = response.getBody().getGames();
+            var games = response.getBody().games();
             ctx.fapiGame = games.get(RANDOM.nextInt(games.size()));
             assertEquals(HttpStatus.OK, response.getStatusCode(), "fapi.get_games.status_code");
         });
@@ -71,7 +71,7 @@ class StartGameSessionTest extends BaseTest {
                     .build();
 
             ctx.launchResponse = publicClient.launchGame(
-                    ctx.fapiGame.getAlias(),
+                    ctx.fapiGame.alias(),
                     ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
                     ctx.launchGameRequestBody);
 

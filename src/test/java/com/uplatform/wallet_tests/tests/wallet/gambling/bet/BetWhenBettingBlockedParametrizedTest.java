@@ -129,7 +129,7 @@ class BetWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.bet.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.bet.body_not_null"),
-                    () -> assertEquals(request.getTransactionId(), response.getBody().getTransactionId(), "manager_api.bet.transactionId")
+                    () -> assertEquals(request.getTransactionId(), response.getBody().transactionId(), "manager_api.bet.transactionId")
             );
         });
     }

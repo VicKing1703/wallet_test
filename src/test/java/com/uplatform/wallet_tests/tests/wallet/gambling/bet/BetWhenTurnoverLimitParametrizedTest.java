@@ -173,8 +173,8 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
             assertAll("Проверка деталей ошибки",
                     () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.error.status_code"),
-                    () -> assertEquals(expectedErrorCode.getCode(), error.getCode(), "manager_api.error.code"),
-                    () -> assertEquals(expectedMessage, error.getMessage(), "manager_api.error.message")
+                    () -> assertEquals(expectedErrorCode.getCode(), error.code(), "manager_api.error.code"),
+                    () -> assertEquals(expectedMessage, error.message(), "manager_api.error.message")
             );
         });
     }

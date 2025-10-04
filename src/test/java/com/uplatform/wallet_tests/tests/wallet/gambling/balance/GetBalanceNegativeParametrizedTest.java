@@ -88,8 +88,8 @@ class GetBalanceNegativeParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.balance.status_code"),
-                    () -> assertEquals(expectedErrorCode, error.getCode(), "manager_api.balance.error_code"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.balance.error_message")
+                    () -> assertEquals(expectedErrorCode, error.code(), "manager_api.balance.error_code"),
+                    () -> assertTrue(error.message().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.balance.error_message")
             );
         });
     }

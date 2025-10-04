@@ -141,8 +141,8 @@ class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
             assertAll("Проверка ответа на дубликат ставки",
                     () -> assertEquals(HttpStatus.OK, duplicateResponse.getStatusCode(), "manager_api.bet.duplicate_bet_status_code"),
                     () -> assertNotNull(responseBody, "manager_api.bet.duplicate_bet_response_body"),
-                    () -> assertEquals(ctx.firstBetRequest.getTransactionId(), responseBody.getTransactionId(), "manager_api.bet.duplicate_bet_transaction_id"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(responseBody.getBalance()), "manager_api.bet.duplicate_bet_balance")
+                    () -> assertEquals(ctx.firstBetRequest.getTransactionId(), responseBody.transactionId(), "manager_api.bet.duplicate_bet_transaction_id"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(responseBody.balance()), "manager_api.bet.duplicate_bet_balance")
             );
         });
     }

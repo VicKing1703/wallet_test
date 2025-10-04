@@ -111,8 +111,8 @@ class LossDisplacedIframeBetTest extends BaseTest {
                     assertNotNull(response.getBody(), "manager_api.make_payment.body_not_null");
                     assertAll("Проверка ответа API для iFrame ставки #" + currentBetNumber,
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                            () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
-                            () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode")
+                            () -> assertTrue(response.getBody().success(), "manager_api.body.success"),
+                            () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode")
                     );
                     ctx.currentCalculatedBalance = ctx.currentCalculatedBalance.subtract(singleBetAmount);
                 });
@@ -171,9 +171,9 @@ class LossDisplacedIframeBetTest extends BaseTest {
 
             assertAll("Проверка ответа API на проигрыш по вытесненной iFrame ставке",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.loss.status_code"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.loss.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.loss.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.loss.body.description")
+                    () -> assertTrue(response.getBody().success(), "manager_api.loss.body.success"),
+                    () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.loss.body.errorCode"),
+                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().description(), "manager_api.loss.body.description")
             );
         });
     }

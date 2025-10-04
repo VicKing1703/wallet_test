@@ -126,8 +126,8 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
             assertAll("Проверка идемпотентного ответа при дублировании турнирного выигрыша",
                     () -> assertEquals(HttpStatus.OK, duplicateResponse.getStatusCode(), "manager_api.tournament.status_code_on_duplicate"),
                     () -> assertNotNull(responseBody, "manager_api.tournament.body_on_duplicate"),
-                    () -> assertEquals(ctx.firstTournamentRequest.getTransactionId(), responseBody.getTransactionId(), "manager_api.tournament.transaction_id_on_duplicate"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(responseBody.getBalance()), "manager_api.tournament.balance_on_duplicate")
+                    () -> assertEquals(ctx.firstTournamentRequest.getTransactionId(), responseBody.transactionId(), "manager_api.tournament.transaction_id_on_duplicate"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(responseBody.balance()), "manager_api.tournament.balance_on_duplicate")
             );
         });
     }

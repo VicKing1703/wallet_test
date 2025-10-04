@@ -71,13 +71,13 @@ class BlockAmountTest extends BaseTest {
             var player = ctx.registeredPlayer.getWalletData();
             assertAll("Проверка данных в ответе на создание блокировки средств",
                     () -> assertEquals(HttpStatus.OK, ctx.blockAmountResponse.getStatusCode(), "cap_api.block_amount.status_code"),
-                    () -> assertNotNull(responseBody.getTransactionId(), "cap_api.block_amount.transaction_id"),
-                    () -> assertEquals(player.currency(), responseBody.getCurrency(), "cap_api.block_amount.currency"),
-                    () -> assertEquals(0, blockAmount.compareTo(responseBody.getAmount()), "cap_api.block_amount.amount"),
-                    () -> assertEquals(ctx.blockAmountRequest.getReason(), responseBody.getReason(), "cap_api.block_amount.reason"),
-                    () -> assertNotNull(responseBody.getUserId(), "cap_api.block_amount.user_id"),
-                    () -> assertNotNull(responseBody.getUserName(), "cap_api.block_amount.user_name"),
-                    () -> assertTrue(responseBody.getCreatedAt() > 0, "cap_api.block_amount.created_at")
+                    () -> assertNotNull(responseBody.transactionId(), "cap_api.block_amount.transaction_id"),
+                    () -> assertEquals(player.currency(), responseBody.currency(), "cap_api.block_amount.currency"),
+                    () -> assertEquals(0, blockAmount.compareTo(responseBody.amount()), "cap_api.block_amount.amount"),
+                    () -> assertEquals(ctx.blockAmountRequest.getReason(), responseBody.reason(), "cap_api.block_amount.reason"),
+                    () -> assertNotNull(responseBody.userId(), "cap_api.block_amount.user_id"),
+                    () -> assertNotNull(responseBody.userName(), "cap_api.block_amount.user_name"),
+                    () -> assertTrue(responseBody.createdAt() > 0, "cap_api.block_amount.created_at")
             );
         });
 
@@ -94,14 +94,14 @@ class BlockAmountTest extends BaseTest {
             var actualPayload = ctx.blockAmountEvent.getPayload();
             var blockAmountResponse = ctx.blockAmountResponse.getBody();
             assertAll("Проверка основных полей NATS payload",
-                    () -> assertEquals(blockAmountResponse.getTransactionId(), actualPayload.getUuid(), "nats.payload.uuid"),
+                    () -> assertEquals(blockAmountResponse.transactionId(), actualPayload.getUuid(), "nats.payload.uuid"),
                     () -> assertEquals(NatsBlockAmountStatus.CREATED, actualPayload.getStatus(), "nats.payload.status"),
                     () -> assertEquals(0, blockAmount.negate().compareTo(actualPayload.getAmount()), "nats.payload.amount"),
                     () -> assertEquals(ctx.blockAmountRequest.getReason(), actualPayload.getReason(), "nats.payload.reason"),
                     () -> assertEquals(NatsBlockAmountType.MANUAL , actualPayload.getType(), "nats.payload.type"),
-                    () -> assertEquals(blockAmountResponse.getUserId(), actualPayload.getUserUuid(), "nats.payload.user_uuid"),
-                    () -> assertEquals(blockAmountResponse.getUserName(), actualPayload.getUserName(), "nats.payload.user_name"),
-                    () -> assertEquals(blockAmountResponse.getCreatedAt(), actualPayload.getCreatedAt(), "nats.payload.created_at"),
+                    () -> assertEquals(blockAmountResponse.userId(), actualPayload.getUserUuid(), "nats.payload.user_uuid"),
+                    () -> assertEquals(blockAmountResponse.userName(), actualPayload.getUserName(), "nats.payload.user_name"),
+                    () -> assertEquals(blockAmountResponse.createdAt(), actualPayload.getCreatedAt(), "nats.payload.created_at"),
                     () -> assertNotNull(actualPayload.getExpiredAt(), "nats.payload.expired_at")
             );
         });
@@ -130,9 +130,9 @@ class BlockAmountTest extends BaseTest {
                     () -> assertEquals(0, expectedBalance.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
                     () -> assertEquals(0, adjustmentAmount.compareTo(aggregate.balanceBefore()), "redis.aggregate.balance_before"),
                     () -> assertEquals(1, aggregate.blockedAmounts().size(), "redis.aggregate.blocked_amount.size"),
-                    () -> assertEquals(responseBody.getTransactionId(), blockedAmountInfo.uuid(), "redis.aggregate.blocked_amount.uuid"),
-                    () -> assertEquals(responseBody.getUserId(), blockedAmountInfo.userUUID(), "redis.aggregate.blocked_amount.user_uuid"),
-                    () -> assertEquals(responseBody.getUserName(), blockedAmountInfo.userName(), "redis.aggregate.blocked_amount.user_name"),
+                    () -> assertEquals(responseBody.transactionId(), blockedAmountInfo.uuid(), "redis.aggregate.blocked_amount.uuid"),
+                    () -> assertEquals(responseBody.userId(), blockedAmountInfo.userUUID(), "redis.aggregate.blocked_amount.user_uuid"),
+                    () -> assertEquals(responseBody.userName(), blockedAmountInfo.userName(), "redis.aggregate.blocked_amount.user_name"),
                     () -> assertEquals(0, blockAmount.negate().compareTo(blockedAmountInfo.amount()), "redis.aggregate.blocked_amount.amount"),
                     () -> assertEquals(0, blockAmount.compareTo(blockedAmountInfo.deltaAvailableWithdrawalBalance()), "redis.aggregate.blocked_amount.delta_available_withdrawal_balance"),
                     () -> assertEquals(ctx.blockAmountRequest.getReason(), blockedAmountInfo.reason(), "redis.aggregate.blocked_amount.reason"),
@@ -149,21 +149,21 @@ class BlockAmountTest extends BaseTest {
                     platformNodeId,
                     ctx.registeredPlayer.getWalletData().playerUUID());
 
-            var expectedTxId = ctx.blockAmountResponse.getBody().getTransactionId();
-            var createdItem = response.getBody().getItems().get(0);
+            var expectedTxId = ctx.blockAmountResponse.getBody().transactionId();
+            var createdItem = response.getBody().items().get(0);
             var player = ctx.registeredPlayer.getWalletData();
 
             assertAll("Проверка данных созданной блокировки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.status_code"),
-                    () -> assertEquals(expectedTxId, createdItem.getTransactionId(), "cap_api.block_amount_list.transaction_id"),
-                    () -> assertEquals(ctx.blockAmountRequest.getCurrency(), createdItem.getCurrency(), "cap_api.block_amount_list.currency"),
-                    () -> assertEquals(0, blockAmount.negate().compareTo(createdItem.getAmount()), "cap_api.block_amount_list.amount"),
-                    () -> assertEquals(ctx.blockAmountRequest.getReason(), createdItem.getReason(), "cap_api.block_amount_list.reason"),
-                    () -> assertNotNull(createdItem.getUserId(), "cap_api.block_amount_list.user_id"),
-                    () -> assertNotNull(createdItem.getUserName(), "cap_api.block_amount_list.user_name"),
-                    () -> assertNotNull(createdItem.getCreatedAt(), "cap_api.block_amount_list.created_at_is_null"),
-                    () -> assertEquals(player.walletUUID(), createdItem.getWalletId(), "cap_api.block_amount_list.wallet_id"),
-                    () -> assertEquals(player.playerUUID(), createdItem.getPlayerId(), "cap_api.block_amount_list.player_id")
+                    () -> assertEquals(expectedTxId, createdItem.transactionId(), "cap_api.block_amount_list.transaction_id"),
+                    () -> assertEquals(ctx.blockAmountRequest.getCurrency(), createdItem.currency(), "cap_api.block_amount_list.currency"),
+                    () -> assertEquals(0, blockAmount.negate().compareTo(createdItem.amount()), "cap_api.block_amount_list.amount"),
+                    () -> assertEquals(ctx.blockAmountRequest.getReason(), createdItem.reason(), "cap_api.block_amount_list.reason"),
+                    () -> assertNotNull(createdItem.userId(), "cap_api.block_amount_list.user_id"),
+                    () -> assertNotNull(createdItem.userName(), "cap_api.block_amount_list.user_name"),
+                    () -> assertNotNull(createdItem.createdAt(), "cap_api.block_amount_list.created_at_is_null"),
+                    () -> assertEquals(player.walletUUID(), createdItem.walletId(), "cap_api.block_amount_list.wallet_id"),
+                    () -> assertEquals(player.playerUUID(), createdItem.playerId(), "cap_api.block_amount_list.player_id")
             );
         });
     }
