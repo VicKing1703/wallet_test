@@ -17,6 +17,10 @@ public class DepositRequestBody {
     private String country;
     private RedirectUrls redirect;
 
+    public String currency() {
+        return currency;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor

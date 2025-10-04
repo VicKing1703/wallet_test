@@ -15,4 +15,8 @@ public class SetCasinoLossLimitRequest {
     private String currency;
     private NatsLimitIntervalType type;
     private int startedAt;
+
+    public String currency() {
+        return currency;
+    }
 }

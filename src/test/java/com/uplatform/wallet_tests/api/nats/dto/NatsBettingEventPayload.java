@@ -39,6 +39,14 @@ public class NatsBettingEventPayload {
 
     @JsonProperty("wagered_deposit_info")
     private List<Object> wageredDepositInfo;
+
+    public BigDecimal amount() {
+        return amount;
+    }
+
+    public NatsBettingTransactionOperation type() {
+        return type;
+    }
     @JsonIgnoreProperties(ignoreUnknown = true)
     @Data
     @NoArgsConstructor

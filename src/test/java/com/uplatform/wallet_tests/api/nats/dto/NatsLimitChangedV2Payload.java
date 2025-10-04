@@ -46,5 +46,17 @@ public class NatsLimitChangedV2Payload {
 
         @JsonProperty("status")
         private Boolean status;
+
+        public BigDecimal amount() {
+            return amount;
+        }
+
+        public Long startedAt() {
+            return startedAt;
+        }
+
+        public Long expiresAt() {
+            return expiresAt;
+        }
     }
 }

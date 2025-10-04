@@ -26,4 +26,8 @@ public class NatsDepositedMoneyPayload {
 
     @JsonProperty("bonus_id")
     private String bonusId;
+
+    public BigDecimal amount() {
+        return amount;
+    }
 }

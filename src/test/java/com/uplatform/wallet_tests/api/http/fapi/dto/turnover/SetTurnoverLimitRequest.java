@@ -15,4 +15,12 @@ public class SetTurnoverLimitRequest {
     private String currency;
     private NatsLimitIntervalType type;
     private int startedAt;
+
+    public String amount() {
+        return amount;
+    }
+
+    public String currency() {
+        return currency;
+    }
 }
