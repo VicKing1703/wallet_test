@@ -170,12 +170,12 @@ class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
                     assertAll("Проверка ответа API для ставки #" + currentBetNumber,
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                            () -> assertEquals(currentTxId, response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                            () -> assertEquals(0, ctx.currentCalculatedBalance.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                            () -> assertEquals(currentTxId, response.getBody().transactionId(), "manager_api.body.transactionId"),
+                            () -> assertEquals(0, ctx.currentCalculatedBalance.compareTo(response.getBody().balance()), "manager_api.body.balance")
                     );
 
                     if (currentBetNumber == currentTransactionCountToMake) {
-                        ctx.balanceFromApiAfterAllBets = response.getBody().getBalance();
+                        ctx.balanceFromApiAfterAllBets = response.getBody().balance();
                     }
                 });
             }
@@ -242,8 +242,8 @@ class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
             assertAll("Проверка ответа API на рефанд вытесненной ставки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.refund.status_code"),
-                    () -> assertEquals(refundRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.refund.body.transactionId"),
-                    () -> assertEquals(0, expectedBalanceInApiResponse.compareTo(response.getBody().getBalance()), "manager_api.refund.body.balance")
+                    () -> assertEquals(refundRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.refund.body.transactionId"),
+                    () -> assertEquals(0, expectedBalanceInApiResponse.compareTo(response.getBody().balance()), "manager_api.refund.body.balance")
             );
         });
     }

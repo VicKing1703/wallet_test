@@ -165,8 +165,8 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
             assertAll("Проверка ответа на дубликат выигрыша",
                     () -> assertEquals(HttpStatus.OK, duplicateResponse.getStatusCode(), "manager_api.win.duplicate_win_status_code"),
                     () -> assertNotNull(responseBody, "manager_api.win.duplicate_win_response_body"),
-                    () -> assertEquals(ctx.firstWinRequest.getTransactionId(), responseBody.getTransactionId(), "manager_api.win.duplicate_win_transaction_id"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(responseBody.getBalance()), "manager_api.win.duplicate_win_balance")
+                    () -> assertEquals(ctx.firstWinRequest.getTransactionId(), responseBody.transactionId(), "manager_api.win.duplicate_win_transaction_id"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(responseBody.balance()), "manager_api.win.duplicate_win_balance")
             );
         });
     }

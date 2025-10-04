@@ -174,8 +174,8 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
 
             assertAll("Проверка ответа на начисление турнирного выигрыша",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "when.manager_api.tournament.status_code"),
-                    () -> assertEquals(ctx.tournamentRequest.getTransactionId(), response.getBody().getTransactionId(), "when.manager_api.tournament.transaction_id"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(response.getBody().getBalance()), "when.manager_api.tournament.balance")
+                    () -> assertEquals(ctx.tournamentRequest.getTransactionId(), response.getBody().transactionId(), "when.manager_api.tournament.transaction_id"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(response.getBody().balance()), "when.manager_api.tournament.balance")
             );
         });
 

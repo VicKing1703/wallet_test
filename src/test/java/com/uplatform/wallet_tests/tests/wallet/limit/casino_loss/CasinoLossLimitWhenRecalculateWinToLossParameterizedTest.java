@@ -119,7 +119,7 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
                     .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
                     .with("$.limits[0].limit_type", NatsLimitType.CASINO_LOSS.getValue())
                     .with("$.limits[0].interval_type", periodType.getValue())
-                    .with("$.limits[0].currency_code", request.getCurrency())
+                    .with("$.limits[0].currency_code", request.currency())
                     .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
@@ -165,8 +165,8 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
 
                 assertAll("nats.recalculated_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.recalculatedEvent, "nats.recalculated_from_iframe_event"),
-                        () -> assertEquals(0, winAmountRecalculated.compareTo(ctx.recalculatedEvent.getPayload().getAmount().negate()), "nats.recalculated_from_iframe_event.payload.amount"),
-                        () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.recalculatedEvent.getPayload().getType(), "nats.recalculated_from_iframe_event.payload.operation"),
+                        () -> assertEquals(0, winAmountRecalculated.compareTo(ctx.recalculatedEvent.getPayload().amount().negate()), "nats.recalculated_from_iframe_event.payload.amount"),
+                        () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.recalculatedEvent.getPayload().type(), "nats.recalculated_from_iframe_event.payload.operation"),
                         () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().getBetId(), "nats.recalculated_from_iframe_event.payload.betId")
                 );
             });
@@ -189,9 +189,9 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
                                 .findFirst();
                         assertTrue(limitOpt.isPresent(), "redis.wallet.casino_loss_limit_present");
                         var limit = limitOpt.get();
-                        assertEquals(0, ctx.expectedRestAmountAfterOperations.compareTo(limit.getRest()), "redis.wallet.limit.rest");
-                        assertEquals(0, ctx.expectedSpentAmountAfterOperations.compareTo(limit.getSpent()), "redis.wallet.limit.spent");
-                        assertEquals(0, limitAmountBase.compareTo(limit.getAmount()), "redis.wallet.limit.amount");
+                        assertEquals(0, ctx.expectedRestAmountAfterOperations.compareTo(limit.rest()), "redis.wallet.limit.rest");
+                        assertEquals(0, ctx.expectedSpentAmountAfterOperations.compareTo(limit.spent()), "redis.wallet.limit.spent");
+                        assertEquals(0, limitAmountBase.compareTo(limit.amount()), "redis.wallet.limit.amount");
                     }
             );
         });

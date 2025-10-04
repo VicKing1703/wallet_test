@@ -171,9 +171,9 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
                     .fetch();
 
             assertAll(
-                    () -> assertEquals(0, ctx.expectedRestAmountAfterTournament.compareTo(aggregate.limits().get(0).getRest()), "redis.wallet.limit.rest"),
-                    () -> assertEquals(0, ctx.expectedSpentAmountAfterTournament.compareTo(aggregate.limits().get(0).getSpent()), "redis.wallet.limit.spent"),
-                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.limits().get(0).getAmount()), "redis.wallet.limit.amount")
+                    () -> assertEquals(0, ctx.expectedRestAmountAfterTournament.compareTo(aggregate.limits().get(0).rest()), "redis.wallet.limit.rest"),
+                    () -> assertEquals(0, ctx.expectedSpentAmountAfterTournament.compareTo(aggregate.limits().get(0).spent()), "redis.wallet.limit.spent"),
+                    () -> assertEquals(0, ctx.limitAmount.compareTo(aggregate.limits().get(0).amount()), "redis.wallet.limit.amount")
             );
         });
     }

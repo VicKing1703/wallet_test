@@ -80,9 +80,9 @@ class WinForNonExistingBetTest extends BaseTest {
             assertAll("Проверка статус-кода и тела ответа при попытке выигрыша для несуществующей ставки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.win_non_existing.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.win_non_existing.body_is_null"),
-                    () -> assertFalse(response.getBody().isSuccess(), "manager_api.win_non_existing.body.success"),
-                    () -> assertEquals(NOT_FOUND.getDescription(), response.getBody().getDescription(), "manager_api.win_non_existing.body.description"),
-                    () -> assertEquals(NOT_FOUND.getCode(), response.getBody().getErrorCode(), "manager_api.win_non_existing.body.errorCode")
+                    () -> assertFalse(response.getBody().success(), "manager_api.win_non_existing.body.success"),
+                    () -> assertEquals(NOT_FOUND.getDescription(), response.getBody().description(), "manager_api.win_non_existing.body.description"),
+                    () -> assertEquals(NOT_FOUND.getCode(), response.getBody().errorCode(), "manager_api.win_non_existing.body.errorCode")
             );
         });
     }

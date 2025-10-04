@@ -138,8 +138,8 @@ public interface ManagerClient {
 ```
 
 ### 5. Пример DTO
-Классы запросов и ответов представляют собой обычные POJO, аннотированные
-Lombok для лаконичности.
+Классы запросов оформляйте при помощи Lombok, а ответы описывайте как `record`
+— так мы гарантируем неизменяемость и прозрачные геттеры вида `field()`.
 
 ```java
 @Data
@@ -155,12 +155,12 @@ public class BetRequestBody {
     private Boolean    roundClosed;
 }
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class GamblingResponseBody {
-    private BigDecimal balance;
-    private String     transactionId;
+/**
+ * Ответ Manager API после ставок/выигрышей/возвратов.
+ * @param balance Баланс игрока после операции.
+ * @param transactionId Idempotency UUID, совпадает с переданным в запрос.
+ */
+public record GamblingResponseBody(BigDecimal balance, String transactionId) {
 }
 ```
 
@@ -195,9 +195,12 @@ step("HTTP: отправка запроса Bet", () -> {
             request
     );
 
+    // ctx — объект с подготовленными данными теста.
+    BigDecimal expectedBalance = ctx.expectedBalanceAfterBet;
     assertAll(
             () -> assertEquals(HttpStatus.OK, response.getStatusCode()),
-            () -> assertEquals(transactionId, response.getBody().getTransactionId())
+            () -> assertEquals(transactionId, response.getBody().transactionId()),
+            () -> assertEquals(0, expectedBalance.compareTo(response.getBody().balance()))
     );
 });
 ```

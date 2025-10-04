@@ -184,8 +184,8 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
             assertAll("nats.deposited_money_event.payload_validation",
                     () -> assertEquals(ctx.transactionId, ctx.depositEvent.getPayload().getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(ctx.depositRequest.getCurrency(), ctx.depositEvent.getPayload().getCurrencyCode(), "nats.payload.currency_code"),
-                    () -> assertEquals(0, depositAmount.compareTo(ctx.depositEvent.getPayload().getAmount()), "nats.payload.amount"),
+                    () -> assertEquals(ctx.depositRequest.currency(), ctx.depositEvent.getPayload().getCurrencyCode(), "nats.payload.currency_code"),
+                    () -> assertEquals(0, depositAmount.compareTo(ctx.depositEvent.getPayload().amount()), "nats.payload.amount"),
                     () -> assertEquals(NatsDepositStatus.SUCCESS, ctx.depositEvent.getPayload().getStatus(), "nats.payload.status"),
                     () -> assertEquals(nodeId, ctx.depositEvent.getPayload().getNodeUuid(), "nats.payload.node_uuid"),
                     () -> assertEquals("", ctx.depositEvent.getPayload().getBonusId(), "nats.payload.bonus_id")
@@ -206,9 +206,9 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
             assertNotNull(redisLimit, "redis.wallet.limit_found");
 
             assertAll("redis.wallet.limit_content_validation",
-                    () -> assertEquals(0, limitAmount.compareTo(redisLimit.getAmount()), "redis.wallet.limit.amount"),
-                    () -> assertEquals(0, depositAmount.compareTo(redisLimit.getSpent()), "redis.wallet.limit.spent"),
-                    () -> assertEquals(0, ctx.expectedRest.compareTo(redisLimit.getRest()), "redis.wallet.limit.rest")
+                    () -> assertEquals(0, limitAmount.compareTo(redisLimit.amount()), "redis.wallet.limit.amount"),
+                    () -> assertEquals(0, depositAmount.compareTo(redisLimit.spent()), "redis.wallet.limit.spent"),
+                    () -> assertEquals(0, ctx.expectedRest.compareTo(redisLimit.rest()), "redis.wallet.limit.rest")
             );
         });
     }

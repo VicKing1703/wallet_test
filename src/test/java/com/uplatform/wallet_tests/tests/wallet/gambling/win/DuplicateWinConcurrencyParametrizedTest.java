@@ -118,7 +118,7 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "default_step.base_bet_status_code"),
                     () -> assertNotNull(response.getBody(), "default_step.base_bet_response_body_not_null")
             );
-            this.balanceAfterBet = response.getBody().getBalance();
+            this.balanceAfterBet = response.getBody().balance();
         });
     }
 
@@ -169,13 +169,13 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
             assertNotNull(body1, "manager_api.response1.body_is_null");
             assertNotNull(body2, "manager_api.response2.body_is_null");
 
-            Set<BigDecimal> actualBalances = Set.of(body1.getBalance(), body2.getBalance());
+            Set<BigDecimal> actualBalances = Set.of(body1.balance(), body2.balance());
 
             assertAll("Проверка ответов на одновременные выигрыши",
                     () -> assertEquals(HttpStatus.OK, response1.getStatusCode(), "manager_api.response1.status_code"),
                     () -> assertEquals(HttpStatus.OK, response2.getStatusCode(), "manager_api.response2.status_code"),
-                    () -> assertEquals(request.getTransactionId(), body1.getTransactionId(), "manager_api.response1.transaction_id"),
-                    () -> assertEquals(request.getTransactionId(), body2.getTransactionId(), "manager_api.response2.transaction_id"),
+                    () -> assertEquals(request.getTransactionId(), body1.transactionId(), "manager_api.response1.transaction_id"),
+                    () -> assertEquals(request.getTransactionId(), body2.transactionId(), "manager_api.response2.transaction_id"),
                     () -> assertTrue(
                             actualBalances.stream().anyMatch(b -> b.compareTo(expectedBalanceAfterSuccessfulWin) == 0),
                             "manager_api.responses.balances.no_expected_balance"

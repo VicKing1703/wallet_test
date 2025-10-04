@@ -143,8 +143,8 @@ class TournamentNegativeParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.tournament.status_code"),
-                    () -> assertEquals(expectedErrorCode, error.getCode(), "manager_api.tournament.error_code"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.tournament.error_message")
+                    () -> assertEquals(expectedErrorCode, error.code(), "manager_api.tournament.error_code"),
+                    () -> assertTrue(error.message().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.tournament.error_message")
             );
         });
     }

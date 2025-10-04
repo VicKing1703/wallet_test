@@ -155,8 +155,8 @@ class RollbackAfterRefundTest extends BaseTest {
             assertAll("Проверка деталей ошибки при попытке роллбэка после рефанда",
                     () -> assertEquals(HttpStatus.BAD_REQUEST.value(), thrownException.status(), "manager_api.rollback_after_refund.status_code"),
                     () -> assertNotNull(error, "manager_api.rollback_after_refund.body"),
-                    () -> assertEquals(GamblingErrors.ROLLBACK_NOT_ALLOWED.getCode(), error.getCode(), "manager_api.rollback_after_refund.error_code"),
-                    () -> assertEquals(GamblingErrors.ROLLBACK_NOT_ALLOWED.getMessage(), error.getMessage(), "manager_api.rollback_after_refund.error_message")
+                    () -> assertEquals(GamblingErrors.ROLLBACK_NOT_ALLOWED.getCode(), error.code(), "manager_api.rollback_after_refund.error_code"),
+                    () -> assertEquals(GamblingErrors.ROLLBACK_NOT_ALLOWED.getMessage(), error.message(), "manager_api.rollback_after_refund.error_message")
             );
         });
     }

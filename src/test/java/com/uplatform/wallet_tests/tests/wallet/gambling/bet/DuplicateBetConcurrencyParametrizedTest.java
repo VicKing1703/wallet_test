@@ -142,13 +142,13 @@ class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
             assertNotNull(body1, "manager_api.response1.body_is_null");
             assertNotNull(body2, "manager_api.response2.body_is_null");
 
-            Set<BigDecimal> actualBalances = Set.of(body1.getBalance(), body2.getBalance());
+            Set<BigDecimal> actualBalances = Set.of(body1.balance(), body2.balance());
 
             assertAll("Проверка ответов на одновременные ставки",
                     () -> assertEquals(HttpStatus.OK, response1.getStatusCode(), "manager_api.response1.status_code"),
                     () -> assertEquals(HttpStatus.OK, response2.getStatusCode(), "manager_api.response2.status_code"),
-                    () -> assertEquals(request.getTransactionId(), body1.getTransactionId(), "manager_api.response1.transaction_id"),
-                    () -> assertEquals(request.getTransactionId(), body2.getTransactionId(), "manager_api.response2.transaction_id"),
+                    () -> assertEquals(request.getTransactionId(), body1.transactionId(), "manager_api.response1.transaction_id"),
+                    () -> assertEquals(request.getTransactionId(), body2.transactionId(), "manager_api.response2.transaction_id"),
                     () -> assertTrue(
                             actualBalances.stream().anyMatch(b -> b.compareTo(expectedBalanceAfterSuccessfulBet) == 0),
                             "manager_api.responses.balances.no_expected_balance"

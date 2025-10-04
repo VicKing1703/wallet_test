@@ -95,9 +95,9 @@ class BetWhenCoolingOffTest extends BaseTest {
 
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                    () -> assertFalse(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(COOLING_OFF_LIMIT_REACHED.getDescription(), response.getBody().getDescription(), "manager_api.body.description"),
-                    () -> assertEquals(COOLING_OFF_LIMIT_REACHED.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode")
+                    () -> assertFalse(response.getBody().success(), "manager_api.body.success"),
+                    () -> assertEquals(COOLING_OFF_LIMIT_REACHED.getDescription(), response.getBody().description(), "manager_api.body.description"),
+                    () -> assertEquals(COOLING_OFF_LIMIT_REACHED.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode")
             );
         });
     }

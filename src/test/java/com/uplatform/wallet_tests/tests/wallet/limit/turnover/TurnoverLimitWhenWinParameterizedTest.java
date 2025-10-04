@@ -128,7 +128,7 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                var expectedAmount = new BigDecimal(request.getAmount()).stripTrailingZeros().toPlainString();
+                var expectedAmount = new BigDecimal(request.amount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                         .from(subject)
@@ -136,7 +136,7 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                         .with("$.event_type", NatsLimitEventType.CREATED.getValue())
                         .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
                         .with("$.limits[0].interval_type", periodType.getValue())
-                        .with("$.limits[0].currency_code", request.getCurrency())
+                        .with("$.limits[0].currency_code", request.currency())
                         .with("$.limits[0].amount", expectedAmount)
                         .with("$.limits[0].status", true)
                         .fetch();
@@ -161,8 +161,8 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
 
             assertAll("manager_api.response_validation",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                    () -> assertEquals(ctx.winRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterWin.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                    () -> assertEquals(ctx.winRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterWin.compareTo(response.getBody().balance()), "manager_api.body.balance")
             );
 
             step("Sub-step NATS: Проверка поступления события won_from_gamble", () -> {
@@ -199,9 +199,9 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit");
                         var turnoverLimit = turnoverLimitOpt.get();
 
-                        assertEquals(0, ctx.expectedRestAmountAfterWin.compareTo(turnoverLimit.getRest()), "redis.wallet.limit.rest");
-                        assertEquals(0, ctx.expectedSpentAmountAfterWin.compareTo(turnoverLimit.getSpent()), "redis.wallet.limit.spent");
-                        assertEquals(0, ctx.limitAmount.compareTo(turnoverLimit.getAmount()), "redis.wallet.limit.amount");
+                        assertEquals(0, ctx.expectedRestAmountAfterWin.compareTo(turnoverLimit.rest()), "redis.wallet.limit.rest");
+                        assertEquals(0, ctx.expectedSpentAmountAfterWin.compareTo(turnoverLimit.spent()), "redis.wallet.limit.spent");
+                        assertEquals(0, ctx.limitAmount.compareTo(turnoverLimit.amount()), "redis.wallet.limit.amount");
                     }
             );
         });

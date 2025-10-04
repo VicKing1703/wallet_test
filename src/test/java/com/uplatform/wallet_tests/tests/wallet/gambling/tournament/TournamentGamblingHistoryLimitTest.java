@@ -131,8 +131,8 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
                     assertAll(String.format("Проверка ответа API для турнирного выигрыша #%d", currentOperationNumber),
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
                             () -> assertNotNull(response.getBody(), "manager_api.body_not_null"),
-                            () -> assertEquals(currentTxId, response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                            () -> assertEquals(0, ctx.currentBalance.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                            () -> assertEquals(currentTxId, response.getBody().transactionId(), "manager_api.body.transactionId"),
+                            () -> assertEquals(0, ctx.currentBalance.compareTo(response.getBody().balance()), "manager_api.body.balance")
                     );
                 });
             }

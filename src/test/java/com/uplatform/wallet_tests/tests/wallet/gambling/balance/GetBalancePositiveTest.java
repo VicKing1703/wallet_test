@@ -60,7 +60,7 @@ class GetBalancePositiveTest extends BaseTest {
 
             assertAll(
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.balance.status_code"),
-                    () -> assertEquals(0, ctx.initialAdjustmentAmount.compareTo(response.getBody().getBalance()), "manager_api.balance.balance")
+                    () -> assertEquals(0, ctx.initialAdjustmentAmount.compareTo(response.getBody().balance()), "manager_api.balance.balance")
             );
         });
     }

@@ -244,8 +244,8 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
             assertAll("Проверка ответа на рефанд от Manager API",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "when.manager_api.refund.status_code"),
-                    () -> assertEquals(ctx.refundRequest.getTransactionId(), response.getBody().getTransactionId(), "when.manager_api.refund.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().getBalance()), "when.manager_api.refund.body.balance")
+                    () -> assertEquals(ctx.refundRequest.getTransactionId(), response.getBody().transactionId(), "when.manager_api.refund.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().balance()), "when.manager_api.refund.body.balance")
             );
         });
 

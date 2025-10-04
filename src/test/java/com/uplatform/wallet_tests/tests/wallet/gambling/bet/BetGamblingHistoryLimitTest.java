@@ -145,8 +145,8 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
 
                     assertAll(String.format("Проверка ответа API для операции %s #%d", operationParam, currentOperationNumber),
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                            () -> assertEquals(currentTxId, response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                            () -> assertEquals(0, ctx.currentBalance.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                            () -> assertEquals(currentTxId, response.getBody().transactionId(), "manager_api.body.transactionId"),
+                            () -> assertEquals(0, ctx.currentBalance.compareTo(response.getBody().balance()), "manager_api.body.balance")
                     );
                 });
             }

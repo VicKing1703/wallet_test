@@ -152,9 +152,9 @@ class RollbackAfterRollbackTest extends BaseTest {
 
             assertAll("Проверка деталей ошибки при попытке повторного роллбэка для заблокированного игрока",
                     () -> assertEquals(HttpStatus.BAD_REQUEST.value(), thrownException.status(), "manager_api.second_rollback.status_code"),
-                    () -> assertEquals(GamblingErrors.PLAYER_BLOCKED.getCode(), error.getCode(), "manager_api.second_rollback.error_code"),
-                    () -> assertEquals(ROLLBACK_NOT_ALLOWED.getCode(), error.getCode(), "manager_api.second_rollback.error_code"),
-                    () -> assertEquals(ROLLBACK_NOT_ALLOWED.getMessage(), error.getMessage(), "manager_api.second_rollback.error_message")
+                    () -> assertEquals(GamblingErrors.PLAYER_BLOCKED.getCode(), error.code(), "manager_api.second_rollback.error_code"),
+                    () -> assertEquals(ROLLBACK_NOT_ALLOWED.getCode(), error.code(), "manager_api.second_rollback.error_code"),
+                    () -> assertEquals(ROLLBACK_NOT_ALLOWED.getMessage(), error.message(), "manager_api.second_rollback.error_message")
             );
         });
     }

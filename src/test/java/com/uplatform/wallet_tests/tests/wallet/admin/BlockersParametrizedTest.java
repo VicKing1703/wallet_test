@@ -128,8 +128,8 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
             assertNotNull(response.getBody(), "cap_api.get_blockers.body_not_null");
             assertAll(
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.get_blockers.status_code"),
-                    () -> assertEquals(gamblingEnabled, response.getBody().isGamblingEnabled(), "cap_api.get_blockers.gambling_enabled"),
-                    () -> assertEquals(bettingEnabled, response.getBody().isBettingEnabled(), "cap_api.get_blockers.betting_enabled")
+                    () -> assertEquals(gamblingEnabled, response.getBody().gamblingEnabled(), "cap_api.get_blockers.gambling_enabled"),
+                    () -> assertEquals(bettingEnabled, response.getBody().bettingEnabled(), "cap_api.get_blockers.betting_enabled")
             );
         });
 

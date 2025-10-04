@@ -323,8 +323,8 @@ class BalanceAdjustmentNegativeParametrizedTest extends BaseParameterizedTest {
             var error = utils.parseFeignExceptionContent(exception, ValidationErrorResponse.class);
 
             assertAll("cap_api.error.validation_structure",
-                    () -> assertEquals(expectedStatus, error.getCode(), "cap_api.error.code"),
-                    () -> assertEquals(expectedMessage, error.getMessage(), "cap_api.error.message")
+                    () -> assertEquals(expectedStatus, error.code(), "cap_api.error.code"),
+                    () -> assertEquals(expectedMessage, error.message(), "cap_api.error.message")
             );
         });
     }

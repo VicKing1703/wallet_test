@@ -234,9 +234,9 @@ class ManagerSignatureNegativeParametrizedTest extends BaseParameterizedTest {
             var error = utils.parseFeignExceptionContent(thrownException, GamblingError.class);
 
             assertAll(
-                    () -> assertEquals(headerErrorType.getExpectedErrorCode(), error.getCode(), "manager_api.error.code"),
-                    () -> assertNotNull(error.getMessage(), "manager_api.error.message_not_null"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(headerErrorType.getExpectedMessageSubstring().toLowerCase()), "manager_api.error.message_contains")
+                    () -> assertEquals(headerErrorType.getExpectedErrorCode(), error.code(), "manager_api.error.code"),
+                    () -> assertNotNull(error.message(), "manager_api.error.message_not_null"),
+                    () -> assertTrue(error.message().toLowerCase().contains(headerErrorType.getExpectedMessageSubstring().toLowerCase()), "manager_api.error.message_contains")
             );
         });
     }

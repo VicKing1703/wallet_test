@@ -12,4 +12,12 @@ import lombok.NoArgsConstructor;
 public class GamblingError {
     private Integer code;
     private String message;
+
+    public Integer code() {
+        return code;
+    }
+
+    public String message() {
+        return message;
+    }
 }

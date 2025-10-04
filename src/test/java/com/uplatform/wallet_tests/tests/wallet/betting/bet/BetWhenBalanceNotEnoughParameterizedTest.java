@@ -87,9 +87,9 @@ class BetWhenBalanceNotEnoughParameterizedTest extends BaseParameterizedTest {
 
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                    () -> assertFalse(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(BALANCE_NOT_ENOUGH.getDescription(), response.getBody().getDescription(), "manager_api.body.description"),
-                    () -> assertEquals(BALANCE_NOT_ENOUGH.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode")
+                    () -> assertFalse(response.getBody().success(), "manager_api.body.success"),
+                    () -> assertEquals(BALANCE_NOT_ENOUGH.getDescription(), response.getBody().description(), "manager_api.body.description"),
+                    () -> assertEquals(BALANCE_NOT_ENOUGH.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode")
             );
         });
     }

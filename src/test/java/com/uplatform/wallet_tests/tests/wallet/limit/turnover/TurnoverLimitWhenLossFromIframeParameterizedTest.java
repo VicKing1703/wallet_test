@@ -121,7 +121,7 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
                         ctx.registeredPlayer.getWalletData().playerUUID(),
                         ctx.registeredPlayer.getWalletData().walletUUID());
 
-                var expectedAmount = new BigDecimal(request.getAmount()).stripTrailingZeros().toPlainString();
+                var expectedAmount = new BigDecimal(request.amount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                         .from(subject)
@@ -129,7 +129,7 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
                         .with("$.event_type", NatsLimitEventType.CREATED.getValue())
                         .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
                         .with("$.limits[0].interval_type", periodType.getValue())
-                        .with("$.limits[0].currency_code", request.getCurrency())
+                        .with("$.limits[0].currency_code", request.currency())
                         .with("$.limits[0].amount", expectedAmount)
                         .with("$.limits[0].status", true)
                         .fetch();
@@ -177,8 +177,8 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
                         () -> assertNotNull(ctx.lossEvent.getPayload().getUuid(), "nats.loosed_from_iframe_event.payload.uuid_not_null"),
                         () -> assertDoesNotThrow(() -> UUID.fromString(ctx.lossEvent.getPayload().getUuid()),
                                 "nats.loosed_from_iframe_event.payload.uuid_format"),
-                        () -> assertEquals(0, lossAmount.compareTo(ctx.lossEvent.getPayload().getAmount()), "nats.loosed_from_iframe_event.payload.amount"),
-                        () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.lossEvent.getPayload().getType(), "nats.loosed_from_iframe_event.payload.operation"),
+                        () -> assertEquals(0, lossAmount.compareTo(ctx.lossEvent.getPayload().amount()), "nats.loosed_from_iframe_event.payload.amount"),
+                        () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.lossEvent.getPayload().type(), "nats.loosed_from_iframe_event.payload.operation"),
                         () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.lossEvent.getPayload().getBetId(), "nats.loosed_from_iframe_event.payload.betId")
                 );
             });
@@ -202,9 +202,9 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit_present");
                         var turnoverLimit = turnoverLimitOpt.get();
 
-                        assertEquals(0, ctx.expectedRestAmountAfterOperations.compareTo(turnoverLimit.getRest()), "redis.wallet.limit.rest");
-                        assertEquals(0, ctx.expectedSpentAmountAfterOperations.compareTo(turnoverLimit.getSpent()), "redis.wallet.limit.spent");
-                        assertEquals(0, limitAmountBase.compareTo(turnoverLimit.getAmount()), "redis.wallet.limit.amount");
+                        assertEquals(0, ctx.expectedRestAmountAfterOperations.compareTo(turnoverLimit.rest()), "redis.wallet.limit.rest");
+                        assertEquals(0, ctx.expectedSpentAmountAfterOperations.compareTo(turnoverLimit.spent()), "redis.wallet.limit.spent");
+                        assertEquals(0, limitAmountBase.compareTo(turnoverLimit.amount()), "redis.wallet.limit.amount");
                     }
             );
         });

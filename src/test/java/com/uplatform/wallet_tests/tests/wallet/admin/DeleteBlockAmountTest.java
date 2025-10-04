@@ -91,7 +91,7 @@ class DeleteBlockAmountTest extends BaseTest {
             assertAll("Проверка данных в ответе на создание блокировки средств",
                     () -> assertEquals(HttpStatus.OK, ctx.blockAmountResponse.getStatusCode(), "cap_api.block_amount.status_code"),
                     () -> assertNotNull(responseBody, "cap_api.block_amount.response_body_not_null"),
-                    () -> assertNotNull(responseBody.getTransactionId(), "cap_api.block_amount.transaction_id")
+                    () -> assertNotNull(responseBody.transactionId(), "cap_api.block_amount.transaction_id")
             );
         });
 
@@ -103,19 +103,19 @@ class DeleteBlockAmountTest extends BaseTest {
             assertNotNull(response.getBody(), "cap_api.get_block_amount_list.response_body_not_null");
             assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null");
 
-            var expectedTxId = ctx.blockAmountResponse.getBody().getTransactionId();
+            var expectedTxId = ctx.blockAmountResponse.getBody().transactionId();
 
             assertAll("Проверка наличия созданной блокировки в списке",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.status_code"),
-                    () -> assertFalse(response.getBody().getItems().isEmpty(), "cap_api.block_amount_list.not_empty"),
-                    () -> assertEquals(expectedTxId, response.getBody().getItems().get(0).getTransactionId(), "cap_api.block_amount_list.transaction_id")
+                    () -> assertFalse(response.getBody().items().isEmpty(), "cap_api.block_amount_list.not_empty"),
+                    () -> assertEquals(expectedTxId, response.getBody().items().get(0).transactionId(), "cap_api.block_amount_list.transaction_id")
             );
         });
 
         step("CAP API: Удаление блокировки средств", () -> {
             assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null_before_delete");
             ctx.deleteBlockAmountResponse = capAdminClient.deleteBlockAmount(
-                    ctx.blockAmountResponse.getBody().getTransactionId(),
+                    ctx.blockAmountResponse.getBody().transactionId(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     ctx.registeredPlayer.getWalletData().walletUUID(),
@@ -132,9 +132,9 @@ class DeleteBlockAmountTest extends BaseTest {
             assertNotNull(response.getBody(), "cap_api.get_block_amount_list_after_delete.response_body_not_null");
             assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null_for_deleted_tx_id");
 
-            var deletedTxId = ctx.blockAmountResponse.getBody().getTransactionId();
-            var blockStillExists = response.getBody().getItems().stream()
-                    .anyMatch(item -> item.getTransactionId().equals(deletedTxId));
+            var deletedTxId = ctx.blockAmountResponse.getBody().transactionId();
+            var blockStillExists = response.getBody().items().stream()
+                    .anyMatch(item -> item.transactionId().equals(deletedTxId));
 
             assertAll("Проверка отсутствия удаленной блокировки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.status_code"),
@@ -177,7 +177,7 @@ class DeleteBlockAmountTest extends BaseTest {
             assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null_for_redis_check");
 
             var expectedBalance = adjustmentAmount;
-            var deletedBlockAmountId = ctx.blockAmountResponse.getBody().getTransactionId();
+            var deletedBlockAmountId = ctx.blockAmountResponse.getBody().transactionId();
 
             var blockedAmount = aggregate.blockedAmounts().stream()
                     .filter(block -> block.getUuid().equals(deletedBlockAmountId))

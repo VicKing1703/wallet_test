@@ -244,8 +244,8 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
             assertAll("Проверка ответа на роллбэк от Manager API",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "when.manager_api.rollback.status_code"),
-                    () -> assertEquals(ctx.rollbackRequest.getTransactionId(), response.getBody().getTransactionId(), "when.manager_api.rollback.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(response.getBody().getBalance()), "when.manager_api.rollback.body.balance")
+                    () -> assertEquals(ctx.rollbackRequest.getTransactionId(), response.getBody().transactionId(), "when.manager_api.rollback.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(response.getBody().balance()), "when.manager_api.rollback.body.balance")
             );
         });
 
