@@ -1,7 +1,146 @@
 # kafka-api Module
 
-Универсальный тестовый модуль для интеграции с внешними системами: **Kafka**, **NATS**, **Redis** и **HTTP API**.
-Все клиенты используют единый fluent DSL, централизованную конфигурацию через JSON и автоматическую генерацию Allure-аттачей.
+Универсальный тестовый модуль для интеграции с внешними системами: **HTTP API**, **Kafka**, **NATS**, **Redis** и **Database** (multi-datasource).
+
+## Почему kafka-api?
+
+Модуль предоставляет единый подход к работе с различными источниками данных в автотестах, устраняя необходимость писать boilerplate-код для каждой интеграции:
+
+- **Единый fluent DSL** — однородный API для ожидания данных из любого источника (`.expect()`, `.with()`, `.fetch()`)
+- **Централизованная конфигурация** — все параметры подключений и таймаутов в JSON/YAML, переключение между окружениями без правок кода
+- **Автоматическая интеграция с Allure** — каждый запрос формирует детальные аттачи (Search Info, Found/Not Found, Errors)
+- **Retry-стратегии из коробки** — Awaitility для БД/Redis, polling для Kafka/NATS, игнорирование транзиентных ошибок
+- **Multi-datasource поддержка** — работа с несколькими базами данных в одном тесте с изоляцией транзакций
+- **Type-safe API** — статическая типизация через Spring Data JPA, Feign-интерфейсы и generic-типы
+- **Connection pooling** — HikariCP для БД, OkHttp для HTTP, переиспользование соединений без ручной настройки
+
+**Результат:** вместо 50-100 строк кода на интеграцию — 5-10 строк декларативного DSL. Фокус на бизнес-логике тестов, а не на технических деталях подключений.
+
+---
+
+## Быстрый старт
+
+### Подключение модуля
+
+Добавьте зависимость в `build.gradle`:
+
+```gradle
+dependencies {
+    testImplementation project(":kafka-api")
+}
+```
+
+### Минимальная конфигурация
+
+Создайте файл `configs/local.json` с параметрами всех клиентов:
+
+```json
+{
+  "name": "local",
+  "http": {
+    "defaults": {
+      "baseUrl": "https://localhost:8080"
+    },
+    "services": {
+      "fapi": {
+        "baseUrl": "https://localhost:8080"
+      }
+    }
+  },
+  "kafka": {
+    "bootstrapServer": "localhost:9092",
+    "groupId": "wallet-tests-consumer",
+    "bufferSize": 500,
+    "findMessageTimeout": "PT20S",
+    "autoOffsetReset": "latest"
+  },
+  "nats": {
+    "hosts": ["nats://localhost:4222"],
+    "streamName": "wallet-events",
+    "searchTimeoutSeconds": 30,
+    "subscriptionBufferSize": 256
+  },
+  "databases": {
+    "wallet": {
+      "host": "localhost",
+      "port": 3306,
+      "username": "wallet_user",
+      "password": "password",
+      "retryTimeoutSeconds": 20,
+      "retryPollIntervalMs": 500,
+      "retryPollDelayMs": 200
+    }
+  },
+  "redis": {
+    "aggregate": {
+      "maxGamblingCount": 50,
+      "retryAttempts": 20,
+      "retryDelayMs": 500
+    },
+    "clients": {
+      "wallet": {
+        "host": "localhost",
+        "port": 6379,
+        "database": 0,
+        "timeout": "5000ms"
+      }
+    }
+  }
+}
+```
+
+Все параметры подключений, таймаутов и retry-стратегий читаются из JSON. Переключение между окружениями через `-Denv=local/beta/prod`.
+
+В `application.properties` остаются только технические настройки Spring Boot (логирование, Hibernate, Kafka deserializers).
+
+### Пример использования
+
+```java
+@SpringBootTest
+public class QuickStartTest {
+
+    @Autowired
+    private FapiClient fapiClient;
+    @Autowired
+    private KafkaClient kafkaClient;
+    @Autowired
+    private NatsClient natsClient;
+    @Autowired
+    private GenericRedisClient redisWalletClient;
+    @Autowired
+    private WalletDatabaseClient walletDatabaseClient;
+
+    @Test
+    void shouldIntegrateWithAllSystems() {
+        // HTTP
+        WalletResponse wallet = fapiClient.getWallet(playerId, token);
+
+        // Kafka
+        LimitMessage kafkaMsg = kafkaClient.expect(LimitMessage.class)
+                .with("playerId", playerId)
+                .fetch();
+
+        // NATS
+        NatsMessage<Event> natsMsg = natsClient.expect(Event.class)
+                .from(subject)
+                .with("$.playerId", playerId)
+                .fetch();
+
+        // Redis
+        WalletData redisData = redisWalletClient.key("wallet:" + playerId)
+                .with("$.balance", value -> value != null)
+                .fetch();
+
+        // Database
+        Transaction dbRecord = walletDatabaseClient
+                .findTransactionByUuidOrFail(transactionId);
+    }
+}
+```
+
+Детальная документация по каждому клиенту доступна ниже в соответствующих секциях.
+
+---
 
 ## Оглавление
 
@@ -14,7 +153,6 @@
   - [Архитектура](#архитектура-1)
   - [Подключение и конфигурация](#подключение-и-конфигурация-1)
     - [DTO и сопоставление топиков](#dto-и-сопоставление-топиков)
-    - [Зависимость Gradle](#зависимость-gradle)
     - [Spring-конфигурация реестра топиков](#spring-конфигурация-реестра-топиков)
     - [Настройки приложения](#настройки-приложения)
   - [Сценарии использования](#сценарии-использования)
@@ -24,7 +162,6 @@
 - [NATS Test Client](#nats-test-client)
   - [Архитектура и ключевые компоненты](#архитектура-и-ключевые-компоненты)
   - [Подключение и конфигурация](#подключение-и-конфигурация-2)
-    - [Зависимость Gradle](#зависимость-gradle-1)
     - [Файл окружения](#файл-окружения)
     - [Настройки клиента](#настройки-клиента)
   - [Сценарии использования](#сценарии-использования-1)
@@ -34,14 +171,22 @@
 - [Redis Test Client](#redis-test-client)
   - [Архитектура и ключевые компоненты](#архитектура-и-ключевые-компоненты-1)
   - [Подключение и конфигурация](#подключение-и-конфигурации-3)
-    - [Зависимость Gradle](#зависимость-gradle-2)
     - [Spring-конфигурация типов](#spring-конфигурация-типов)
     - [Настройки клиента](#настройки-клиента-1)
   - [Сценарии использования](#сценарии-использования-2)
     - [Методы fluent API](#методы-fluent-api-2)
     - [Комплексный пример](#комплексный-пример-2)
   - [Интеграция с Allure](#интеграция-с-allure-3)
-- [Материалы для визуализаций](#материалы-для-визуализаций)
+- [Database Test Client](#database-test-client)
+  - [Архитектура](#архитектура-4)
+  - [Подключение и конфигурация](#подключение-и-конфигурация-4)
+    - [Настройки приложения](#настройки-приложения-1)
+    - [Spring-конфигурация источников данных](#spring-конфигурация-источников-данных)
+  - [Использование](#использование-1)
+    - [Создание Entity и Repository](#создание-entity-и-repository)
+    - [Реализация Database Client](#реализация-database-client)
+    - [Использование в тестах](#использование-в-тестах-1)
+  - [Интеграция с Allure](#интеграция-с-allure-4)
 
 ---
 
@@ -66,16 +211,6 @@ Spring properties и не требует правок в `application.yml` пр�
 - **FeignLogger** — логирует запросы и ответы с уровнем `FULL`, формируя детальные аттачи для Allure.
 
 ### Подключение и конфигурация
-
-#### Зависимость Gradle
-
-```gradle
-dependencies {
-    testImplementation project(":kafka-api")
-}
-```
-
-#### Настройки приложения
 
 Блок `http` в `configs/<env>.json` содержит глобальные defaults и карту сервисов:
 
@@ -253,16 +388,6 @@ public record BonusAwardMessage(
 Затем зарегистрируйте DTO в `KafkaTopicMappingRegistry`, чтобы фоновые listener'ы подписались на нужный топик (см.
 пример ниже).
 
-### Зависимость Gradle
-
-Добавьте модуль в тестовые зависимости:
-
-```gradle
-dependencies {
-    testImplementation project(":kafka-api")
-}
-```
-
 ### Spring-конфигурация реестра топиков
 
 Создайте бин `KafkaTopicMappingRegistry`, который сопоставляет DTO и суффиксы топиков:
@@ -392,13 +517,6 @@ fluent API, параметры читаются из единого JSON-кон�
 
 ### Подключение и конфигурация
 
-#### Зависимость Gradle
-
-```gradle
-dependencies {
-    testImplementation project(":kafka-api")
-}
-```
 
 #### Файл окружения
 
@@ -519,13 +637,6 @@ Redis-клиент из `kafka-api` повторяет знакомую стру
 
 ### Подключение и конфигурация
 
-#### Зависимость Gradle
-
-```gradle
-dependencies {
-    testImplementation project(":kafka-api")
-}
-```
 
 #### Spring-конфигурация типов
 
@@ -549,33 +660,41 @@ public class RedisConfig {
 
 #### Настройки клиента
 
-Блок `redis` в `application.yml` или `configs/<env>.json` управляет ретраями, подключениями и пулами Lettuce:
+Блок `redis` в `configs/<env>.json` управляет ретраями, подключениями и пулами Lettuce:
 
-```yaml
-redis:
-  aggregate:
-    maxGamblingCount: 50
-    maxIframeCount: 500
-    retryAttempts: 20
-    retryDelayMs: 500
-  clients:
-    wallet:
-      host: redis-01.b2bdev.pro
-      port: 6390
-      database: 9
-      timeout: 5000ms
-      password: secret # опционально
-      lettucePool:
-        maxActive: 8
-        maxIdle: 8
-        minIdle: 0
-        maxWait: 2s
-        shutdownTimeout: 100ms
-    player:
-      host: redis-01.b2bdev.pro
-      port: 6389
-      database: 9
-      timeout: 5s
+```json
+{
+  "redis": {
+    "aggregate": {
+      "maxGamblingCount": 50,
+      "maxIframeCount": 500,
+      "retryAttempts": 20,
+      "retryDelayMs": 500
+    },
+    "clients": {
+      "wallet": {
+        "host": "redis-01.b2bdev.pro",
+        "port": 6390,
+        "database": 9,
+        "timeout": "5000ms",
+        "password": "secret",
+        "lettucePool": {
+          "maxActive": 8,
+          "maxIdle": 8,
+          "minIdle": 0,
+          "maxWait": "2s",
+          "shutdownTimeout": "100ms"
+        }
+      },
+      "player": {
+        "host": "redis-01.b2bdev.pro",
+        "port": 6389,
+        "database": 9,
+        "timeout": "5s"
+      }
+    }
+  }
+}
 ```
 
 - `aggregate.retryAttempts` / `aggregate.retryDelayMs` — количество повторов чтения и задержка между ними для Awaitility.
@@ -637,3 +756,241 @@ step("Redis: Проверяем агрегат кошелька и связан�
 Пример того, как это выглядит в Allure:
 ![Allure-отчёт с Redis-аттачами](src/main/resources/docs/images/redis-allure-report-example.jpg)
 
+---
+
+## Database Test Client
+
+Database-клиент из `kafka-api` предоставляет типизированный доступ к данным через Spring Data JPA с поддержкой нескольких источников данных. Клиенты используют Awaitility для ожидания записей в БД, автоматически формируют Allure-аттачи и обрабатывают транзакционные исключения.
+
+### Архитектура
+
+Высокоуровневое взаимодействие между тестом, клиентом и базой данных:
+
+![Диаграмма взаимодействия Database-клиента](src/main/resources/docs/images/database-architecture-diagram.jpg)
+
+### Ключевые компоненты
+
+- **`AbstractDatabaseClient`** — базовый класс со стратегией retry через Awaitility, обработкой таймаутов и формированием аттачей.
+- **`WalletDatabaseClient` / `CoreDatabaseClient` / `PlayerDatabaseClient`** — типизированные клиенты для конкретных баз данных с domain-специфичными методами.
+- **Spring Data JPA Repositories** — стандартные репозитории с поддержкой custom queries и projections.
+- **Multi-datasource конфигурация** — отдельные `EntityManager`, `TransactionManager` и connection pools для каждой БД.
+- **HikariCP** — connection pooling с настройками размера пула, таймаутов и connection test query.
+
+Такая архитектура позволяет работать с несколькими базами данных в рамках одного теста, изолируя транзакции и подключения.
+
+### Подключение и конфигурация
+
+
+#### Настройки приложения
+
+Блок `databases` в `configs/<env>.json` описывает параметры каждой базы данных:
+
+```json
+{
+  "databases": {
+    "wallet": {
+      "host": "mysql-development-01.b2bdev.pro",
+      "port": 3306,
+      "username": "qa_auto",
+      "password": "HoxTNjfnZsGt",
+      "retryTimeoutSeconds": 10,
+      "retryPollIntervalMs": 100,
+      "retryPollDelayMs": 100
+    },
+    "core": {
+      "host": "mysql-development-01.b2bdev.pro",
+      "port": 3306,
+      "username": "qa_auto",
+      "password": "HoxTNjfnZsGt",
+      "retryTimeoutSeconds": 10,
+      "retryPollIntervalMs": 100,
+      "retryPollDelayMs": 100
+    },
+    "player": {
+      "host": "mysql-development-01.b2bdev.pro",
+      "port": 3306,
+      "username": "qa_auto",
+      "password": "HoxTNjfnZsGt",
+      "retryTimeoutSeconds": 10,
+      "retryPollIntervalMs": 100,
+      "retryPollDelayMs": 100
+    }
+  }
+}
+```
+
+- `databases.<name>.host` / `databases.<name>.port` — адрес и порт базы данных.
+- `databases.<name>.username` / `databases.<name>.password` — учётные данные для подключения.
+- `databases.<name>.retryTimeoutSeconds` — максимальное время ожидания записи в БД (по умолчанию 20 секунд).
+- `databases.<name>.retryPollIntervalMs` — интервал между попытками чтения (по умолчанию 500 мс).
+- `databases.<name>.retryPollDelayMs` — начальная задержка перед первой попыткой (по умолчанию 200 мс).
+
+Дополнительно в `application.properties` задаются технические параметры Spring Data JPA и HikariCP (driver class, hikari pool settings, test query).
+
+#### Spring-конфигурация источников данных
+
+Каждая база данных требует отдельной конфигурации с `@EnableJpaRepositories`:
+
+```java
+@Configuration
+@EnableTransactionManagement
+@EnableJpaRepositories(
+        basePackages = "com.uplatform.wallet_tests.api.db.repository.wallet",
+        entityManagerFactoryRef = "walletEntityManagerFactory",
+        transactionManagerRef = "walletTransactionManager"
+)
+public class WalletDbConfig extends BaseDbConfig {
+
+    @Bean
+    @ConfigurationProperties("spring.datasource.wallet")
+    public DataSourceProperties walletDataSourceProperties() {
+        return createDataSourceProperties();
+    }
+
+    @Bean
+    public HikariDataSource walletDataSource(
+            @Qualifier("walletDataSourceProperties") DataSourceProperties properties) {
+        return createDataSource(properties);
+    }
+
+    @Bean
+    public LocalContainerEntityManagerFactoryBean walletEntityManagerFactory(
+            EntityManagerFactoryBuilder builder,
+            @Qualifier("walletDataSource") HikariDataSource dataSource) {
+        return createEntityManagerFactory(builder, dataSource,
+                "com.uplatform.wallet_tests.api.db.entity.wallet", "wallet");
+    }
+
+    @Bean
+    public PlatformTransactionManager walletTransactionManager(
+            @Qualifier("walletEntityManagerFactory")
+            LocalContainerEntityManagerFactoryBean entityManagerFactory) {
+        return createTransactionManager(entityManagerFactory);
+    }
+}
+```
+
+Аналогичные конфигурации создаются для `core` и `player` баз данных, меняя только пакеты репозиториев и entity.
+
+### Использование
+
+#### Создание Entity и Repository
+
+Опишите JPA-entity, соответствующую схеме таблицы:
+
+```java
+@Entity
+@Table(name = "gambling_projection_transaction_history", schema = "wallet")
+@Data
+public class GamblingProjectionTransactionHistory {
+
+    @Id
+    @Column(name = "uuid")
+    private String uuid;
+
+    @Column(name = "player_uuid")
+    private String playerUuid;
+
+    @Column(name = "amount")
+    private BigDecimal amount;
+
+    @Column(name = "currency_code")
+    private String currencyCode;
+
+    @Column(name = "transaction_type")
+    private String transactionType;
+
+    @Column(name = "created_at")
+    private Instant createdAt;
+}
+```
+
+Создайте Spring Data JPA Repository:
+
+```java
+@Repository
+public interface GamblingProjectionTransactionHistoryRepository
+        extends JpaRepository<GamblingProjectionTransactionHistory, String> {
+
+    Optional<GamblingProjectionTransactionHistory> findById(String uuid);
+}
+```
+
+#### Реализация Database Client
+
+Расширьте `AbstractDatabaseClient` и добавьте domain-методы:
+
+```java
+@Component
+public class WalletDatabaseClient extends AbstractDatabaseClient {
+
+    private final GamblingProjectionTransactionHistoryRepository transactionRepository;
+
+    public WalletDatabaseClient(
+            AllureAttachmentService attachmentService,
+            GamblingProjectionTransactionHistoryRepository transactionRepository) {
+        super(attachmentService);
+        this.transactionRepository = transactionRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public GamblingProjectionTransactionHistory findTransactionByUuidOrFail(String uuid) {
+        String description = String.format("transaction history record by UUID '%s'", uuid);
+        String attachmentNamePrefix = String.format("Wallet Transaction Record [UUID: %s]", uuid);
+
+        Supplier<Optional<GamblingProjectionTransactionHistory>> querySupplier = () ->
+                transactionRepository.findById(uuid);
+
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+    }
+}
+```
+
+#### Использование в тестах
+
+Внедряете клиент через `@Autowired` и вызываете методы в Allure-steps:
+
+```java
+@SpringBootTest
+public class WalletDatabaseTest {
+
+    @Autowired
+    private WalletDatabaseClient walletDatabaseClient;
+
+    @Test
+    void shouldFindTransactionInDatabase() {
+        String transactionUuid = createTestTransaction();
+
+        step("DB: Ожидание записи транзакции в БД", () -> {
+            GamblingProjectionTransactionHistory transaction =
+                walletDatabaseClient.findTransactionByUuidOrFail(transactionUuid);
+
+            assertThat(transaction.getAmount()).isEqualByComparingTo(BigDecimal.TEN);
+            assertThat(transaction.getTransactionType()).isEqualTo("BET");
+        });
+    }
+}
+```
+
+Метод `awaitAndGetOrFail` автоматически:
+- Повторяет запрос с интервалом `retry-poll-interval-ms`
+- Игнорирует транзиентные исключения Spring Data
+- Формирует Allure-аттач при успехе или таймауте
+- Выбрасывает `DatabaseRecordNotFoundException` при превышении `retry-timeout-seconds`
+
+---
+
+### Интеграция с Allure
+
+При каждом запросе клиент формирует аттачи:
+
+- **Found** — JSON-представление найденной записи с полным набором полей.
+- **NOT Found (Timeout)** — информация о таймауте, описание запроса и время ожидания.
+- **Error** — детали неожиданных исключений (тип, сообщение, stack trace).
+
+Все аттачи автоматически прикрепляются к текущему Allure-step с префиксом `[DB]`.
+
+Пример того, как это выглядит в Allure:
+![Allure-отчёт с Database-аттачами](src/main/resources/docs/images/database-allure-report-example.jpg)
+
+---
