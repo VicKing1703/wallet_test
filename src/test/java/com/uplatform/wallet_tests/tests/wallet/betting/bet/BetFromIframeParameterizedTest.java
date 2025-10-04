@@ -136,13 +136,13 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
                 var payload = ctx.betEvent.getPayload();
                 assertAll("Проверка полей события ставки в NATS",
-                        () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.payload.bet_id"),
-                        () -> assertEquals(0, new BigDecimal(ctx.betRequest.getSumm()).negate().compareTo(payload.getAmount()), "nats.payload.amount"),
-                        () -> assertEquals(expectedBetInfoSize, payload.getBetInfo().size(), "nats.payload.bet_info.size")
+                        () -> assertEquals(ctx.betRequest.getBetId(), payload.betId(), "nats.payload.bet_id"),
+                        () -> assertEquals(0, new BigDecimal(ctx.betRequest.getSumm()).negate().compareTo(payload.amount()), "nats.payload.amount"),
+                        () -> assertEquals(expectedBetInfoSize, payload.betInfo().size(), "nats.payload.bet_info.size")
                 );
 
-                payload.getBetInfo().forEach(bi ->
-                        assertEquals(couponType.getValue(), bi.getCouponType(), "nats.payload.bet_info.coupon_type"));
+                payload.betInfo().forEach(bi ->
+                        assertEquals(couponType.getValue(), bi.couponType(), "nats.payload.bet_info.coupon_type"));
             });
 
             step("AND: Kafka получает соответствующее сообщение", () -> {
@@ -166,7 +166,7 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
             step("AND: Запись сохраняется в betting_projection_iframe_history", () -> {
                 var dbTransaction = walletDatabaseClient.findLatestIframeHistoryByUuidOrFail(
-                        ctx.betEvent.getPayload().getUuid());
+                        ctx.betEvent.getPayload().uuid());
 
                 var betEventPayload = ctx.betEvent.getPayload();
                 var playerData = ctx.player.getWalletData();
@@ -175,14 +175,14 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
                         dbTransaction.getBetInfo(), new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
 
                 assertAll("Проверка записи в таблице истории (iframe_history)",
-                        () -> assertEquals(betEventPayload.getUuid(), dbTransaction.getUuid(), "db.history.uuid"),
+                        () -> assertEquals(betEventPayload.uuid(), dbTransaction.getUuid(), "db.history.uuid"),
                         () -> assertEquals(playerData.walletUUID(), dbTransaction.getWalletUuid(), "db.history.wallet_uuid"),
                         () -> assertEquals(playerData.playerUUID(), dbTransaction.getPlayerUuid(), "db.history.player_uuid"),
                         () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.getCouponType(), "db.history.coupon_type"),
                         () -> assertEquals(CouponStatus.ACCEPTED, dbTransaction.getCouponStatus(), "db.history.coupon_status"),
                         () -> assertEquals(CouponCalcStatus.NO, dbTransaction.getCouponCalcStatus(), "db.history.coupon_calc_status"),
-                        () -> assertEquals(betEventPayload.getBetId(), dbTransaction.getBetId(), "db.history.bet_id"),
-                        () -> assertEquals(0, betEventPayload.getAmount().compareTo(dbTransaction.getAmount().negate()), "db.history.amount"),
+                        () -> assertEquals(betEventPayload.betId(), dbTransaction.getBetId(), "db.history.bet_id"),
+                        () -> assertEquals(0, betEventPayload.amount().compareTo(dbTransaction.getAmount().negate()), "db.history.amount"),
                         () -> assertEquals(ctx.betEvent.getSequence(), dbTransaction.getSeq(), "db.history.seq")
                 );
             });
@@ -194,14 +194,14 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
                         .fetch();
 
                 var iframeRecord = aggregate.iFrameRecords().stream()
-                        .filter(r -> r.getUuid().equals(ctx.betEvent.getPayload().getUuid()))
+                        .filter(r -> r.uuid().equals(ctx.betEvent.getPayload().uuid()))
                         .findFirst().orElse(null);
 
                 assertAll("Проверка агрегата кошелька в Redis после ставки",
                         () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                         () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                         () -> assertNotNull(iframeRecord, "redis.aggregate.iframe_record_not_found"),
-                        () -> assertEquals(ctx.betEvent.getPayload().getBetId(), iframeRecord.getBetID(), "redis.aggregate.iframe_record.bet_id"),
+                        () -> assertEquals(ctx.betEvent.getPayload().betId(), iframeRecord.getBetID(), "redis.aggregate.iframe_record.bet_id"),
                         () -> assertEquals(IFrameRecordType.BET, iframeRecord.getType(), "redis.aggregate.iframe_record.type")
                 );
             });

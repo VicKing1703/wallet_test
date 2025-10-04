@@ -153,8 +153,8 @@ class WithdrawalPositiveTest extends BaseTest {
 
             var payload = ctx.blockEvent.getPayload();
             assertAll("Проверка полей события block_amount_started в NATS",
-                    () -> assertEquals(ctx.transactionId, payload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(0, WITHDRAWAL_AMOUNT.negate().compareTo(payload.getAmount()), "nats.payload.amount")
+                    () -> assertEquals(ctx.transactionId, payload.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(0, WITHDRAWAL_AMOUNT.negate().compareTo(payload.amount()), "nats.payload.amount")
             );
         });
 
@@ -173,7 +173,7 @@ class WithdrawalPositiveTest extends BaseTest {
                     .fetch();
 
             var blockedAmountInfo = aggregate.blockedAmounts().stream()
-                    .filter(b -> b.getUuid().equals(ctx.transactionId))
+                    .filter(b -> b.uuid().equals(ctx.transactionId))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после блокировки",

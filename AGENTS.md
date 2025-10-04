@@ -227,18 +227,77 @@ When you need a new HTTP step, follow the same recipe used across the casino-los
    After the HTTP assertion passes, continue with the NATS/Kafka/Redis/DB checks to complete the cross-system validation.
 
 #### NATS
-The same test waits for the `betted_from_gamble` event by chaining `.from()`, `.withType()`, and JSON-path filters:
+Mirror the Feign workflow by walking through these preparation steps before asserting a JetStream event.
 
-```java
-ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
-        .from(natsClient.buildWalletSubject(playerUuid, walletUuid))
-        .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
-        .with("$.uuid", ctx.betRequestBody.getTransactionId())
-        .fetch();
+1. **Pick (or add) a subject helper.** Prefer the built-in `natsClient.buildWalletSubject(playerUuid, walletUuid)` so subjects remain consistent with the wallet stream naming convention. If a service publishes to a bespoke subject, extend `NatsClient` with a helper that documents the format, or pass the literal subject to `.from("...")` when it is a one-off case.
 
-assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
-```
-The casino-loss suite contains multiple variations; start with the `bet` path linked above.
+2. **Wire configuration.** Verify the active environment file under `src/test/resources/configs` contains the NATS connection block. Follow the structure already present in [`configs/beta-09.json`](src/test/resources/configs/beta-09.json): `hosts`, `streamName`, `streamPrefix`, and search/ack tuning values (`searchTimeoutSeconds`, `uniqueDuplicateWindowMs`, etc.). New streams or prefixes should be introduced in the same `walletTests.nats` section so `NatsConfigProvider` picks them up automatically.
+
+3. **Model payload DTOs.** Place new payloads inside `src/test/java/com/uplatform/wallet_tests/api/nats/dto` (enumerations live in the nested `dto/enums` package). Declare every payload as a Java `record` annotated with `@JsonIgnoreProperties(ignoreUnknown = true)` so Jackson keeps working without Lombok. Use nested records for sub-documents (see `NatsGamblingEventPayload` for `CurrencyConversionInfo`) and place `@JsonProperty` on any snake_case field or optional attribute that needs an explicit mapping.
+
+4. **Wrap the expectation in an Allure step.** Chain every fluent selector on `NatsExpectationBuilder` so the intent is explicit and discoverable for newcomers. The casino-loss tests serve as a reference, but the following example demonstrates the full surface area in a single snippet:
+
+   ```java
+   step("NATS: wait for betted_from_gamble", () -> {
+       ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
+               // 1) target the subject explicitly
+               .from(natsClient.buildWalletSubject(playerUuid, walletUuid))
+               // 2) filter by JetStream header metadata
+               .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+               .withSequence(ctx.expectedSequence)
+               // 3) add JSONPath payload filters
+               .with("$.uuid", ctx.betRequestBody.getTransactionId())
+               .with("$.payload.bet.amount", ctx.expectedBetAmount)
+               // 4) enforce uniqueness and tune the duplicate window
+               .unique(Duration.ofSeconds(15))
+               // 5) override the default poll timeout when necessary
+               .within(Duration.ofSeconds(45))
+               // 6) trigger the search
+               .fetch();
+
+       assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
+   });
+   ```
+    Swap `.unique(Duration.ofSeconds(15))` for `.unique()` when the default duplicate window is sufficient. Add or duplicate `.with("jsonPath", value)` calls for every JSON field that should be asserted. The same pattern applies to other event types—inspect the casino-loss suite for concrete values and additional metadata filters.
+
+5. **Document the message.** Every new subject/payload pair must be catalogued in this file so the next engineer can wire the expectation without spelunking through the codebase.
+
+   1. Drop the note directly under the scenario that introduced the message. Keep the block scoped to that scenario so the contract stays close to the business flow that consumes it.
+   2. Use the following template verbatim—replace the placeholders only:
+
+      ```md
+      > **NATS: `<subject_suffix>`**
+      > - Subject: `wallet.%s.%s.<subject_suffix>`
+      > - Headers: `<HeaderName>=<HeaderValue>` (list every header the expectation filters by)
+      > - Payload: `<RecordName>` (asserted JSONPath selectors: `<$.path[0]>`, `<$.path[1]>`)
+      > - Notes: Optional clarifications (idempotency rules, retry caveats, etc.)
+      ```
+
+      If the subject does not follow the wallet prefix pattern, state the literal subject string instead of the template. Keep the bullet labels exactly as written so the repo-wide search (`rg "NATS:" AGENTS.md`) remains reliable.
+
+   3. Link back to the DTO source file when it lives outside `api/nats/dto` or when nested records deserve a pointer. Mention any JSONPath filters your tests rely on so downstream contributors know which fields are already covered.
+
+   This convention keeps the fluent snippet, DTO shape, and message contract discoverable in one place.
+
+   **Example DTO definition** — copy this shape when modelling a fresh payload:
+
+   ```java
+   @JsonIgnoreProperties(ignoreUnknown = true)
+   public record NatsExampleBalanceAdjustedPayload(
+           @JsonProperty("uuid") UUID uuid,
+           @JsonProperty("wallet_uuid") UUID walletUuid,
+           @JsonProperty("payload") Payload payload
+   ) {
+       @JsonIgnoreProperties(ignoreUnknown = true)
+       public record Payload(
+               @JsonProperty("amount") BigDecimal amount,
+               @JsonProperty("currency") String currency,
+               @JsonProperty("reason") String reason
+       ) { }
+   }
+   ```
+
+   Keep the class in `src/test/java/com/uplatform/wallet_tests/api/nats/dto`, favour nested records for structured sub-documents, and mirror the JSON names with `@JsonProperty` whenever the field is not idiomatic camelCase.
 
 #### Kafka
 `BetParametrizedTest` demonstrates the Kafka projection check, ensuring the message sequence aligns with the NATS event:

@@ -161,10 +161,10 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
 
             var payload = ctx.winEvent.getPayload();
             assertAll("Проверка полей события выигрыша в NATS",
-                    () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.win.bet_id"),
-                    () -> assertEquals(NatsBettingTransactionOperation.WIN, payload.getType(), "nats.win.type"),
-                    () -> assertEquals(0, WIN_AMOUNT.compareTo(payload.getAmount()), "nats.win.amount"),
-                    () -> assertTrue(payload.getWageredDepositInfo().isEmpty(), "nats.win.wagered_deposit_info.is_empty")
+                    () -> assertEquals(ctx.betRequest.getBetId(), payload.betId(), "nats.win.bet_id"),
+                    () -> assertEquals(NatsBettingTransactionOperation.WIN, payload.type(), "nats.win.type"),
+                    () -> assertEquals(0, WIN_AMOUNT.compareTo(payload.amount()), "nats.win.amount"),
+                    () -> assertTrue(payload.wageredDepositInfo().isEmpty(), "nats.win.wagered_deposit_info.is_empty")
             );
         });
 
@@ -175,7 +175,7 @@ class DepositWageringBetWinFromIframeTest extends BaseTest {
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после выигрыша",

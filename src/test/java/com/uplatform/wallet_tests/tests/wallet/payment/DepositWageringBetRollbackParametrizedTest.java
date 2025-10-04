@@ -264,14 +264,14 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                 var payload = ctx.rollbackEvent.getPayload();
                 assertAll("Проверка полей события роллбэка в NATS",
                         () -> assertNotNull(ctx.rollbackEvent, "then.nats.rollback_event.not_null"),
-                        () -> assertEquals(ctx.rollbackRequest.getTransactionId(), payload.getUuid(), "then.nats.rollback.uuid"),
-                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.getNodeUuid(), "then.nats.rollback.node_uuid"),
-                        () -> assertEquals(0, betAmount.compareTo(payload.getAmount()), "then.nats.rollback.amount"),
-                        () -> assertEquals(NatsGamblingTransactionOperation.ROLLBACK, payload.getOperation(), "then.nats.rollback.operation"),
-                        () -> assertEquals(NatsGamblingTransactionType.TYPE_ROLLBACK, payload.getType(), "then.nats.rollback.type")
+                        () -> assertEquals(ctx.rollbackRequest.getTransactionId(), payload.uuid(), "then.nats.rollback.uuid"),
+                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "then.nats.rollback.node_uuid"),
+                        () -> assertEquals(0, betAmount.compareTo(payload.amount()), "then.nats.rollback.amount"),
+                        () -> assertEquals(NatsGamblingTransactionOperation.ROLLBACK, payload.operation(), "then.nats.rollback.operation"),
+                        () -> assertEquals(NatsGamblingTransactionType.TYPE_ROLLBACK, payload.type(), "then.nats.rollback.type")
                 );
 
-                assertTrue(payload.getWageredDepositInfo().isEmpty(), "then.nats.rollback.wagered_deposit_info.is_empty");
+                assertTrue(payload.wageredDepositInfo().isEmpty(), "then.nats.rollback.wagered_deposit_info.is_empty");
             });
 
             step("Redis: Проверка агрегата кошелька после роллбэка", () -> {
@@ -281,11 +281,11 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                         .fetch();
 
                 var depositData = aggregate.deposits().stream()
-                        .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                        .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                         .findFirst().orElse(null);
 
-                var betData = aggregate.gambling().get(ctx.betEvent.getPayload().getUuid());
-                var rollbackData = aggregate.gambling().get(ctx.rollbackEvent.getPayload().getUuid());
+                var betData = aggregate.gambling().get(ctx.betEvent.getPayload().uuid());
+                var rollbackData = aggregate.gambling().get(ctx.rollbackEvent.getPayload().uuid());
 
                 assertAll("Проверка финального состояния агрегата кошелька в Redis",
                         () -> assertEquals((int) ctx.rollbackEvent.getSequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),

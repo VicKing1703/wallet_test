@@ -154,10 +154,10 @@ class DeleteBlockAmountTest extends BaseTest {
 
             var payload = ctx.blockAmountRevokedEvent.getPayload();
             assertAll("Проверка полей в событии снятия блокировки",
-                    () -> assertNotNull(payload.getUuid(), "nats.block_amount_revoked.uuid"),
-                    () -> assertNotNull(payload.getUserUuid(), "nats.block_amount_revoked.user_uuid"),
-                    () -> assertNotNull(payload.getUserName(), "nats.block_amount_revoked.user_name"),
-                    () -> assertEquals(platformNodeId, payload.getNodeUuid(), "nats.block_amount_revoked.node_uuid")
+                    () -> assertNotNull(payload.uuid(), "nats.block_amount_revoked.uuid"),
+                    () -> assertNotNull(payload.userUuid(), "nats.block_amount_revoked.user_uuid"),
+                    () -> assertNotNull(payload.userName(), "nats.block_amount_revoked.user_name"),
+                    () -> assertEquals(platformNodeId, payload.nodeUuid(), "nats.block_amount_revoked.node_uuid")
             );
         });
 
@@ -180,7 +180,7 @@ class DeleteBlockAmountTest extends BaseTest {
             var deletedBlockAmountId = ctx.blockAmountResponse.getBody().transactionId();
 
             var blockedAmount = aggregate.blockedAmounts().stream()
-                    .filter(block -> block.getUuid().equals(deletedBlockAmountId))
+                    .filter(block -> block.uuid().equals(deletedBlockAmountId))
                     .findFirst();
 
             assertAll("Проверка агрегата после удаления блокировки",

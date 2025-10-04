@@ -172,17 +172,17 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
 
             var payload = ctx.betEvent.getPayload();
             assertAll("Проверка полей события ставки в NATS",
-                    () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.bet.bet_id"),
-                    () -> assertEquals(0, new BigDecimal(ctx.betRequest.getSumm()).negate().compareTo(payload.getAmount()), "nats.bet.amount")
+                    () -> assertEquals(ctx.betRequest.getBetId(), payload.betId(), "nats.bet.bet_id"),
+                    () -> assertEquals(0, new BigDecimal(ctx.betRequest.getSumm()).negate().compareTo(payload.amount()), "nats.bet.amount")
             );
 
-            var wagerInfoList = payload.getWageredDepositInfo();
+            var wagerInfoList = payload.wageredDepositInfo();
             assertFalse(wagerInfoList.isEmpty(), "nats.wager_info.empty_for_bet");
             @SuppressWarnings("unchecked")
             Map<String, Object> wagerInfo = (Map<String, Object>) wagerInfoList.get(0);
 
             assertAll("Проверка wagered_deposit_info в NATS",
-                    () -> assertEquals(ctx.depositEvent.getPayload().getUuid(), wagerInfo.get("deposit_uuid"), "nats.wager_info.deposit_uuid"),
+                    () -> assertEquals(ctx.depositEvent.getPayload().uuid(), wagerInfo.get("deposit_uuid"), "nats.wager_info.deposit_uuid"),
                     () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(new BigDecimal(wagerInfo.get("updated_wagered_amount").toString())), "nats.wager_info.updated_wagered_amount")
             );
         });
@@ -194,11 +194,11 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             var iframeRecord = aggregate.iFrameRecords().stream()
-                    .filter(r -> r.getUuid().equals(ctx.betEvent.getPayload().getUuid()))
+                    .filter(r -> r.uuid().equals(ctx.betEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после ставки",

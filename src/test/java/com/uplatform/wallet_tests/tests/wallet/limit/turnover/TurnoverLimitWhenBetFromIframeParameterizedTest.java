@@ -158,12 +158,12 @@ class TurnoverLimitWhenBetFromIframeParameterizedTest extends BaseParameterizedT
                         .fetch();
 
                 assertAll("nats.betted_from_iframe_event.content_validation",
-                        () -> assertNotNull(ctx.betEvent.getPayload().getUuid(), "nats.betted_from_iframe_event.payload.uuid_not_null"),
-                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.betEvent.getPayload().getUuid()),
+                        () -> assertNotNull(ctx.betEvent.getPayload().uuid(), "nats.betted_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.betEvent.getPayload().uuid()),
                                 "nats.betted_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, betAmount.compareTo(ctx.betEvent.getPayload().amount().negate()), "nats.betted_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.BET, ctx.betEvent.getPayload().type(), "nats.betted_from_iframe_event.payload.operation"),
-                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.betEvent.getPayload().getBetId(), "nats.betted_from_iframe_event.payload.betId")
+                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.betEvent.getPayload().betId(), "nats.betted_from_iframe_event.payload.betId")
                 );
             });
         });

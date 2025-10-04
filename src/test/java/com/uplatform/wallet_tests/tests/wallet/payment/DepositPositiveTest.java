@@ -111,12 +111,12 @@ class DepositPositiveTest extends BaseTest {
 
             var actualPayload = ctx.depositEvent.getPayload();
             assertAll("Проверка полей события 'deposited_money' в NATS",
-                    () -> assertEquals(ctx.paymentTransactionMessage.transaction().transactionId(), actualPayload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(ctx.depositRequest.getCurrency(), actualPayload.getCurrencyCode(), "nats.payload.currencyCode"),
-                    () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(actualPayload.getAmount()), "nats.payload.amount"),
-                    () -> assertEquals(NatsDepositStatus.SUCCESS, actualPayload.getStatus(), "nats.payload.status"),
-                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), actualPayload.getNodeUuid(), "nats.payload.nodeUuid"),
-                    () -> assertEquals("", actualPayload.getBonusId(), "nats.payload.bonusId")
+                    () -> assertEquals(ctx.paymentTransactionMessage.transaction().transactionId(), actualPayload.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(ctx.depositRequest.getCurrency(), actualPayload.currencyCode(), "nats.payload.currencyCode"),
+                    () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(actualPayload.amount()), "nats.payload.amount"),
+                    () -> assertEquals(NatsDepositStatus.SUCCESS, actualPayload.status(), "nats.payload.status"),
+                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), actualPayload.nodeUuid(), "nats.payload.nodeUuid"),
+                    () -> assertEquals("", actualPayload.bonusId(), "nats.payload.bonusId")
             );
         });
 
@@ -146,7 +146,7 @@ class DepositPositiveTest extends BaseTest {
                     .fetch();
 
             var deposit = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.paymentTransactionMessage.transaction().transactionId()))
+                    .filter(d -> d.uuid().equals(ctx.paymentTransactionMessage.transaction().transactionId()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка данных депозита в агрегате кошелька Redis",

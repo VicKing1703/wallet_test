@@ -183,10 +183,10 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
 
             var payload = ctx.depositEvent.getPayload();
             assertAll("Проверка полей депозита",
-                    () -> assertEquals(ctx.depositRequest.getCurrency(), payload.getCurrencyCode(), "nats.deposit.currency_code"),
-                    () -> assertEquals(0, depositAmount.compareTo(payload.getAmount()), "nats.deposit.amount"),
-                    () -> assertEquals(NatsDepositStatus.SUCCESS, payload.getStatus(), "nats.deposit.status"),
-                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.getNodeUuid(), "nats.deposit.node_uuid")
+                    () -> assertEquals(ctx.depositRequest.getCurrency(), payload.currencyCode(), "nats.deposit.currency_code"),
+                    () -> assertEquals(0, depositAmount.compareTo(payload.amount()), "nats.deposit.amount"),
+                    () -> assertEquals(NatsDepositStatus.SUCCESS, payload.status(), "nats.deposit.status"),
+                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "nats.deposit.node_uuid")
             );
         });
 
@@ -224,20 +224,20 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
 
             var payload = ctx.betEvent.getPayload();
             assertAll("Проверка полей события ставки",
-                    () -> assertEquals(ctx.betRequest.getTransactionId(), payload.getUuid(), "nats.bet.uuid"),
-                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.getNodeUuid(), "nats.bet.node_uuid"),
-                    () -> assertEquals(0, ctx.betAmount.negate().compareTo(payload.getAmount()), "nats.bet.amount"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.getGameSessionUuid(), "nats.bet.game_session_uuid"),
-                    () -> assertEquals(NatsGamblingTransactionOperation.BET, payload.getOperation(), "nats.bet.operation"),
-                    () -> assertEquals(NatsGamblingTransactionType.TYPE_BET, payload.getType(), "nats.bet.type")
+                    () -> assertEquals(ctx.betRequest.getTransactionId(), payload.uuid(), "nats.bet.uuid"),
+                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "nats.bet.node_uuid"),
+                    () -> assertEquals(0, ctx.betAmount.negate().compareTo(payload.amount()), "nats.bet.amount"),
+                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.gameSessionUuid(), "nats.bet.game_session_uuid"),
+                    () -> assertEquals(NatsGamblingTransactionOperation.BET, payload.operation(), "nats.bet.operation"),
+                    () -> assertEquals(NatsGamblingTransactionType.TYPE_BET, payload.type(), "nats.bet.type")
             );
 
-            var wagerInfoList = payload.getWageredDepositInfo();
+            var wagerInfoList = payload.wageredDepositInfo();
             assertFalse(wagerInfoList.isEmpty(), "nats.bet.wagered_deposit_info.not_empty");
 
             Map<String, Object> wagerInfo = wagerInfoList.get(0);
             assertAll("Проверка wagered_deposit_info",
-                    () -> assertEquals(ctx.depositEvent.getPayload().getUuid(), wagerInfo.get("deposit_uuid"), "nats.bet.wagered_deposit_info.deposit_uuid"),
+                    () -> assertEquals(ctx.depositEvent.getPayload().uuid(), wagerInfo.get("deposit_uuid"), "nats.bet.wagered_deposit_info.deposit_uuid"),
                     () -> assertEquals(0, ctx.expectedWagerAmount.compareTo(new BigDecimal((String) wagerInfo.get("updated_wagered_amount"))), "nats.bet.wagered_deposit_info.updated_wagered_amount")
             );
         });
@@ -276,14 +276,14 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
 
             var payload = ctx.winEvent.getPayload();
             assertAll("Проверка полей события выигрыша",
-                    () -> assertEquals(ctx.winRequest.getTransactionId(), payload.getUuid(), "nats.win.uuid"),
-                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.getNodeUuid(), "nats.win.node_uuid"),
-                    () -> assertEquals(0, winAmountParam.compareTo(payload.getAmount()), "nats.win.amount"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.getGameSessionUuid(), "nats.win.game_session_uuid"),
-                    () -> assertEquals(NatsGamblingTransactionOperation.WIN, payload.getOperation(), "nats.win.operation")
+                    () -> assertEquals(ctx.winRequest.getTransactionId(), payload.uuid(), "nats.win.uuid"),
+                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "nats.win.node_uuid"),
+                    () -> assertEquals(0, winAmountParam.compareTo(payload.amount()), "nats.win.amount"),
+                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.gameSessionUuid(), "nats.win.game_session_uuid"),
+                    () -> assertEquals(NatsGamblingTransactionOperation.WIN, payload.operation(), "nats.win.operation")
             );
 
-            assertTrue(payload.getWageredDepositInfo().isEmpty(), "nats.win.wagered_deposit_info.empty");
+            assertTrue(payload.wageredDepositInfo().isEmpty(), "nats.win.wagered_deposit_info.empty");
         });
 
         step("Redis(Wallet): Проверка агрегата кошелька после выигрыша", () -> {
@@ -293,11 +293,11 @@ public class DepositWageringBetWinParametrizedTest extends BaseParameterizedTest
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
-            var winData = aggregate.gambling().get(ctx.winEvent.getPayload().getUuid());
-            var betData = aggregate.gambling().get(ctx.betEvent.getPayload().getUuid());
+            var winData = aggregate.gambling().get(ctx.winEvent.getPayload().uuid());
+            var betData = aggregate.gambling().get(ctx.betEvent.getPayload().uuid());
 
             assertAll("Проверка агрегата",
                     () -> assertEquals((int) ctx.winEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),

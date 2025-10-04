@@ -264,14 +264,14 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                 var payload = ctx.refundEvent.getPayload();
                 assertAll("Проверка полей события рефанда в NATS",
                         () -> assertNotNull(ctx.refundEvent, "then.nats.refund_event.not_null"),
-                        () -> assertEquals(ctx.refundRequest.getTransactionId(), payload.getUuid(), "then.nats.refund.uuid"),
-                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.getNodeUuid(), "then.nats.refund.node_uuid"),
-                        () -> assertEquals(0, betAmount.compareTo(payload.getAmount()), "then.nats.refund.amount"),
-                        () -> assertEquals(NatsGamblingTransactionOperation.REFUND, payload.getOperation(), "then.nats.refund.operation"),
-                        () -> assertEquals(NatsGamblingTransactionType.TYPE_REFUND, payload.getType(), "then.nats.refund.type")
+                        () -> assertEquals(ctx.refundRequest.getTransactionId(), payload.uuid(), "then.nats.refund.uuid"),
+                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "then.nats.refund.node_uuid"),
+                        () -> assertEquals(0, betAmount.compareTo(payload.amount()), "then.nats.refund.amount"),
+                        () -> assertEquals(NatsGamblingTransactionOperation.REFUND, payload.operation(), "then.nats.refund.operation"),
+                        () -> assertEquals(NatsGamblingTransactionType.TYPE_REFUND, payload.type(), "then.nats.refund.type")
                 );
 
-                assertTrue(payload.getWageredDepositInfo().isEmpty(), "then.nats.refund.wagered_deposit_info.is_empty");
+                assertTrue(payload.wageredDepositInfo().isEmpty(), "then.nats.refund.wagered_deposit_info.is_empty");
             });
 
             step("Redis: Проверка агрегата кошелька после рефанда", () -> {
@@ -281,11 +281,11 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                         .fetch();
 
                 var depositData = aggregate.deposits().stream()
-                        .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                        .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                         .findFirst().orElse(null);
 
-                var betData = aggregate.gambling().get(ctx.betEvent.getPayload().getUuid());
-                var refundData = aggregate.gambling().get(ctx.refundEvent.getPayload().getUuid());
+                var betData = aggregate.gambling().get(ctx.betEvent.getPayload().uuid());
+                var refundData = aggregate.gambling().get(ctx.refundEvent.getPayload().uuid());
 
                 assertAll("Проверка финального состояния агрегата кошелька в Redis",
                         () -> assertEquals((int) ctx.refundEvent.getSequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),

@@ -216,7 +216,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                     .with("$.uuid", ctx.betRequest.getTransactionId())
                     .fetch();
 
-            var wagerInfoList = ctx.betEvent.getPayload().getWageredDepositInfo();
+            var wagerInfoList = ctx.betEvent.getPayload().wageredDepositInfo();
 
             if (operationParam == NatsGamblingTransactionOperation.FREESPIN) {
                 assertTrue(wagerInfoList.isEmpty(), "nats.wager_info.not_empty_for_freespin");
@@ -225,7 +225,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                 Map<String, Object> wagerInfo = wagerInfoList.get(0);
 
                 assertAll("Проверка wagered_deposit_info в NATS",
-                        () -> assertEquals(ctx.depositEvent.getPayload().getUuid(), wagerInfo.get("deposit_uuid"), "nats.wager_info.deposit_uuid"),
+                        () -> assertEquals(ctx.depositEvent.getPayload().uuid(), wagerInfo.get("deposit_uuid"), "nats.wager_info.deposit_uuid"),
                         () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(new BigDecimal(wagerInfo.get("updated_wagered_amount").toString())), "nats.wager_info.updated_wagered_amount")
                 );
             }
@@ -238,7 +238,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после ставки",

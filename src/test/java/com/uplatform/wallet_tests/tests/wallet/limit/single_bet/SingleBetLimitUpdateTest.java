@@ -137,7 +137,7 @@ class SingleBetLimitUpdateTest extends BaseTest {
 
             var response = publicClient.updateSingleLimit(
                     ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
-                    ctx.createEvent.getPayload().getLimits().get(0).getExternalId(),
+                    ctx.createEvent.getPayload().limits().get(0).externalId(),
                     ctx.updateRequest
             );
 
@@ -153,7 +153,7 @@ class SingleBetLimitUpdateTest extends BaseTest {
                     .from(subject)
                     .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
                     .with("$.event_type", NatsLimitEventType.AMOUNT_UPDATED.getValue())
-                    .with("$.limits[0].external_id", ctx.createEvent.getPayload().getLimits().get(0).getExternalId())
+                    .with("$.limits[0].external_id", ctx.createEvent.getPayload().limits().get(0).externalId())
                     .with("$.limits[0].limit_type", NatsLimitType.SINGLE_BET.getValue())
                     .with("$.limits[0].interval_type", "")
                     .with("$.limits[0].amount", newAmount)
@@ -164,17 +164,17 @@ class SingleBetLimitUpdateTest extends BaseTest {
 
             assertNotNull(ctx.updateEvent, "nats.limit_changed_v2_event.update.message_not_null");
 
-            var updLimit = ctx.updateEvent.getPayload().getLimits().get(0);
+            var updLimit = ctx.updateEvent.getPayload().limits().get(0);
             assertAll("nats.limit_changed_v2_event.update.content_validation",
-                    () -> assertEquals(NatsLimitEventType.AMOUNT_UPDATED.getValue(), ctx.updateEvent.getPayload().getEventType(), "nats.limit_changed_v2_event.payload.eventType"),
-                    () -> assertEquals(ctx.createEvent.getPayload().getLimits().get(0).getExternalId(), updLimit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
-                    () -> assertEquals(NatsLimitType.SINGLE_BET.getValue(), updLimit.getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
-                    () -> assertTrue(updLimit.getIntervalType().isEmpty(), "nats.limit_changed_v2_event.limit.intervalType_empty"),
+                    () -> assertEquals(NatsLimitEventType.AMOUNT_UPDATED.getValue(), ctx.updateEvent.getPayload().eventType(), "nats.limit_changed_v2_event.payload.eventType"),
+                    () -> assertEquals(ctx.createEvent.getPayload().limits().get(0).externalId(), updLimit.externalId(), "nats.limit_changed_v2_event.limit.externalId"),
+                    () -> assertEquals(NatsLimitType.SINGLE_BET.getValue(), updLimit.limitType(), "nats.limit_changed_v2_event.limit.limitType"),
+                    () -> assertTrue(updLimit.intervalType().isEmpty(), "nats.limit_changed_v2_event.limit.intervalType_empty"),
                     () -> assertEquals(0, newAmount.compareTo(updLimit.amount()), "nats.limit_changed_v2_event.limit.amount"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), updLimit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), updLimit.currencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
                     () -> assertNotNull(updLimit.startedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
                     () -> assertEquals(0, updLimit.expiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
-                    () -> assertTrue(updLimit.getStatus(), "nats.limit_changed_v2_event.limit.status")
+                    () -> assertTrue(updLimit.status(), "nats.limit_changed_v2_event.limit.status")
             );
         });
 
@@ -195,14 +195,14 @@ class SingleBetLimitUpdateTest extends BaseTest {
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");
 
             var redisLimitOpt = aggregate.limits().stream()
-                    .filter(l -> ctx.updateEvent.getPayload().getLimits().get(0).getExternalId().equals(l.getExternalID()))
+                    .filter(l -> ctx.updateEvent.getPayload().limits().get(0).externalId().equals(l.getExternalID()))
                     .findFirst();
 
             assertTrue(redisLimitOpt.isPresent(), "redis.wallet_aggregate.single_bet_limit_found");
             var redisLimit = redisLimitOpt.get();
 
             assertAll("redis.wallet_aggregate.limit_content_validation",
-                    () -> assertEquals(ctx.updateEvent.getPayload().getLimits().get(0).getExternalId(), redisLimit.getExternalID(), "redis.wallet_aggregate.limit.externalId"),
+                    () -> assertEquals(ctx.updateEvent.getPayload().limits().get(0).externalId(), redisLimit.getExternalID(), "redis.wallet_aggregate.limit.externalId"),
                     () -> assertEquals(NatsLimitType.SINGLE_BET.getValue(), redisLimit.getLimitType(), "redis.wallet_aggregate.limit.limitType"),
                     () -> assertTrue(redisLimit.getIntervalType().isEmpty(), "redis.wallet_aggregate.limit.intervalType_empty"),
                     () -> assertEquals(0, newAmount.compareTo(redisLimit.amount()), "redis.wallet_aggregate.limit.amount"),
@@ -255,14 +255,14 @@ class SingleBetLimitUpdateTest extends BaseTest {
             assertFalse(response.getBody().isEmpty(), "fapi.get_single_bet_limits.response_body_list_not_empty");
 
             var fapiLimitOpt = response.getBody().stream()
-                    .filter(l -> ctx.updateEvent.getPayload().getLimits().get(0).getExternalId().equals(l.id()))
+                    .filter(l -> ctx.updateEvent.getPayload().limits().get(0).externalId().equals(l.id()))
                     .findFirst();
 
             assertTrue(fapiLimitOpt.isPresent(), "fapi.get_single_bet_limits.limit_not_found");
             var fapiLimit = fapiLimitOpt.get();
 
             assertAll("fapi.get_single_bet_limits.limit_content_validation",
-                    () -> assertEquals(ctx.updateEvent.getPayload().getLimits().get(0).getExternalId(), fapiLimit.id(), "fapi.get_single_bet_limits.limit.id"),
+                    () -> assertEquals(ctx.updateEvent.getPayload().limits().get(0).externalId(), fapiLimit.id(), "fapi.get_single_bet_limits.limit.id"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), fapiLimit.currency(), "fapi.get_single_bet_limits.limit.currency"),
                     () -> assertTrue(fapiLimit.status(), "fapi.get_single_bet_limits.limit.status_is_true"),
                     () -> assertEquals(0, newAmount.compareTo(fapiLimit.amount()), "fapi.get_single_bet_limits.limit.amount"),

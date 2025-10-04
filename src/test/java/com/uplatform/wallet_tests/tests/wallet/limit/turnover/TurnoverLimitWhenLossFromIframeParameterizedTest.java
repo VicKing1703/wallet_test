@@ -174,12 +174,12 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
 
                 assertAll("nats.loosed_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.lossEvent, "nats.loosed_from_iframe_event"),
-                        () -> assertNotNull(ctx.lossEvent.getPayload().getUuid(), "nats.loosed_from_iframe_event.payload.uuid_not_null"),
-                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.lossEvent.getPayload().getUuid()),
+                        () -> assertNotNull(ctx.lossEvent.getPayload().uuid(), "nats.loosed_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.lossEvent.getPayload().uuid()),
                                 "nats.loosed_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, lossAmount.compareTo(ctx.lossEvent.getPayload().amount()), "nats.loosed_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.lossEvent.getPayload().type(), "nats.loosed_from_iframe_event.payload.operation"),
-                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.lossEvent.getPayload().getBetId(), "nats.loosed_from_iframe_event.payload.betId")
+                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.lossEvent.getPayload().betId(), "nats.loosed_from_iframe_event.payload.betId")
                 );
             });
         });

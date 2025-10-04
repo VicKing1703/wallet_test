@@ -169,10 +169,10 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
 
             var payload = ctx.lossEvent.getPayload();
             assertAll("Проверка полей события проигрыша в NATS",
-                    () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.loss.bet_id"),
-                    () -> assertEquals(NatsBettingTransactionOperation.LOSS, payload.getType(), "nats.loss.type"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(payload.getAmount()), "nats.loss.amount"),
-                    () -> assertTrue(payload.getWageredDepositInfo().isEmpty(), "nats.loss.wagered_deposit_info.is_empty")
+                    () -> assertEquals(ctx.betRequest.getBetId(), payload.betId(), "nats.loss.bet_id"),
+                    () -> assertEquals(NatsBettingTransactionOperation.LOSS, payload.type(), "nats.loss.type"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(payload.amount()), "nats.loss.amount"),
+                    () -> assertTrue(payload.wageredDepositInfo().isEmpty(), "nats.loss.wagered_deposit_info.is_empty")
             );
         });
 
@@ -183,7 +183,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после проигрыша",

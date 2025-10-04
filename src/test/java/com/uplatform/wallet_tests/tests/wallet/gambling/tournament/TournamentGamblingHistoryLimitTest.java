@@ -150,7 +150,7 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
                     .fetch();
 
             assertNotNull(ctx.lastTournamentEvent, "nats.tournament_won_from_gamble");
-            assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, ctx.lastTournamentEvent.getPayload().getOperation(), "nats.payload.operation_type");
+            assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, ctx.lastTournamentEvent.getPayload().operation(), "nats.payload.operation_type");
         });
 
         step("Redis(Wallet): Получение и проверка данных кошелька после серии турнирных выигрышей", () -> {

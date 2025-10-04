@@ -187,12 +187,12 @@ class TurnoverLimitWhenRecalculateLossToWinParameterizedTest extends BaseParamet
 
                 assertAll("nats.recalculated_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.recalculatedEvent, "nats.recalculated_from_iframe_event"),
-                        () -> assertNotNull(ctx.recalculatedEvent.getPayload().getUuid(), "nats.recalculated_from_iframe_event.payload.uuid_not_null"),
-                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.recalculatedEvent.getPayload().getUuid()),
+                        () -> assertNotNull(ctx.recalculatedEvent.getPayload().uuid(), "nats.recalculated_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.recalculatedEvent.getPayload().uuid()),
                                 "nats.recalculated_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, winAmountRecalculated.compareTo(ctx.recalculatedEvent.getPayload().amount()), "nats.recalculated_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.WIN, ctx.recalculatedEvent.getPayload().type(), "nats.recalculated_from_iframe_event.payload.operation"),
-                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().getBetId(), "nats.recalculated_from_iframe_event.payload.betId")
+                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().betId(), "nats.recalculated_from_iframe_event.payload.betId")
                 );
             });
         });

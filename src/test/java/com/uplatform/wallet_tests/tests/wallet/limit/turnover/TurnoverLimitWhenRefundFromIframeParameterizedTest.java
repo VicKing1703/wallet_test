@@ -175,8 +175,8 @@ class TurnoverLimitWhenRefundFromIframeParameterizedTest extends BaseParameteriz
                         .fetch();
 
                 assertNotNull(ctx.refundedEvent, "nats.refunded_from_iframe_event");
-                assertNotNull(ctx.refundedEvent.getPayload().getUuid(), "nats.refunded_from_iframe_event.payload.uuid_not_null");
-                assertDoesNotThrow(() -> UUID.fromString(ctx.refundedEvent.getPayload().getUuid()),
+                assertNotNull(ctx.refundedEvent.getPayload().uuid(), "nats.refunded_from_iframe_event.payload.uuid_not_null");
+                assertDoesNotThrow(() -> UUID.fromString(ctx.refundedEvent.getPayload().uuid()),
                         "nats.refunded_from_iframe_event.payload.uuid_format");
             });
         });

@@ -93,9 +93,9 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
                     .fetch();
 
             assertAll(
-                    () -> assertEquals(gamblingEnabled, ctx.updateBlockersEvent.getPayload().isGamblingActive(), "nats.update_blockers.gambling_enabled"),
-                    () -> assertEquals(bettingEnabled, ctx.updateBlockersEvent.getPayload().isBettingActive(), "nats.update_blockers.betting_enabled"),
-                    () -> assertNotNull(ctx.updateBlockersEvent.getPayload().getCreatedAt(), "nats.update_blockers.created_at")
+                    () -> assertEquals(gamblingEnabled, ctx.updateBlockersEvent.getPayload().gamblingActive(), "nats.update_blockers.gambling_enabled"),
+                    () -> assertEquals(bettingEnabled, ctx.updateBlockersEvent.getPayload().bettingActive(), "nats.update_blockers.betting_enabled"),
+                    () -> assertNotNull(ctx.updateBlockersEvent.getPayload().createdAt(), "nats.update_blockers.created_at")
             );
         });
 

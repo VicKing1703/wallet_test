@@ -94,15 +94,15 @@ class BlockAmountTest extends BaseTest {
             var actualPayload = ctx.blockAmountEvent.getPayload();
             var blockAmountResponse = ctx.blockAmountResponse.getBody();
             assertAll("Проверка основных полей NATS payload",
-                    () -> assertEquals(blockAmountResponse.transactionId(), actualPayload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(NatsBlockAmountStatus.CREATED, actualPayload.getStatus(), "nats.payload.status"),
-                    () -> assertEquals(0, blockAmount.negate().compareTo(actualPayload.getAmount()), "nats.payload.amount"),
-                    () -> assertEquals(ctx.blockAmountRequest.getReason(), actualPayload.getReason(), "nats.payload.reason"),
-                    () -> assertEquals(NatsBlockAmountType.MANUAL , actualPayload.getType(), "nats.payload.type"),
-                    () -> assertEquals(blockAmountResponse.userId(), actualPayload.getUserUuid(), "nats.payload.user_uuid"),
-                    () -> assertEquals(blockAmountResponse.userName(), actualPayload.getUserName(), "nats.payload.user_name"),
-                    () -> assertEquals(blockAmountResponse.createdAt(), actualPayload.getCreatedAt(), "nats.payload.created_at"),
-                    () -> assertNotNull(actualPayload.getExpiredAt(), "nats.payload.expired_at")
+                    () -> assertEquals(blockAmountResponse.transactionId(), actualPayload.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(NatsBlockAmountStatus.CREATED, actualPayload.status(), "nats.payload.status"),
+                    () -> assertEquals(0, blockAmount.negate().compareTo(actualPayload.amount()), "nats.payload.amount"),
+                    () -> assertEquals(ctx.blockAmountRequest.getReason(), actualPayload.reason(), "nats.payload.reason"),
+                    () -> assertEquals(NatsBlockAmountType.MANUAL , actualPayload.type(), "nats.payload.type"),
+                    () -> assertEquals(blockAmountResponse.userId(), actualPayload.userUuid(), "nats.payload.user_uuid"),
+                    () -> assertEquals(blockAmountResponse.userName(), actualPayload.userName(), "nats.payload.user_name"),
+                    () -> assertEquals(blockAmountResponse.createdAt(), actualPayload.createdAt(), "nats.payload.created_at"),
+                    () -> assertNotNull(actualPayload.expiredAt(), "nats.payload.expired_at")
             );
         });
         
