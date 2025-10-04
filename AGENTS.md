@@ -260,19 +260,44 @@ Mirror the Feign workflow by walking through these preparation steps before asse
    ```
     Swap `.unique(Duration.ofSeconds(15))` for `.unique()` when the default duplicate window is sufficient. Add or duplicate `.with("jsonPath", value)` calls for every JSON field that should be asserted. The same pattern applies to other event types—inspect the casino-loss suite for concrete values and additional metadata filters.
 
-5. **Document the message.** Whenever you introduce a new subject/payload pair, append a short reference block to this file right under the relevant scenario checklist. Capture:
-   - the **subject template** (`wallet.%s.%s.betted_from_gamble`),
-   - the **headers** the expectation relies on (e.g. `NatsEventType.BETTED_FROM_GAMBLE`),
-   - the **record** that models the payload plus any JSONPath filters the tests use.
+5. **Document the message.** Every new subject/payload pair must be catalogued in this file so the next engineer can wire the expectation without spelunking through the codebase.
 
-   ```md
-   > **NATS: `betted_from_gamble`**
-   > - Subject: `wallet.%s.%s.betted_from_gamble`
-   > - Headers: `NatsEventType.BETTED_FROM_GAMBLE`
-   > - Payload: `NatsGamblingEventPayload` (`$.uuid`, `$.payload.bet.amount`)
+   1. Drop the note directly under the scenario that introduced the message. Keep the block scoped to that scenario so the contract stays close to the business flow that consumes it.
+   2. Use the following template verbatim—replace the placeholders only:
+
+      ```md
+      > **NATS: `<subject_suffix>`**
+      > - Subject: `wallet.%s.%s.<subject_suffix>`
+      > - Headers: `<HeaderName>=<HeaderValue>` (list every header the expectation filters by)
+      > - Payload: `<RecordName>` (asserted JSONPath selectors: `<$.path[0]>`, `<$.path[1]>`)
+      > - Notes: Optional clarifications (idempotency rules, retry caveats, etc.)
+      ```
+
+      If the subject does not follow the wallet prefix pattern, state the literal subject string instead of the template. Keep the bullet labels exactly as written so the repo-wide search (`rg "NATS:" AGENTS.md`) remains reliable.
+
+   3. Link back to the DTO source file when it lives outside `api/nats/dto` or when nested records deserve a pointer. Mention any JSONPath filters your tests rely on so downstream contributors know which fields are already covered.
+
+   This convention keeps the fluent snippet, DTO shape, and message contract discoverable in one place.
+
+   **Example DTO definition** — copy this shape when modelling a fresh payload:
+
+   ```java
+   @JsonIgnoreProperties(ignoreUnknown = true)
+   public record NatsExampleBalanceAdjustedPayload(
+           @JsonProperty("uuid") UUID uuid,
+           @JsonProperty("wallet_uuid") UUID walletUuid,
+           @JsonProperty("payload") Payload payload
+   ) {
+       @JsonIgnoreProperties(ignoreUnknown = true)
+       public record Payload(
+               @JsonProperty("amount") BigDecimal amount,
+               @JsonProperty("currency") String currency,
+               @JsonProperty("reason") String reason
+       ) { }
+   }
    ```
 
-   This convention keeps the DSL snippet, DTO shape, and message contract discoverable in one place.
+   Keep the class in `src/test/java/com/uplatform/wallet_tests/api/nats/dto`, favour nested records for structured sub-documents, and mirror the JSON names with `@JsonProperty` whenever the field is not idiomatic camelCase.
 
 #### Kafka
 `BetParametrizedTest` demonstrates the Kafka projection check, ensuring the message sequence aligns with the NATS event:
