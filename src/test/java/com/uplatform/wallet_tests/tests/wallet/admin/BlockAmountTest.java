@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
@@ -7,7 +6,7 @@ import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountResponse;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBlockAmountEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBlockAmountStatus;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBlockAmountType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;

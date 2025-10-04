@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.http.fapi.client;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss.CasinoLossLimit;
 import com.uplatform.wallet_tests.api.http.fapi.dto.contact_verification.ContactVerificationResponse;

@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.wallet.betting.loss;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 
 import com.uplatform.wallet_tests.allure.Suite;

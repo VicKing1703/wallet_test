@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.casino_loss;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
@@ -8,7 +7,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss.SetCasinoLossLim
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.*;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;

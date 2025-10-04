@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.deposit;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
@@ -11,7 +10,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.PaymentMethodI
 import com.uplatform.wallet_tests.api.kafka.dto.PaymentTransactionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsDepositedMoneyPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsDepositStatus;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;

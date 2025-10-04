@@ -70,7 +70,7 @@ dependencies {
 	testImplementation 'com.mchange:c3p0:0.9.5.5'
 
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-        implementation project(':kafka-api')
+        implementation project(':multi-source-test-client')
 }
 
 dependencyManagement {

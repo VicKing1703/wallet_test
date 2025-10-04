@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.api.db;
+import com.testing.multisource.api.db.AbstractDatabaseClient;
 
-import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
+import com.testing.multisource.api.attachment.AllureAttachmentService;
 import com.uplatform.wallet_tests.api.db.repository.player.AccountPropertyRepository;
 import com.uplatform.wallet_tests.api.db.repository.player.AccountPropertyStatusProjection;
 import org.springframework.stereotype.Component;

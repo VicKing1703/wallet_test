@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.http.cap.dto.get_player_limits;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;

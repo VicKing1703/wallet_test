@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.single_bet;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
@@ -9,7 +8,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.SetSingleBetLimit
 import com.uplatform.wallet_tests.api.http.fapi.dto.single_bet.UpdateSingleBetLimitRequest;
 import com.uplatform.wallet_tests.api.kafka.dto.LimitMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitType;

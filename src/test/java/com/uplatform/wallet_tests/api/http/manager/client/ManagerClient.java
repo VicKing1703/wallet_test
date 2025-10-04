@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.http.manager.client;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentResponse;

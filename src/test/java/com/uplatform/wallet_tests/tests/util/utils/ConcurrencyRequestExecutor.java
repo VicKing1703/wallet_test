@@ -1,7 +1,6 @@
 package com.uplatform.wallet_tests.tests.util.utils;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.testing.multisource.config.EnvironmentConfigurationProvider;
 import feign.FeignException;
 import lombok.Builder;
 import lombok.Getter;

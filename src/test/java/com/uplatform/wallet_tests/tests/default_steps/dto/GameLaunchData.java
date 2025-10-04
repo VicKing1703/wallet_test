@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.default_steps.dto;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.db.entity.wallet.WalletGameSession;
 import com.uplatform.wallet_tests.api.http.fapi.dto.launch.LaunchGameResponseBody;

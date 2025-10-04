@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.default_steps.steps;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import static org.awaitility.Awaitility.await;
 
@@ -21,10 +20,10 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitReq
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactResponse;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactTypedRequest;
-import com.uplatform.wallet_tests.api.kafka.client.KafkaClient;
+import com.testing.multisource.api.kafka.client.KafkaClient;
 import com.uplatform.wallet_tests.api.kafka.dto.PlayerAccountMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
-import com.uplatform.wallet_tests.api.redis.GenericRedisClient;
+import com.testing.multisource.api.redis.GenericRedisClient;
 import com.uplatform.wallet_tests.api.redis.model.WalletData;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;

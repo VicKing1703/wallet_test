@@ -1,8 +1,7 @@
 package com.uplatform.wallet_tests.api.redis.config;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.uplatform.wallet_tests.api.redis.RedisTypeMappingRegistry;
+import com.testing.multisource.api.redis.RedisTypeMappingRegistry;
 import com.uplatform.wallet_tests.api.redis.model.WalletData;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
 import org.springframework.context.annotation.Bean;

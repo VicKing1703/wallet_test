@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.nats.dto.enums;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 

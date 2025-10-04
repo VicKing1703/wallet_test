@@ -1,19 +1,18 @@
 package com.uplatform.wallet_tests.tests.base;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.allure.CustomSuiteExtension;
-import com.uplatform.wallet_tests.config.DynamicPropertiesConfigurator;
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.testing.multisource.config.DynamicPropertiesConfigurator;
+import com.testing.multisource.config.EnvironmentConfigurationProvider;
 import com.uplatform.wallet_tests.config.WalletTestsPropertiesConfigurator;
 import com.uplatform.wallet_tests.tests.default_steps.facade.DefaultTestSteps;
 import com.uplatform.wallet_tests.tests.util.facade.TestUtils;
 import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.cap.client.CapAdminClient;
 import com.uplatform.wallet_tests.api.http.fapi.client.FapiClient;
-import com.uplatform.wallet_tests.api.redis.GenericRedisClient;
+import com.testing.multisource.api.redis.GenericRedisClient;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
-import com.uplatform.wallet_tests.api.nats.NatsClient;
-import com.uplatform.wallet_tests.api.kafka.client.KafkaClient;
+import com.testing.multisource.api.nats.NatsClient;
+import com.testing.multisource.api.kafka.client.KafkaClient;
 import com.uplatform.wallet_tests.api.db.WalletDatabaseClient;
 import com.uplatform.wallet_tests.api.db.CoreDatabaseClient;
 import com.fasterxml.jackson.databind.ObjectMapper;

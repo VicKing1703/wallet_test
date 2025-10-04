@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.nats.dto.enums;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;

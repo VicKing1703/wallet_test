@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
 import lombok.AllArgsConstructor;

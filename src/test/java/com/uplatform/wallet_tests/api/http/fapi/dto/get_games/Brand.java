@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.http.fapi.dto.get_games;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

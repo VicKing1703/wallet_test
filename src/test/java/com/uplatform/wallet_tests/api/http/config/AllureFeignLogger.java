@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.api.http.config;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -7,8 +6,8 @@ import feign.Logger;
 import feign.Request;
 import feign.Response;
 import feign.Util;
-import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
-import com.uplatform.wallet_tests.api.attachment.AttachmentType;
+import com.testing.multisource.api.attachment.AllureAttachmentService;
+import com.testing.multisource.api.attachment.AttachmentType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;

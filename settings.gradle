@@ -6,4 +6,4 @@ pluginManagement {
 }
 
 rootProject.name = 'wallet_tests'
-include 'kafka-api'
+include 'multi-source-test-client'

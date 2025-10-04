@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.util.comparator;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.api.nats.dto.NatsDepositedMoneyPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsDepositStatus;

@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.util.utils.dto;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import feign.FeignException;
 import lombok.Builder;

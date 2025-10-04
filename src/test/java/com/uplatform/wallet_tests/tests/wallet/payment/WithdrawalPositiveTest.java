@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.wallet.payment;
-import com.uplatform.wallet_tests.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
@@ -12,7 +11,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.WithdrawalRedi
 import com.uplatform.wallet_tests.api.kafka.dto.PaymentTransactionMessage;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBlockAmountEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
