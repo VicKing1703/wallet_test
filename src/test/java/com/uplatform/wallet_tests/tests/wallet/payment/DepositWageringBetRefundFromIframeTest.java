@@ -167,22 +167,22 @@ class DepositWageringBetRefundFromIframeTest extends BaseTest {
                     () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.refund.bet_id"),
                     () -> assertEquals(NatsBettingTransactionOperation.REFUND, payload.getType(), "nats.refund.type"),
                     () -> assertEquals(0, BET_AMOUNT.compareTo(payload.getAmount()), "nats.refund.amount"),
-                    () -> assertTrue(payload.getWageredDepositInfo().isEmpty(), "nats.refund.wagered_deposit_info.is_empty")
+                    () -> assertTrue(payload.wageredDepositInfo().isEmpty(), "nats.refund.wagered_deposit_info.is_empty")
             );
         });
 
         step("THEN: wallet_wallet_redis восстанавливает баланс, но не меняет сумму отыгрыша", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.player.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.sequence())
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после рефанда",
-                    () -> assertEquals((int) ctx.refundEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.refundEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertNotNull(depositData, "redis.aggregate.deposit_not_found"),
                     () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.wageringAmount()), "redis.aggregate.deposit.wagering_amount_unchanged"),

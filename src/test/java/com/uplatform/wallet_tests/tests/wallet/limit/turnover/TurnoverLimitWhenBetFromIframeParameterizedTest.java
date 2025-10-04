@@ -158,12 +158,12 @@ class TurnoverLimitWhenBetFromIframeParameterizedTest extends BaseParameterizedT
                         .fetch();
 
                 assertAll("nats.betted_from_iframe_event.content_validation",
-                        () -> assertNotNull(ctx.betEvent.getPayload().getUuid(), "nats.betted_from_iframe_event.payload.uuid_not_null"),
-                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.betEvent.getPayload().getUuid()),
+                        () -> assertNotNull(ctx.betEvent.getPayload().uuid(), "nats.betted_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.betEvent.getPayload().uuid()),
                                 "nats.betted_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, betAmount.compareTo(ctx.betEvent.getPayload().amount().negate()), "nats.betted_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.BET, ctx.betEvent.getPayload().type(), "nats.betted_from_iframe_event.payload.operation"),
-                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.betEvent.getPayload().getBetId(), "nats.betted_from_iframe_event.payload.betId")
+                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.betEvent.getPayload().betId(), "nats.betted_from_iframe_event.payload.betId")
                 );
             });
         });
@@ -171,11 +171,11 @@ class TurnoverLimitWhenBetFromIframeParameterizedTest extends BaseParameterizedT
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.betEvent.sequence())
                     .fetch();
 
             assertAll("redis.wallet.limit_balance_validation",
-                    () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals((int) ctx.betEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
                     () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_list_not_empty"),
                     () -> {
                         var turnoverLimitOpt = aggregate.limits().stream()

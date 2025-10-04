@@ -31,10 +31,10 @@ public class BlockAmountRevokedPayloadComparator implements PayloadComparatorStr
         BlockAmountRevokedEventPayload kafka = (BlockAmountRevokedEventPayload) deserializedKafkaPayload;
         BlockAmountRevokedEventPayload nats = (BlockAmountRevokedEventPayload) natsPayload;
 
-        boolean uuidsMatch = Objects.equals(kafka.getUuid(), nats.getUuid());
+        boolean uuidsMatch = Objects.equals(kafka.uuid(), nats.uuid());
 
         if (!uuidsMatch) {
-            logMismatch(seqNum, "UUID", kafka.getUuid(), nats.getUuid(), actualEventType);
+            logMismatch(seqNum, "UUID", kafka.uuid(), nats.uuid(), actualEventType);
             return false;
         }
         return true;

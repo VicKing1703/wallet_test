@@ -147,22 +147,22 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             assertNotNull(testData.natsLimitChangeEvent, "nats.limit_changed_v2_event.message_not_null");
             assertNotNull(testData.natsLimitChangeEvent.getPayload(), "nats.limit_changed_v2_event.payload_not_null");
 
-            var natsLimit = testData.natsLimitChangeEvent.getPayload().getLimits().get(0);
+            var natsLimit = testData.natsLimitChangeEvent.getPayload().limits().get(0);
             assertAll("nats.limit_changed_v2_event.content_validation",
-                    () -> assertEquals(NatsLimitEventType.CREATED.getValue(), testData.natsLimitChangeEvent.getPayload().getEventType(), "nats.limit_changed_v2_event.payload.eventType"),
-                    () -> assertEquals(testData.kafkaLimitMessage.id(), natsLimit.getExternalId(), "nats.limit_changed_v2_event.limit.externalId"),
-                    () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), natsLimit.getLimitType(), "nats.limit_changed_v2_event.limit.limitType"),
-                    () -> assertEquals(periodType.getValue(), natsLimit.getIntervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
+                    () -> assertEquals(NatsLimitEventType.CREATED.getValue(), testData.natsLimitChangeEvent.getPayload().eventType(), "nats.limit_changed_v2_event.payload.eventType"),
+                    () -> assertEquals(testData.kafkaLimitMessage.id(), natsLimit.externalId(), "nats.limit_changed_v2_event.limit.externalId"),
+                    () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), natsLimit.limitType(), "nats.limit_changed_v2_event.limit.limitType"),
+                    () -> assertEquals(periodType.getValue(), natsLimit.intervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
                     () -> assertEquals(0, limitAmount.compareTo(natsLimit.amount()), "nats.limit_changed_v2_event.limit.amount"),
-                    () -> assertEquals(testData.kafkaLimitMessage.currencyCode(), natsLimit.getCurrencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
+                    () -> assertEquals(testData.kafkaLimitMessage.currencyCode(), natsLimit.currencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
                     () -> assertEquals(testData.kafkaLimitMessage.expiresAt(), natsLimit.expiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
-                    () -> assertTrue(natsLimit.getStatus(), "nats.limit_changed_v2_event.limit.status_is_true")
+                    () -> assertTrue(natsLimit.status(), "nats.limit_changed_v2_event.limit.status_is_true")
             );
         });
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
             var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", testData.natsLimitChangeEvent.getSequence())
+                    .with("seq_number", testData.natsLimitChangeEvent.sequence())
                     .fetch();
 
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
@@ -172,7 +172,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
         step("Redis (Wallet Aggregate): Проверка данных лимита в агрегате кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(testData.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) testData.natsLimitChangeEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) testData.natsLimitChangeEvent.sequence())
                     .fetch();
 
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");

@@ -170,7 +170,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
             step("Redis(Wallet): Получение и проверка данных кошелька (лимит iFrame ставок)", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                        .withAtLeast("LastSeqNumber", (int) ctx.lastBetEvent.getSequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.lastBetEvent.sequence())
                         .fetch();
 
                 var gamblingTransactionsInRedis = aggregate.gambling();
@@ -178,7 +178,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
                 assertAll("Проверка данных в Redis",
                         () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
                         () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
-                        () -> assertEquals((int) ctx.lastBetEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
+                        () -> assertEquals((int) ctx.lastBetEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
                 );
             });
         });

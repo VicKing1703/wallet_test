@@ -234,7 +234,7 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
         });
 
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате ПОСЛЕ РОЛЛБЭКА", () -> {
-            var expectedSequence = (int) ctx.rollbackEvent.getSequence();
+            var expectedSequence = (int) ctx.rollbackEvent.sequence();
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
                     .withAtLeast("LastSeqNumber", expectedSequence)

@@ -153,14 +153,14 @@ class WithdrawalPositiveTest extends BaseTest {
 
             var payload = ctx.blockEvent.getPayload();
             assertAll("Проверка полей события block_amount_started в NATS",
-                    () -> assertEquals(ctx.transactionId, payload.getUuid(), "nats.payload.uuid"),
+                    () -> assertEquals(ctx.transactionId, payload.uuid(), "nats.payload.uuid"),
                     () -> assertEquals(0, WITHDRAWAL_AMOUNT.negate().compareTo(payload.getAmount()), "nats.payload.amount")
             );
         });
 
         step("THEN: wallet-manager отправляет сообщение в Kafka-топик проекции", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.blockEvent.getSequence())
+                    .with("seq_number", ctx.blockEvent.sequence())
                     .fetch();
 
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.blockEvent), "kafka.projection.payload_mismatch");
@@ -169,15 +169,15 @@ class WithdrawalPositiveTest extends BaseTest {
         step("THEN: wallet_wallet_redis обновляет баланс и создает блокировку", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.player.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.blockEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.blockEvent.sequence())
                     .fetch();
 
             var blockedAmountInfo = aggregate.blockedAmounts().stream()
-                    .filter(b -> b.getUuid().equals(ctx.transactionId))
+                    .filter(b -> b.uuid().equals(ctx.transactionId))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после блокировки",
-                    () -> assertEquals((int) ctx.blockEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.blockEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterBlock.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertNotNull(blockedAmountInfo, "redis.aggregate.blocked_amount.not_found"),
                     () -> assertEquals(ctx.transactionId, blockedAmountInfo.uuid(), "redis.aggregate.blocked_amount.uuid"),

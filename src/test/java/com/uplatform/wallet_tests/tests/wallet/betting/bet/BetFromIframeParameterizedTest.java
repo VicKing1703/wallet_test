@@ -147,7 +147,7 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
             step("AND: Kafka получает соответствующее сообщение", () -> {
                 var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                        .with("seq_number", ctx.betEvent.getSequence())
+                        .with("seq_number", ctx.betEvent.sequence())
                         .fetch();
 
                 assertTrue(utils.areEquivalent(kafkaMessage, ctx.betEvent), "kafka.message.payload_match");
@@ -166,7 +166,7 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
             step("AND: Запись сохраняется в betting_projection_iframe_history", () -> {
                 var dbTransaction = walletDatabaseClient.findLatestIframeHistoryByUuidOrFail(
-                        ctx.betEvent.getPayload().getUuid());
+                        ctx.betEvent.getPayload().uuid());
 
                 var betEventPayload = ctx.betEvent.getPayload();
                 var playerData = ctx.player.getWalletData();
@@ -175,33 +175,33 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
                         dbTransaction.getBetInfo(), new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
 
                 assertAll("Проверка записи в таблице истории (iframe_history)",
-                        () -> assertEquals(betEventPayload.getUuid(), dbTransaction.getUuid(), "db.history.uuid"),
+                        () -> assertEquals(betEventPayload.uuid(), dbTransaction.uuid(), "db.history.uuid"),
                         () -> assertEquals(playerData.walletUUID(), dbTransaction.getWalletUuid(), "db.history.wallet_uuid"),
                         () -> assertEquals(playerData.playerUUID(), dbTransaction.getPlayerUuid(), "db.history.player_uuid"),
                         () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.getCouponType(), "db.history.coupon_type"),
                         () -> assertEquals(CouponStatus.ACCEPTED, dbTransaction.getCouponStatus(), "db.history.coupon_status"),
                         () -> assertEquals(CouponCalcStatus.NO, dbTransaction.getCouponCalcStatus(), "db.history.coupon_calc_status"),
-                        () -> assertEquals(betEventPayload.getBetId(), dbTransaction.getBetId(), "db.history.bet_id"),
-                        () -> assertEquals(0, betEventPayload.getAmount().compareTo(dbTransaction.getAmount().negate()), "db.history.amount"),
-                        () -> assertEquals(ctx.betEvent.getSequence(), dbTransaction.getSeq(), "db.history.seq")
+                        () -> assertEquals(betEventPayload.betId(), dbTransaction.getBetId(), "db.history.bet_id"),
+                        () -> assertEquals(0, betEventPayload.amount().compareTo(dbTransaction.getAmount().negate()), "db.history.amount"),
+                        () -> assertEquals(ctx.betEvent.sequence(), dbTransaction.getSeq(), "db.history.seq")
                 );
             });
 
             step("AND: В Redis обновляется агрегат кошелька", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.player.getWalletData().walletUUID())
-                        .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.betEvent.sequence())
                         .fetch();
 
                 var iframeRecord = aggregate.iFrameRecords().stream()
-                        .filter(r -> r.getUuid().equals(ctx.betEvent.getPayload().getUuid()))
+                        .filter(r -> r.uuid().equals(ctx.betEvent.getPayload().uuid()))
                         .findFirst().orElse(null);
 
                 assertAll("Проверка агрегата кошелька в Redis после ставки",
-                        () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                        () -> assertEquals((int) ctx.betEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                         () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                         () -> assertNotNull(iframeRecord, "redis.aggregate.iframe_record_not_found"),
-                        () -> assertEquals(ctx.betEvent.getPayload().getBetId(), iframeRecord.getBetID(), "redis.aggregate.iframe_record.bet_id"),
+                        () -> assertEquals(ctx.betEvent.getPayload().betId(), iframeRecord.getBetID(), "redis.aggregate.iframe_record.bet_id"),
                         () -> assertEquals(IFrameRecordType.BET, iframeRecord.getType(), "redis.aggregate.iframe_record.type")
                 );
             });

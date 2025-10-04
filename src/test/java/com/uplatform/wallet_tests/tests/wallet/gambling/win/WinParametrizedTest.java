@@ -225,34 +225,34 @@ class WinParametrizedTest extends BaseParameterizedTest {
             var player = ctx.registeredPlayer.getWalletData();
 
             assertAll("Проверка основных полей NATS payload",
-                    () -> assertEquals(winRequest.getTransactionId(), winEventPayload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(new UUID(0L, 0L).toString(), winEventPayload.getBetUuid(), "nats.payload.bet_uuid"),
-                    () -> assertEquals(session.getGameSessionUuid(), winEventPayload.getGameSessionUuid(), "nats.payload.game_session_uuid"),
-                    () -> assertEquals(winRequest.getRoundId(), winEventPayload.getProviderRoundId(), "nats.payload.provider_round_id"),
-                    () -> assertEquals(player.currency(), winEventPayload.getCurrency(), "nats.payload.currency"),
-                    () -> assertEquals(0, winAmountParam.compareTo(winEventPayload.getAmount()), "nats.payload.amount"),
-                    () -> assertEquals(transactionTypeParam, winEventPayload.getType(), "nats.payload.type"),
-                    () -> assertTrue(winEventPayload.isProviderRoundClosed(), "nats.payload.provider_round_closed"),
-                    () -> assertEquals(NatsMessageName.WALLET_GAME_TRANSACTION, winEventPayload.getMessage(), "nats.payload.message"),
-                    () -> assertNotNull(winEventPayload.getCreatedAt(), "nats.payload.created_at"),
-                    () -> assertEquals(NatsTransactionDirection.DEPOSIT, winEventPayload.getDirection(), "nats.payload.direction"),
-                    () -> assertEquals(NatsGamblingTransactionOperation.WIN, winEventPayload.getOperation(), "nats.payload.operation"),
-                    () -> assertEquals(platformNodeId, winEventPayload.getNodeUuid(), "nats.payload.node_uuid"),
-                    () -> assertEquals(session.getGameUuid(), winEventPayload.getGameUuid(), "nats.payload.game_uuid"),
-                    () -> assertEquals(session.getProviderUuid(), winEventPayload.getProviderUuid(), "nats.payload.provider_uuid"),
-                    () -> assertTrue(winEventPayload.getWageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info")
+                    () -> assertEquals(winRequest.getTransactionId(), winEventPayload.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(new UUID(0L, 0L).toString(), winEventPayload.betUuid(), "nats.payload.bet_uuid"),
+                    () -> assertEquals(session.getGameSessionUuid(), winEventPayload.gameSessionUuid(), "nats.payload.game_session_uuid"),
+                    () -> assertEquals(winRequest.getRoundId(), winEventPayload.providerRoundId(), "nats.payload.provider_round_id"),
+                    () -> assertEquals(player.currency(), winEventPayload.currency(), "nats.payload.currency"),
+                    () -> assertEquals(0, winAmountParam.compareTo(winEventPayload.amount()), "nats.payload.amount"),
+                    () -> assertEquals(transactionTypeParam, winEventPayload.type(), "nats.payload.type"),
+                    () -> assertTrue(winEventPayload.providerRoundClosed(), "nats.payload.provider_round_closed"),
+                    () -> assertEquals(NatsMessageName.WALLET_GAME_TRANSACTION, winEventPayload.message(), "nats.payload.message"),
+                    () -> assertNotNull(winEventPayload.createdAt(), "nats.payload.created_at"),
+                    () -> assertEquals(NatsTransactionDirection.DEPOSIT, winEventPayload.direction(), "nats.payload.direction"),
+                    () -> assertEquals(NatsGamblingTransactionOperation.WIN, winEventPayload.operation(), "nats.payload.operation"),
+                    () -> assertEquals(platformNodeId, winEventPayload.nodeUuid(), "nats.payload.node_uuid"),
+                    () -> assertEquals(session.getGameUuid(), winEventPayload.gameUuid(), "nats.payload.game_uuid"),
+                    () -> assertEquals(session.getProviderUuid(), winEventPayload.providerUuid(), "nats.payload.provider_uuid"),
+                    () -> assertTrue(winEventPayload.wageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info")
             );
 
-            var conversionInfo = winEventPayload.getCurrencyConversionInfo();
-            var currencyRates = conversionInfo.getCurrencyRates().get(0);
+            var conversionInfo = winEventPayload.currencyConversionInfo();
+            var currencyRates = conversionInfo.currencyRates().get(0);
 
             assertAll("Проверка полей внутри currency_conversion_info NATS payload",
-                    () -> assertEquals(0, winAmountParam.compareTo(conversionInfo.getGameAmount()), "currency_conversion_info.game_amount"),
-                    () -> assertEquals(player.currency(), conversionInfo.getGameCurrency(), "currency_conversion_info.game_currency"),
-                    () -> assertEquals(player.currency(), currencyRates.getBaseCurrency(), "currency_conversion_info.currency_rates.base_currency"),
-                    () -> assertEquals(player.currency(), currencyRates.getQuoteCurrency(), "currency_conversion_info.currency_rates.quote_currency"),
-                    () -> assertEquals(expectedCurrencyRates, currencyRates.getValue(), "currency_conversion_info.currency_rates.value"),
-                    () -> assertNotNull(currencyRates.getUpdatedAt(), "currency_conversion_info.currency_rates.updated_at")
+                    () -> assertEquals(0, winAmountParam.compareTo(conversionInfo.gameAmount()), "currency_conversion_info.game_amount"),
+                    () -> assertEquals(player.currency(), conversionInfo.gameCurrency(), "currency_conversion_info.game_currency"),
+                    () -> assertEquals(player.currency(), currencyRates.baseCurrency(), "currency_conversion_info.currency_rates.base_currency"),
+                    () -> assertEquals(player.currency(), currencyRates.quoteCurrency(), "currency_conversion_info.currency_rates.quote_currency"),
+                    () -> assertEquals(expectedCurrencyRates, currencyRates.value(), "currency_conversion_info.currency_rates.value"),
+                    () -> assertNotNull(currencyRates.updatedAt(), "currency_conversion_info.currency_rates.updated_at")
             );
         });
 
@@ -261,7 +261,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
             var payload = ctx.winEvent.getPayload();
 
             assertAll("Проверка полей gambling_projection_transaction_history",
-                    () -> assertEquals(payload.getUuid(), transaction.getUuid(), "db.gpth.uuid"),
+                    () -> assertEquals(payload.uuid(), transaction.uuid(), "db.gpth.uuid"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.gpth.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.gpth.date"),
                     () -> assertEquals(payload.getType(), transaction.getType(), "db.gpth.type"),
@@ -271,8 +271,8 @@ class WinParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(payload.getCurrency(), transaction.getCurrency(), "db.gpth.currency"),
                     () -> assertEquals(0, winAmountParam.compareTo(transaction.getAmount()), "db.gpth.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.gpth.created_at"),
-                    () -> assertEquals(ctx.winEvent.getSequence(), transaction.getSeqnumber(), "db.gpth.seqnumber"),
-                    () -> assertEquals(payload.isProviderRoundClosed(), transaction.getProviderRoundClosed(), "db.gpth.provider_round_closed"),
+                    () -> assertEquals(ctx.winEvent.sequence(), transaction.getSeqnumber(), "db.gpth.seqnumber"),
+                    () -> assertEquals(payload.providerRoundClosed(), transaction.getProviderRoundClosed(), "db.gpth.provider_round_closed"),
                     () -> assertEquals(payload.getBetUuid(), transaction.getBetUuid(), "db.gpth.bet_uuid")
             );
         });
@@ -291,8 +291,8 @@ class WinParametrizedTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var walletUuid = ctx.registeredPlayer.getWalletData().walletUUID();
-            int sequence = (int) ctx.winEvent.getSequence();
-            var transactionUuid = ctx.winEvent.getPayload().getUuid();
+            int sequence = (int) ctx.winEvent.sequence();
+            var transactionUuid = ctx.winEvent.getPayload().uuid();
 
             var aggregate = redisWalletClient
                     .key(walletUuid)
@@ -311,7 +311,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения won_from_gamble в топик wallet.v8.projectionSource", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.winEvent.getSequence())
+                    .with("seq_number", ctx.winEvent.sequence())
                     .fetch();
 
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.winEvent), "wallet.v8.projectionSource");

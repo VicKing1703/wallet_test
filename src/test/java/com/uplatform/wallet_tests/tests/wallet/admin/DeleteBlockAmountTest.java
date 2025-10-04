@@ -154,16 +154,16 @@ class DeleteBlockAmountTest extends BaseTest {
 
             var payload = ctx.blockAmountRevokedEvent.getPayload();
             assertAll("Проверка полей в событии снятия блокировки",
-                    () -> assertNotNull(payload.getUuid(), "nats.block_amount_revoked.uuid"),
+                    () -> assertNotNull(payload.uuid(), "nats.block_amount_revoked.uuid"),
                     () -> assertNotNull(payload.getUserUuid(), "nats.block_amount_revoked.user_uuid"),
                     () -> assertNotNull(payload.getUserName(), "nats.block_amount_revoked.user_name"),
-                    () -> assertEquals(platformNodeId, payload.getNodeUuid(), "nats.block_amount_revoked.node_uuid")
+                    () -> assertEquals(platformNodeId, payload.nodeUuid(), "nats.block_amount_revoked.node_uuid")
             );
         });
 
         step("Kafka: Проверка поступления сообщения block_amount_revoked в топик wallet.v8.projectionSource", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.blockAmountRevokedEvent.getSequence())
+                    .with("seq_number", ctx.blockAmountRevokedEvent.sequence())
                     .fetch();
             assertTrue(utils.areEquivalent(
                     kafkaMessage, ctx.blockAmountRevokedEvent), "kafka.payload");
@@ -172,7 +172,7 @@ class DeleteBlockAmountTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.blockAmountRevokedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.blockAmountRevokedEvent.sequence())
                     .fetch();
             assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null_for_redis_check");
 
@@ -180,11 +180,11 @@ class DeleteBlockAmountTest extends BaseTest {
             var deletedBlockAmountId = ctx.blockAmountResponse.getBody().transactionId();
 
             var blockedAmount = aggregate.blockedAmounts().stream()
-                    .filter(block -> block.getUuid().equals(deletedBlockAmountId))
+                    .filter(block -> block.uuid().equals(deletedBlockAmountId))
                     .findFirst();
 
             assertAll("Проверка агрегата после удаления блокировки",
-                    () -> assertEquals((int) ctx.blockAmountRevokedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.blockAmountRevokedEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, expectedBalance.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, expectedBalance.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
                     () -> assertEquals(0, adjustmentAmount.subtract(blockAmount).compareTo(aggregate.balanceBefore()), "redis.aggregate.balance_before"),

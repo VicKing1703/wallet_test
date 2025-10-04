@@ -125,22 +125,22 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
                     ? adjustmentAmount.negate() : adjustmentAmount;
 
             assertAll(
-                    () -> assertEquals(ctx.adjustmentRequest.getCurrency(), ctx.balanceAdjustedEvent.getPayload().getCurrency(), "nats.balance_adjusted.currency"),
-                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().getUuid(), "nats.balance_adjusted.uuid"),
-                    () -> assertEquals(0, expectedAdjustment.compareTo(ctx.balanceAdjustedEvent.getPayload().getAmount()), "nats.balance_adjusted.amount"),
-                    () -> assertEquals(mapOperationTypeToNatsInt(ctx.adjustmentRequest.getOperationType()), ctx.balanceAdjustedEvent.getPayload().getOperationType(), "nats.balance_adjusted.operation_type"),
-                    () -> assertEquals(mapDirectionToNatsInt(ctx.adjustmentRequest.getDirection()), ctx.balanceAdjustedEvent.getPayload().getDirection(), "nats.balance_adjusted.direction"),
-                    () -> assertEquals(mapReasonToNatsInt(ctx.adjustmentRequest.getReason()), ctx.balanceAdjustedEvent.getPayload().getReason(), "nats.balance_adjusted.reason"),
-                    () -> assertEquals(ctx.adjustmentRequest.getComment(), ctx.balanceAdjustedEvent.getPayload().getComment(), "nats.balance_adjusted.comment"),
-                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().getUserUuid(), "nats.balance_adjusted.user_uuid"),
-                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().getUserName(), "nats.balance_adjusted.user_name")
+                    () -> assertEquals(ctx.adjustmentRequest.getCurrency(), ctx.balanceAdjustedEvent.getPayload().currency(), "nats.balance_adjusted.currency"),
+                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().uuid(), "nats.balance_adjusted.uuid"),
+                    () -> assertEquals(0, expectedAdjustment.compareTo(ctx.balanceAdjustedEvent.getPayload().amount()), "nats.balance_adjusted.amount"),
+                    () -> assertEquals(mapOperationTypeToNatsInt(ctx.adjustmentRequest.getOperationType()), ctx.balanceAdjustedEvent.getPayload().operationType(), "nats.balance_adjusted.operation_type"),
+                    () -> assertEquals(mapDirectionToNatsInt(ctx.adjustmentRequest.getDirection()), ctx.balanceAdjustedEvent.getPayload().direction(), "nats.balance_adjusted.direction"),
+                    () -> assertEquals(mapReasonToNatsInt(ctx.adjustmentRequest.getReason()), ctx.balanceAdjustedEvent.getPayload().reason(), "nats.balance_adjusted.reason"),
+                    () -> assertEquals(ctx.adjustmentRequest.getComment(), ctx.balanceAdjustedEvent.getPayload().comment(), "nats.balance_adjusted.comment"),
+                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().userUuid(), "nats.balance_adjusted.user_uuid"),
+                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().userName(), "nats.balance_adjusted.user_name")
             );
         });
 
         step("Redis: Проверка данных кошелька после корректировки", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.balanceAdjustedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.balanceAdjustedEvent.sequence())
                     .fetch();
             assertAll(
                     () -> assertEquals(0, ctx.expectedBalanceAfterAdjustment.compareTo(aggregate.balance()), "redis.wallet.balance")
@@ -149,7 +149,7 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения balance_adjusted в топик wallet.v8.projectionSource", () -> {
             ctx.projectionAdjustEvent = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.balanceAdjustedEvent.getSequence())
+                    .with("seq_number", ctx.balanceAdjustedEvent.sequence())
                     .fetch();
             assertTrue(utils.areEquivalent(ctx.projectionAdjustEvent, ctx.balanceAdjustedEvent), "kafka.payload");
         });

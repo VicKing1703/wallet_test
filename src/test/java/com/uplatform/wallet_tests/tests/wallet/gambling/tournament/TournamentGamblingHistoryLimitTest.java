@@ -150,20 +150,20 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
                     .fetch();
 
             assertNotNull(ctx.lastTournamentEvent, "nats.tournament_won_from_gamble");
-            assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, ctx.lastTournamentEvent.getPayload().getOperation(), "nats.payload.operation_type");
+            assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, ctx.lastTournamentEvent.getPayload().operation(), "nats.payload.operation_type");
         });
 
         step("Redis(Wallet): Получение и проверка данных кошелька после серии турнирных выигрышей", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lastTournamentEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lastTournamentEvent.sequence())
                     .fetch();
             var gamblingTransactionsInRedis = aggregate.gambling();
 
             assertAll("Проверка данных в Redis",
                     () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
                     () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
-                    () -> assertEquals((int) ctx.lastTournamentEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
+                    () -> assertEquals((int) ctx.lastTournamentEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
             );
         });
     }

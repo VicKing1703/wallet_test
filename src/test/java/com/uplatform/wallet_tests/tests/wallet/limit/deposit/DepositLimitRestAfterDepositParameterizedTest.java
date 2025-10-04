@@ -183,24 +183,24 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
             assertNotNull(ctx.depositEvent, "nats.deposited_money_event.message_not_null");
 
             assertAll("nats.deposited_money_event.payload_validation",
-                    () -> assertEquals(ctx.transactionId, ctx.depositEvent.getPayload().getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(ctx.depositRequest.currency(), ctx.depositEvent.getPayload().getCurrencyCode(), "nats.payload.currency_code"),
+                    () -> assertEquals(ctx.transactionId, ctx.depositEvent.getPayload().uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(ctx.depositRequest.currency(), ctx.depositEvent.getPayload().currencyCode(), "nats.payload.currency_code"),
                     () -> assertEquals(0, depositAmount.compareTo(ctx.depositEvent.getPayload().amount()), "nats.payload.amount"),
-                    () -> assertEquals(NatsDepositStatus.SUCCESS, ctx.depositEvent.getPayload().getStatus(), "nats.payload.status"),
-                    () -> assertEquals(nodeId, ctx.depositEvent.getPayload().getNodeUuid(), "nats.payload.node_uuid"),
-                    () -> assertEquals("", ctx.depositEvent.getPayload().getBonusId(), "nats.payload.bonus_id")
+                    () -> assertEquals(NatsDepositStatus.SUCCESS, ctx.depositEvent.getPayload().status(), "nats.payload.status"),
+                    () -> assertEquals(nodeId, ctx.depositEvent.getPayload().nodeUuid(), "nats.payload.node_uuid"),
+                    () -> assertEquals("", ctx.depositEvent.getPayload().bonusId(), "nats.payload.bonus_id")
             );
         });
 
         step("Redis(Wallet): Проверка изменений лимита", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.sequence())
                     .fetch();
 
             var redisLimit = aggregate.limits().stream()
                     .filter(l -> NatsLimitType.DEPOSIT.getValue().equals(l.getLimitType()) &&
-                            ctx.limitEvent.getPayload().getLimits().get(0).getExternalId().equals(l.getExternalID()))
+                            ctx.limitEvent.getPayload().limits().get(0).externalId().equals(l.getExternalID()))
                     .findFirst().orElse(null);
 
             assertNotNull(redisLimit, "redis.wallet.limit_found");

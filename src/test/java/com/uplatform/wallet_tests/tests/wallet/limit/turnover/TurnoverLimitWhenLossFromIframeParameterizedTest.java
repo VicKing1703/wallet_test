@@ -174,12 +174,12 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
 
                 assertAll("nats.loosed_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.lossEvent, "nats.loosed_from_iframe_event"),
-                        () -> assertNotNull(ctx.lossEvent.getPayload().getUuid(), "nats.loosed_from_iframe_event.payload.uuid_not_null"),
-                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.lossEvent.getPayload().getUuid()),
+                        () -> assertNotNull(ctx.lossEvent.getPayload().uuid(), "nats.loosed_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.lossEvent.getPayload().uuid()),
                                 "nats.loosed_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, lossAmount.compareTo(ctx.lossEvent.getPayload().amount()), "nats.loosed_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.lossEvent.getPayload().type(), "nats.loosed_from_iframe_event.payload.operation"),
-                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.lossEvent.getPayload().getBetId(), "nats.loosed_from_iframe_event.payload.betId")
+                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.lossEvent.getPayload().betId(), "nats.loosed_from_iframe_event.payload.betId")
                 );
             });
         });
@@ -187,11 +187,11 @@ class TurnoverLimitWhenLossFromIframeParameterizedTest extends BaseParameterized
         step("Redis(Wallet): Проверка изменений лимита в агрегате после всех операций", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.sequence())
                     .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
-                    () -> assertEquals((int) ctx.lossEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals((int) ctx.lossEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
                     () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_list_not_empty"),
                     () -> {
                         var turnoverLimitOpt = aggregate.limits().stream()

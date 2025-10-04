@@ -200,7 +200,7 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
         step("Redis: Определение вытесненной транзакции", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.sequence())
                     .fetch();
 
             var gamblingTransactionsInRedis = aggregate.gambling();

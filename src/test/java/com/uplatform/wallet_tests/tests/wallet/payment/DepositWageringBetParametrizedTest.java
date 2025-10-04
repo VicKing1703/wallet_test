@@ -216,7 +216,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                     .with("$.uuid", ctx.betRequest.getTransactionId())
                     .fetch();
 
-            var wagerInfoList = ctx.betEvent.getPayload().getWageredDepositInfo();
+            var wagerInfoList = ctx.betEvent.getPayload().wageredDepositInfo();
 
             if (operationParam == NatsGamblingTransactionOperation.FREESPIN) {
                 assertTrue(wagerInfoList.isEmpty(), "nats.wager_info.not_empty_for_freespin");
@@ -225,7 +225,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                 Map<String, Object> wagerInfo = wagerInfoList.get(0);
 
                 assertAll("Проверка wagered_deposit_info в NATS",
-                        () -> assertEquals(ctx.depositEvent.getPayload().getUuid(), wagerInfo.get("deposit_uuid"), "nats.wager_info.deposit_uuid"),
+                        () -> assertEquals(ctx.depositEvent.getPayload().uuid(), wagerInfo.get("deposit_uuid"), "nats.wager_info.deposit_uuid"),
                         () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(new BigDecimal(wagerInfo.get("updated_wagered_amount").toString())), "nats.wager_info.updated_wagered_amount")
                 );
             }
@@ -234,15 +234,15 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
         step("THEN: wallet_wallet_redis обновляет баланс и сумму отыгрыша в агрегате Redis", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.player.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.betEvent.sequence())
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после ставки",
-                    () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.betEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertNotNull(depositData, "redis.aggregate.deposit_not_found"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.wageringAmount()), "redis.aggregate.deposit.wagering_amount")

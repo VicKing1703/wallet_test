@@ -39,26 +39,26 @@ public class BlockAmountStartedPayloadComparator implements PayloadComparatorStr
     }
 
     private void logDetailedDifference(NatsBlockAmountEventPayload kafka, NatsBlockAmountEventPayload nats, long seqNum, String actualEventType) {
-        checkAndLogMismatch(seqNum, "UUID", kafka.getUuid(), nats.getUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "Status", kafka.getStatus(), nats.getStatus(), actualEventType);
-        
-        if (PayloadComparatorStrategy.compareBigDecimals(kafka.getAmount(), nats.getAmount()) != 0) {
-            logMismatch(seqNum, "Amount (value)", kafka.getAmount(), nats.getAmount(), actualEventType);
-        } else if (!Objects.equals(kafka.getAmount(), nats.getAmount())) {
-            logMismatch(seqNum, "Amount (scale differs)", kafka.getAmount(), nats.getAmount(), actualEventType);
+        checkAndLogMismatch(seqNum, "UUID", kafka.uuid(), nats.uuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "Status", kafka.status(), nats.status(), actualEventType);
+
+        if (PayloadComparatorStrategy.compareBigDecimals(kafka.amount(), nats.amount()) != 0) {
+            logMismatch(seqNum, "Amount (value)", kafka.amount(), nats.amount(), actualEventType);
+        } else if (!Objects.equals(kafka.amount(), nats.amount())) {
+            logMismatch(seqNum, "Amount (scale differs)", kafka.amount(), nats.amount(), actualEventType);
         }
-        
-        checkAndLogMismatch(seqNum, "Reason", kafka.getReason(), nats.getReason(), actualEventType);
-        checkAndLogMismatch(seqNum, "Type", kafka.getType(), nats.getType(), actualEventType);
-        checkAndLogMismatch(seqNum, "User UUID", kafka.getUserUuid(), nats.getUserUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "User Name", kafka.getUserName(), nats.getUserName(), actualEventType);
-        
-        if (kafka.getCreatedAt() != nats.getCreatedAt()) {
-            logMismatch(seqNum, "Created At", kafka.getCreatedAt(), nats.getCreatedAt(), actualEventType);
+
+        checkAndLogMismatch(seqNum, "Reason", kafka.reason(), nats.reason(), actualEventType);
+        checkAndLogMismatch(seqNum, "Type", kafka.type(), nats.type(), actualEventType);
+        checkAndLogMismatch(seqNum, "User UUID", kafka.userUuid(), nats.userUuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "User Name", kafka.userName(), nats.userName(), actualEventType);
+
+        if (!Objects.equals(kafka.createdAt(), nats.createdAt())) {
+            logMismatch(seqNum, "Created At", kafka.createdAt(), nats.createdAt(), actualEventType);
         }
-        
-        if (kafka.getExpiredAt() != nats.getExpiredAt()) {
-            logMismatch(seqNum, "Expired At", kafka.getExpiredAt(), nats.getExpiredAt(), actualEventType);
+
+        if (!Objects.equals(kafka.expiredAt(), nats.expiredAt())) {
+            logMismatch(seqNum, "Expired At", kafka.expiredAt(), nats.expiredAt(), actualEventType);
         }
     }
 }

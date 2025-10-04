@@ -165,14 +165,14 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
         step(String.format("Redis(Wallet): Получение и проверка данных кошелька для операции %s", operationParam), () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lastWinEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lastWinEvent.sequence())
                     .fetch();
             var gamblingTransactionsInRedis = aggregate.gambling();
 
             assertAll("Проверка данных в Redis",
                     () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
                     () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
-                    () -> assertEquals((int) ctx.lastWinEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
+                    () -> assertEquals((int) ctx.lastWinEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
             );
         });
     }

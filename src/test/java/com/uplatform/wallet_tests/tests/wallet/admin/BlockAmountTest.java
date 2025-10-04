@@ -94,21 +94,21 @@ class BlockAmountTest extends BaseTest {
             var actualPayload = ctx.blockAmountEvent.getPayload();
             var blockAmountResponse = ctx.blockAmountResponse.getBody();
             assertAll("Проверка основных полей NATS payload",
-                    () -> assertEquals(blockAmountResponse.transactionId(), actualPayload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(NatsBlockAmountStatus.CREATED, actualPayload.getStatus(), "nats.payload.status"),
-                    () -> assertEquals(0, blockAmount.negate().compareTo(actualPayload.getAmount()), "nats.payload.amount"),
-                    () -> assertEquals(ctx.blockAmountRequest.getReason(), actualPayload.getReason(), "nats.payload.reason"),
-                    () -> assertEquals(NatsBlockAmountType.MANUAL , actualPayload.getType(), "nats.payload.type"),
-                    () -> assertEquals(blockAmountResponse.userId(), actualPayload.getUserUuid(), "nats.payload.user_uuid"),
-                    () -> assertEquals(blockAmountResponse.userName(), actualPayload.getUserName(), "nats.payload.user_name"),
-                    () -> assertEquals(blockAmountResponse.createdAt(), actualPayload.getCreatedAt(), "nats.payload.created_at"),
-                    () -> assertNotNull(actualPayload.getExpiredAt(), "nats.payload.expired_at")
+                    () -> assertEquals(blockAmountResponse.transactionId(), actualPayload.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(NatsBlockAmountStatus.CREATED, actualPayload.status(), "nats.payload.status"),
+                    () -> assertEquals(0, blockAmount.negate().compareTo(actualPayload.amount()), "nats.payload.amount"),
+                    () -> assertEquals(ctx.blockAmountRequest.getReason(), actualPayload.reason(), "nats.payload.reason"),
+                    () -> assertEquals(NatsBlockAmountType.MANUAL , actualPayload.type(), "nats.payload.type"),
+                    () -> assertEquals(blockAmountResponse.userId(), actualPayload.userUuid(), "nats.payload.user_uuid"),
+                    () -> assertEquals(blockAmountResponse.userName(), actualPayload.userName(), "nats.payload.user_name"),
+                    () -> assertEquals(blockAmountResponse.createdAt(), actualPayload.createdAt(), "nats.payload.created_at"),
+                    () -> assertNotNull(actualPayload.expiredAt(), "nats.payload.expired_at")
             );
         });
         
         step("Kafka: Проверка поступления сообщения block_amount_started в топик wallet.v8.projectionSource", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.blockAmountEvent.getSequence())
+                    .with("seq_number", ctx.blockAmountEvent.sequence())
                     .fetch();
         
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.blockAmountEvent), "kafka.payload");
@@ -117,7 +117,7 @@ class BlockAmountTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.blockAmountEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.blockAmountEvent.sequence())
                     .fetch();
 
             var blockedAmountInfo = aggregate.blockedAmounts().get(0);
@@ -125,7 +125,7 @@ class BlockAmountTest extends BaseTest {
             var expectedBalance = adjustmentAmount.subtract(blockAmount);
 
             assertAll("Проверка агрегата после BlockAmount",
-                    () -> assertEquals((int) ctx.blockAmountEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.blockAmountEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, expectedBalance.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, expectedBalance.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
                     () -> assertEquals(0, adjustmentAmount.compareTo(aggregate.balanceBefore()), "redis.aggregate.balance_before"),

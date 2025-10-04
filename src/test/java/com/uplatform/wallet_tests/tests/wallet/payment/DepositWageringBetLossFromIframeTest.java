@@ -172,22 +172,22 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
                     () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.loss.bet_id"),
                     () -> assertEquals(NatsBettingTransactionOperation.LOSS, payload.getType(), "nats.loss.type"),
                     () -> assertEquals(0, BigDecimal.ZERO.compareTo(payload.getAmount()), "nats.loss.amount"),
-                    () -> assertTrue(payload.getWageredDepositInfo().isEmpty(), "nats.loss.wagered_deposit_info.is_empty")
+                    () -> assertTrue(payload.wageredDepositInfo().isEmpty(), "nats.loss.wagered_deposit_info.is_empty")
             );
         });
 
         step("THEN: wallet_wallet_redis сохраняет сумму отыгрыша, баланс не меняется", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.player.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.sequence())
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после проигрыша",
-                    () -> assertEquals((int) ctx.lossEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.lossEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterLoss.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertNotNull(depositData, "redis.aggregate.deposit_not_found"),
                     () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.wageringAmount()), "redis.aggregate.deposit.wagering_amount_unchanged"),

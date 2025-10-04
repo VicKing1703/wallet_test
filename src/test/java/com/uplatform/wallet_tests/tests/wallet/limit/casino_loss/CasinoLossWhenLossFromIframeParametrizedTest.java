@@ -141,7 +141,7 @@ class CasinoLossWhenLossFromIframeParametrizedTest extends BaseParameterizedTest
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.sequence())
                     .fetch();
 
             var limit = aggregate.limits().get(0);

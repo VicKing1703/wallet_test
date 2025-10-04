@@ -235,28 +235,28 @@ class RefundParametrizedTest extends BaseParameterizedTest {
             assertNotNull(ctx.refundEvent, "nats.event.refunded_from_gamble");
 
             assertAll(
-                    () -> assertEquals(ctx.refundRequestBody.getTransactionId(), ctx.refundEvent.getPayload().getUuid(), "nats.refund.uuid"),
-                    () -> assertEquals(ctx.betRequestBody.getTransactionId(), ctx.refundEvent.getPayload().getBetUuid(), "nats.refund.bet_uuid"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), ctx.refundEvent.getPayload().getGameSessionUuid(), "nats.refund.game_session_uuid"),
-                    () -> assertEquals(ctx.refundRequestBody.getRoundId(), ctx.refundEvent.getPayload().getProviderRoundId(), "nats.refund.provider_round_id"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.refundEvent.getPayload().getCurrency(), "nats.refund.currency"),
-                    () -> assertEquals(0, ctx.refundAmount.compareTo(ctx.refundEvent.getPayload().getAmount()), "nats.refund.amount"),
-                    () -> assertEquals(NatsGamblingTransactionType.TYPE_REFUND, ctx.refundEvent.getPayload().getType(), "nats.refund.type"),
-                    () -> assertTrue(ctx.refundEvent.getPayload().isProviderRoundClosed(), "nats.refund.round_closed"),
-                    () -> assertEquals(NatsMessageName.WALLET_GAME_TRANSACTION, ctx.refundEvent.getPayload().getMessage(), "nats.refund.message_name"),
-                    () -> assertNotNull(ctx.refundEvent.getPayload().getCreatedAt(), "nats.refund.created_at"),
-                    () -> assertEquals(NatsTransactionDirection.DEPOSIT, ctx.refundEvent.getPayload().getDirection(), "nats.refund.direction"),
-                    () -> assertEquals(NatsGamblingTransactionOperation.REFUND, ctx.refundEvent.getPayload().getOperation(), "nats.refund.operation"),
-                    () -> assertEquals(platformNodeId, ctx.refundEvent.getPayload().getNodeUuid(), "nats.refund.node_uuid"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameUuid(), ctx.refundEvent.getPayload().getGameUuid(), "nats.refund.game_uuid"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getProviderUuid(), ctx.refundEvent.getPayload().getProviderUuid(), "nats.refund.provider_uuid"),
-                    () -> assertTrue(ctx.refundEvent.getPayload().getWageredDepositInfo().isEmpty(), "nats.refund.wagered_deposit_info"),
-                    () -> assertEquals(0, ctx.refundAmount.compareTo(ctx.refundEvent.getPayload().getCurrencyConversionInfo().getGameAmount()), "nats.refund.game_amount"),
-                    () -> assertFalse(ctx.refundEvent.getPayload().getCurrencyConversionInfo().getGameCurrency().isEmpty(), "nats.refund.game_currency"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.refundEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getBaseCurrency(), "nats.refund.base_currency"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.refundEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getQuoteCurrency(), "nats.refund.quote_currency"),
-                    () -> assertEquals(ctx.expectedCurrencyRates, ctx.refundEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getValue(), "nats.refund.currency_rates"),
-                    () -> assertNotNull(ctx.refundEvent.getPayload().getCurrencyConversionInfo().getCurrencyRates().get(0).getUpdatedAt(), "nats.refund.updated_at")
+                    () -> assertEquals(ctx.refundRequestBody.getTransactionId(), ctx.refundEvent.getPayload().uuid(), "nats.refund.uuid"),
+                    () -> assertEquals(ctx.betRequestBody.getTransactionId(), ctx.refundEvent.getPayload().betUuid(), "nats.refund.bet_uuid"),
+                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), ctx.refundEvent.getPayload().gameSessionUuid(), "nats.refund.game_session_uuid"),
+                    () -> assertEquals(ctx.refundRequestBody.getRoundId(), ctx.refundEvent.getPayload().providerRoundId(), "nats.refund.provider_round_id"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.refundEvent.getPayload().currency(), "nats.refund.currency"),
+                    () -> assertEquals(0, ctx.refundAmount.compareTo(ctx.refundEvent.getPayload().amount()), "nats.refund.amount"),
+                    () -> assertEquals(NatsGamblingTransactionType.TYPE_REFUND, ctx.refundEvent.getPayload().type(), "nats.refund.type"),
+                    () -> assertTrue(ctx.refundEvent.getPayload().providerRoundClosed(), "nats.refund.round_closed"),
+                    () -> assertEquals(NatsMessageName.WALLET_GAME_TRANSACTION, ctx.refundEvent.getPayload().message(), "nats.refund.message_name"),
+                    () -> assertNotNull(ctx.refundEvent.getPayload().createdAt(), "nats.refund.created_at"),
+                    () -> assertEquals(NatsTransactionDirection.DEPOSIT, ctx.refundEvent.getPayload().direction(), "nats.refund.direction"),
+                    () -> assertEquals(NatsGamblingTransactionOperation.REFUND, ctx.refundEvent.getPayload().operation(), "nats.refund.operation"),
+                    () -> assertEquals(platformNodeId, ctx.refundEvent.getPayload().nodeUuid(), "nats.refund.node_uuid"),
+                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameUuid(), ctx.refundEvent.getPayload().gameUuid(), "nats.refund.game_uuid"),
+                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getProviderUuid(), ctx.refundEvent.getPayload().providerUuid(), "nats.refund.provider_uuid"),
+                    () -> assertTrue(ctx.refundEvent.getPayload().wageredDepositInfo().isEmpty(), "nats.refund.wagered_deposit_info"),
+                    () -> assertEquals(0, ctx.refundAmount.compareTo(ctx.refundEvent.getPayload().currencyConversionInfo().gameAmount()), "nats.refund.game_amount"),
+                    () -> assertFalse(ctx.refundEvent.getPayload().currencyConversionInfo().gameCurrency().isEmpty(), "nats.refund.game_currency"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.refundEvent.getPayload().currencyConversionInfo().currencyRates().get(0).baseCurrency(), "nats.refund.base_currency"),
+                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.refundEvent.getPayload().currencyConversionInfo().currencyRates().get(0).quoteCurrency(), "nats.refund.quote_currency"),
+                    () -> assertEquals(ctx.expectedCurrencyRates, ctx.refundEvent.getPayload().currencyConversionInfo().currencyRates().get(0).value(), "nats.refund.currency_rates"),
+                    () -> assertNotNull(ctx.refundEvent.getPayload().currencyConversionInfo().currencyRates().get(0).updatedAt(), "nats.refund.updated_at")
             );
         });
 
@@ -267,18 +267,18 @@ class RefundParametrizedTest extends BaseParameterizedTest {
             assertNotNull(transaction, "db.transaction");
 
             assertAll(
-                    () -> assertEquals(ctx.refundEvent.getPayload().getUuid(), transaction.getUuid(), "db.transaction.uuid"),
+                    () -> assertEquals(ctx.refundEvent.getPayload().uuid(), transaction.uuid(), "db.transaction.uuid"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.transaction.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.transaction.date"),
                     () -> assertEquals(NatsGamblingTransactionType.TYPE_REFUND, transaction.getType(), "db.transaction.type"),
                     () -> assertEquals(NatsGamblingTransactionOperation.REFUND, transaction.getOperation(), "db.transaction.operation"),
-                    () -> assertEquals(ctx.refundEvent.getPayload().getGameUuid(), transaction.getGameUuid(), "db.transaction.game_uuid"),
-                    () -> assertEquals(ctx.refundEvent.getPayload().getGameSessionUuid(), transaction.getGameSessionUuid(), "db.transaction.game_session_uuid"),
-                    () -> assertEquals(ctx.refundEvent.getPayload().getCurrency(), transaction.getCurrency(), "db.transaction.currency"),
+                    () -> assertEquals(ctx.refundEvent.getPayload().gameUuid(), transaction.getGameUuid(), "db.transaction.game_uuid"),
+                    () -> assertEquals(ctx.refundEvent.getPayload().gameSessionUuid(), transaction.getGameSessionUuid(), "db.transaction.game_session_uuid"),
+                    () -> assertEquals(ctx.refundEvent.getPayload().currency(), transaction.getCurrency(), "db.transaction.currency"),
                     () -> assertEquals(0, ctx.refundAmount.compareTo(transaction.getAmount()), "db.transaction.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.transaction.created_at"),
-                    () -> assertEquals(ctx.refundEvent.getSequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
-                    () -> assertEquals(ctx.refundEvent.getPayload().isProviderRoundClosed(), transaction.getProviderRoundClosed(), "db.transaction.provider_round_closed")
+                    () -> assertEquals(ctx.refundEvent.sequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
+                    () -> assertEquals(ctx.refundEvent.getPayload().providerRoundClosed(), transaction.getProviderRoundClosed(), "db.transaction.provider_round_closed")
             );
         });
 
@@ -290,14 +290,14 @@ class RefundParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
-                    () -> assertEquals(0, ctx.betAmount.negate().add(ctx.refundEvent.getPayload().getAmount()).compareTo(threshold.getAmount()), "db.threshold.amount"),
+                    () -> assertEquals(0, ctx.betAmount.negate().add(ctx.refundEvent.getPayload().amount()).compareTo(threshold.getAmount()), "db.threshold.amount"),
                     () -> assertNotNull(threshold.getUpdatedAt(), "db.threshold.updated_at")
             );
         });
 
         step("Kafka: Проверка поступления сообщения о рефанде в топик wallet.v8.projectionSource", () -> {
             var message = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.refundEvent.getSequence())
+                    .with("seq_number", ctx.refundEvent.sequence())
                     .fetch();
 
             assertNotNull(message, "kafka.message");
@@ -307,18 +307,18 @@ class RefundParametrizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька после рефанда", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.sequence())
                     .fetch();
 
             assertNotNull(aggregate, "redis.aggregate");
 
             assertAll(
-                    () -> assertEquals(ctx.refundEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.seq_number"),
+                    () -> assertEquals(ctx.refundEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_balance"),
-                    () -> assertTrue(aggregate.gambling().containsKey(ctx.refundEvent.getPayload().getUuid()), "redis.aggregate.gambling_contains_uuid"),
-                    () -> assertEquals(0, ctx.refundAmount.compareTo(aggregate.gambling().get(ctx.refundEvent.getPayload().getUuid()).getAmount()), "redis.aggregate.gambling_amount"),
-                    () -> assertNotNull(aggregate.gambling().get(ctx.refundEvent.getPayload().getUuid()).getCreatedAt(), "redis.aggregate.gambling_created_at")
+                    () -> assertTrue(aggregate.gambling().containsKey(ctx.refundEvent.getPayload().uuid()), "redis.aggregate.gambling_contains_uuid"),
+                    () -> assertEquals(0, ctx.refundAmount.compareTo(aggregate.gambling().get(ctx.refundEvent.getPayload().uuid()).getAmount()), "redis.aggregate.gambling_amount"),
+                    () -> assertNotNull(aggregate.gambling().get(ctx.refundEvent.getPayload().uuid()).getCreatedAt(), "redis.aggregate.gambling_created_at")
             );
         });
     }

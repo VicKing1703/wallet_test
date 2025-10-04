@@ -167,7 +167,7 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
                         () -> assertNotNull(ctx.recalculatedEvent, "nats.recalculated_from_iframe_event"),
                         () -> assertEquals(0, winAmountRecalculated.compareTo(ctx.recalculatedEvent.getPayload().amount().negate()), "nats.recalculated_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.LOSS, ctx.recalculatedEvent.getPayload().type(), "nats.recalculated_from_iframe_event.payload.operation"),
-                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().getBetId(), "nats.recalculated_from_iframe_event.payload.betId")
+                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().betId(), "nats.recalculated_from_iframe_event.payload.betId")
                 );
             });
         });
@@ -175,11 +175,11 @@ class CasinoLossLimitWhenRecalculateWinToLossParameterizedTest extends BaseParam
         step("Redis(Wallet): Проверка состояния лимита в агрегате после всех операций", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.sequence())
                     .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
-                    () -> assertEquals((int) ctx.recalculatedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals((int) ctx.recalculatedEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
                     () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_list_not_empty"),
                     () -> {
                         var limitOpt = aggregate.limits().stream()

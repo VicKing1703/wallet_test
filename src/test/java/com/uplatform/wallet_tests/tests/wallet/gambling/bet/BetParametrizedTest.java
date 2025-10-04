@@ -199,33 +199,33 @@ class BetParametrizedTest extends BaseParameterizedTest {
             var session = ctx.gameLaunchData.getDbGameSession();
             var player = ctx.registeredPlayer.getWalletData();
             assertAll("Проверка основных полей NATS payload",
-                    () -> assertEquals(betRequest.getTransactionId(), betEvent.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(new UUID(0L, 0L).toString(), betEvent.getBetUuid(), "nats.payload.bet_uuid"),
-                    () -> assertEquals(session.getGameSessionUuid(), betEvent.getGameSessionUuid(), "nats.payload.game_session_uuid"),
-                    () -> assertEquals(betRequest.getRoundId(), betEvent.getProviderRoundId(), "nats.payload.provider_round_id"),
-                    () -> assertEquals(player.currency(), betEvent.getCurrency(), "nats.payload.currency"),
-                    () -> assertEquals(0, amountParam.negate().compareTo(betEvent.getAmount()), "nats.payload.amount"),
-                    () -> assertEquals(transactionTypeParam, betEvent.getType(), "nats.payload.type"),
-                    () -> assertFalse(betEvent.isProviderRoundClosed(), "nats.payload.provider_round_closed"),
-                    () -> assertEquals(NatsMessageName.WALLET_GAME_TRANSACTION, betEvent.getMessage(), "nats.payload.message"),
-                    () -> assertNotNull(betEvent.getCreatedAt(), "nats.payload.created_at"),
-                    () -> assertEquals(NatsTransactionDirection.WITHDRAW, betEvent.getDirection(), "nats.payload.direction"),
-                    () -> assertEquals(NatsGamblingTransactionOperation.BET, betEvent.getOperation(), "nats.payload.operation"),
-                    () -> assertEquals(platformNodeId, betEvent.getNodeUuid(), "nats.payload.node_uuid"),
-                    () -> assertEquals(session.getGameUuid(), betEvent.getGameUuid(), "nats.payload.game_uuid"),
-                    () -> assertEquals(session.getProviderUuid(), betEvent.getProviderUuid(), "nats.payload.provider_uuid"),
-                    () -> assertTrue(betEvent.getWageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info")
+                    () -> assertEquals(betRequest.getTransactionId(), betEvent.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(new UUID(0L, 0L).toString(), betEvent.betUuid(), "nats.payload.bet_uuid"),
+                    () -> assertEquals(session.getGameSessionUuid(), betEvent.gameSessionUuid(), "nats.payload.game_session_uuid"),
+                    () -> assertEquals(betRequest.getRoundId(), betEvent.providerRoundId(), "nats.payload.provider_round_id"),
+                    () -> assertEquals(player.currency(), betEvent.currency(), "nats.payload.currency"),
+                    () -> assertEquals(0, amountParam.negate().compareTo(betEvent.amount()), "nats.payload.amount"),
+                    () -> assertEquals(transactionTypeParam, betEvent.type(), "nats.payload.type"),
+                    () -> assertFalse(betEvent.providerRoundClosed(), "nats.payload.provider_round_closed"),
+                    () -> assertEquals(NatsMessageName.WALLET_GAME_TRANSACTION, betEvent.message(), "nats.payload.message"),
+                    () -> assertNotNull(betEvent.createdAt(), "nats.payload.created_at"),
+                    () -> assertEquals(NatsTransactionDirection.WITHDRAW, betEvent.direction(), "nats.payload.direction"),
+                    () -> assertEquals(NatsGamblingTransactionOperation.BET, betEvent.operation(), "nats.payload.operation"),
+                    () -> assertEquals(platformNodeId, betEvent.nodeUuid(), "nats.payload.node_uuid"),
+                    () -> assertEquals(session.getGameUuid(), betEvent.gameUuid(), "nats.payload.game_uuid"),
+                    () -> assertEquals(session.getProviderUuid(), betEvent.providerUuid(), "nats.payload.provider_uuid"),
+                    () -> assertTrue(betEvent.wageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info")
             );
 
-            var conversionInfo = betEvent.getCurrencyConversionInfo();
-            var currencyRates = conversionInfo.getCurrencyRates().get(0);
+            var conversionInfo = betEvent.currencyConversionInfo();
+            var currencyRates = conversionInfo.currencyRates().get(0);
             assertAll("Проверка полей внутри currency_conversion_info NATS payload",
-                    () -> assertEquals(0, amountParam.negate().compareTo(conversionInfo.getGameAmount()), "currency_conversion_info.game_amount"),
-                    () -> assertFalse(conversionInfo.getGameCurrency().isEmpty(), "currency_conversion_info.game_currency"),
-                    () -> assertEquals(player.currency(), currencyRates.getBaseCurrency(), "currency_conversion_info.currency_rates.base_currency"),
-                    () -> assertEquals(player.currency(), currencyRates.getQuoteCurrency(), "currency_conversion_info.currency_rates.quote_currency"),
-                    () -> assertEquals(expectedCurrencyRates, currencyRates.getValue(), "currency_conversion_info.currency_rates.value"),
-                    () -> assertNotNull(currencyRates.getUpdatedAt(), "currency_conversion_info.currency_rates.updated_at")
+                    () -> assertEquals(0, amountParam.negate().compareTo(conversionInfo.gameAmount()), "currency_conversion_info.game_amount"),
+                    () -> assertFalse(conversionInfo.gameCurrency().isEmpty(), "currency_conversion_info.game_currency"),
+                    () -> assertEquals(player.currency(), currencyRates.baseCurrency(), "currency_conversion_info.currency_rates.base_currency"),
+                    () -> assertEquals(player.currency(), currencyRates.quoteCurrency(), "currency_conversion_info.currency_rates.quote_currency"),
+                    () -> assertEquals(expectedCurrencyRates, currencyRates.value(), "currency_conversion_info.currency_rates.value"),
+                    () -> assertNotNull(currencyRates.updatedAt(), "currency_conversion_info.currency_rates.updated_at")
             );
         });
 
@@ -233,7 +233,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
             var transaction = walletDatabaseClient.findTransactionByUuidOrFail(ctx.betRequestBody.getTransactionId());
             var payload = ctx.betEvent.getPayload();
             assertAll("Проверка полей gambling_projection_transaction_history",
-                    () -> assertEquals(payload.getUuid(), transaction.getUuid(), "db.gpth.uuid"),
+                    () -> assertEquals(payload.uuid(), transaction.uuid(), "db.gpth.uuid"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.gpth.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.gpth.date"),
                     () -> assertEquals(payload.getType(), transaction.getType(), "db.gpth.type"),
@@ -243,8 +243,8 @@ class BetParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(payload.getCurrency(), transaction.getCurrency(), "db.gpth.currency"),
                     () -> assertEquals(0, amountParam.negate().compareTo(transaction.getAmount()), "db.gpth.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.gpth.created_at"),
-                    () -> assertEquals(ctx.betEvent.getSequence(), transaction.getSeqnumber(), "db.gpth.seqnumber"),
-                    () -> assertEquals(payload.isProviderRoundClosed(), transaction.getProviderRoundClosed(), "db.gpth.provider_round_closed"),
+                    () -> assertEquals(ctx.betEvent.sequence(), transaction.getSeqnumber(), "db.gpth.seqnumber"),
+                    () -> assertEquals(payload.providerRoundClosed(), transaction.getProviderRoundClosed(), "db.gpth.provider_round_closed"),
                     () -> assertEquals(payload.getBetUuid(), transaction.getBetUuid(), "db.gpth.bet_uuid")
             );
         });
@@ -261,8 +261,8 @@ class BetParametrizedTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var walletUuid = ctx.registeredPlayer.getWalletData().walletUUID();
-            int sequence = (int) ctx.betEvent.getSequence();
-            var transactionUuid = ctx.betEvent.getPayload().getUuid();
+            int sequence = (int) ctx.betEvent.sequence();
+            var transactionUuid = ctx.betEvent.getPayload().uuid();
 
             var aggregate = redisWalletClient
                     .key(walletUuid)
@@ -281,7 +281,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения betted_from_gamble в топик wallet.v8.projectionSource", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.betEvent.getSequence())
+                    .with("seq_number", ctx.betEvent.sequence())
                     .fetch();
 
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.betEvent), "wallet.v8.projectionSource");

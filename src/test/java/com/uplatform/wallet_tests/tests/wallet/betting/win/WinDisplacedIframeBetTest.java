@@ -140,7 +140,7 @@ class WinDisplacedIframeBetTest extends BaseTest {
         step("Определение вытесненных iFrame ставок из Redis", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.sequence())
                     .fetch();
 
             var iFrameRecordsInRedis = aggregate.iFrameRecords();

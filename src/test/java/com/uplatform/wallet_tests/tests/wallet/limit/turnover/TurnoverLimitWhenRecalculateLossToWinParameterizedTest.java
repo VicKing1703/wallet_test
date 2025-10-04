@@ -187,12 +187,12 @@ class TurnoverLimitWhenRecalculateLossToWinParameterizedTest extends BaseParamet
 
                 assertAll("nats.recalculated_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.recalculatedEvent, "nats.recalculated_from_iframe_event"),
-                        () -> assertNotNull(ctx.recalculatedEvent.getPayload().getUuid(), "nats.recalculated_from_iframe_event.payload.uuid_not_null"),
-                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.recalculatedEvent.getPayload().getUuid()),
+                        () -> assertNotNull(ctx.recalculatedEvent.getPayload().uuid(), "nats.recalculated_from_iframe_event.payload.uuid_not_null"),
+                        () -> assertDoesNotThrow(() -> UUID.fromString(ctx.recalculatedEvent.getPayload().uuid()),
                                 "nats.recalculated_from_iframe_event.payload.uuid_format"),
                         () -> assertEquals(0, winAmountRecalculated.compareTo(ctx.recalculatedEvent.getPayload().amount()), "nats.recalculated_from_iframe_event.payload.amount"),
                         () -> assertEquals(NatsBettingTransactionOperation.WIN, ctx.recalculatedEvent.getPayload().type(), "nats.recalculated_from_iframe_event.payload.operation"),
-                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().getBetId(), "nats.recalculated_from_iframe_event.payload.betId")
+                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().betId(), "nats.recalculated_from_iframe_event.payload.betId")
                 );
             });
         });
@@ -200,11 +200,11 @@ class TurnoverLimitWhenRecalculateLossToWinParameterizedTest extends BaseParamet
         step("Redis(Wallet): Проверка состояния лимита в агрегате после всех операций", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.sequence())
                     .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
-                    () -> assertEquals((int) ctx.recalculatedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals((int) ctx.recalculatedEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
                     () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_list_not_empty"),
                     () -> {
                         var turnoverLimitOpt = aggregate.limits().stream()

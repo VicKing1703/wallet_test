@@ -93,9 +93,9 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
                     .fetch();
 
             assertAll(
-                    () -> assertEquals(gamblingEnabled, ctx.updateBlockersEvent.getPayload().isGamblingActive(), "nats.update_blockers.gambling_enabled"),
-                    () -> assertEquals(bettingEnabled, ctx.updateBlockersEvent.getPayload().isBettingActive(), "nats.update_blockers.betting_enabled"),
-                    () -> assertNotNull(ctx.updateBlockersEvent.getPayload().getCreatedAt(), "nats.update_blockers.created_at")
+                    () -> assertEquals(gamblingEnabled, ctx.updateBlockersEvent.getPayload().gamblingActive(), "nats.update_blockers.gambling_enabled"),
+                    () -> assertEquals(bettingEnabled, ctx.updateBlockersEvent.getPayload().bettingActive(), "nats.update_blockers.betting_enabled"),
+                    () -> assertNotNull(ctx.updateBlockersEvent.getPayload().createdAt(), "nats.update_blockers.created_at")
             );
         });
 
@@ -112,7 +112,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Проверка флагов активности в Redis", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.updateBlockersEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.updateBlockersEvent.sequence())
                     .fetch();
             assertAll(
                     () -> assertEquals(gamblingEnabled, aggregate.isGamblingActive(), "redis.wallet.gambling_active"),
@@ -135,7 +135,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения setting_prevent_gamble_setted в топик wallet.v8.projectionSource", () -> {
             var kafkaMsg = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.updateBlockersEvent.getSequence())
+                    .with("seq_number", ctx.updateBlockersEvent.sequence())
                     .fetch();
             assertTrue(utils.areEquivalent(kafkaMsg, ctx.updateBlockersEvent), "kafka.payload");
         });

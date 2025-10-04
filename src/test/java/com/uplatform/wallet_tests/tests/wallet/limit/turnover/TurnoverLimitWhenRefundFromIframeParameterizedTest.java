@@ -175,8 +175,8 @@ class TurnoverLimitWhenRefundFromIframeParameterizedTest extends BaseParameteriz
                         .fetch();
 
                 assertNotNull(ctx.refundedEvent, "nats.refunded_from_iframe_event");
-                assertNotNull(ctx.refundedEvent.getPayload().getUuid(), "nats.refunded_from_iframe_event.payload.uuid_not_null");
-                assertDoesNotThrow(() -> UUID.fromString(ctx.refundedEvent.getPayload().getUuid()),
+                assertNotNull(ctx.refundedEvent.getPayload().uuid(), "nats.refunded_from_iframe_event.payload.uuid_not_null");
+                assertDoesNotThrow(() -> UUID.fromString(ctx.refundedEvent.getPayload().uuid()),
                         "nats.refunded_from_iframe_event.payload.uuid_format");
             });
         });
@@ -184,11 +184,11 @@ class TurnoverLimitWhenRefundFromIframeParameterizedTest extends BaseParameteriz
         step("Redis(Wallet): Проверка изменений лимита в агрегате после всех операций", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.refundedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.refundedEvent.sequence())
                     .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
-                    () -> assertEquals((int) ctx.refundedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals((int) ctx.refundedEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
                     () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_list_not_empty"),
                     () -> {
                         var turnoverLimitOpt = aggregate.limits().stream()
