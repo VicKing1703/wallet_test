@@ -169,9 +169,9 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
 
             var payload = ctx.lossEvent.getPayload();
             assertAll("Проверка полей события проигрыша в NATS",
-                    () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.loss.bet_id"),
-                    () -> assertEquals(NatsBettingTransactionOperation.LOSS, payload.getType(), "nats.loss.type"),
-                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(payload.getAmount()), "nats.loss.amount"),
+                    () -> assertEquals(ctx.betRequest.getBetId(), payload.betId(), "nats.loss.bet_id"),
+                    () -> assertEquals(NatsBettingTransactionOperation.LOSS, payload.type(), "nats.loss.type"),
+                    () -> assertEquals(0, BigDecimal.ZERO.compareTo(payload.amount()), "nats.loss.amount"),
                     () -> assertTrue(payload.wageredDepositInfo().isEmpty(), "nats.loss.wagered_deposit_info.is_empty")
             );
         });
@@ -179,7 +179,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
         step("THEN: wallet_wallet_redis сохраняет сумму отыгрыша, баланс не меняется", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.player.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.getSequence())
                     .fetch();
 
             var depositData = aggregate.deposits().stream()
@@ -187,7 +187,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после проигрыша",
-                    () -> assertEquals((int) ctx.lossEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.lossEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterLoss.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertNotNull(depositData, "redis.aggregate.deposit_not_found"),
                     () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.wageringAmount()), "redis.aggregate.deposit.wagering_amount_unchanged"),

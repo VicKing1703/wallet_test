@@ -133,7 +133,7 @@ class DepositPositiveTest extends BaseTest {
 
         step("THEN: wallet_projections_nats_to_kafka пересылает событие из NATS в Kafka", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.depositEvent.sequence())
+                    .with("seq_number", ctx.depositEvent.getSequence())
                     .fetch();
 
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.depositEvent), "kafka.wallet_projection.equivalence_with_nats");
@@ -142,7 +142,7 @@ class DepositPositiveTest extends BaseTest {
         step("THEN: wallet_wallet_redis обновляет агрегат кошелька в Redis", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.getSequence())
                     .fetch();
 
             var deposit = aggregate.deposits().stream()
@@ -151,7 +151,7 @@ class DepositPositiveTest extends BaseTest {
 
             assertAll("Проверка данных депозита в агрегате кошелька Redis",
                     () -> assertNotNull(deposit, "redis.wallet_aggregate.deposit.not_null"),
-                    () -> assertEquals((int) ctx.depositEvent.sequence(), aggregate.lastSeqNumber(), "redis.wallet_aggregate.lastSeqNumber"),
+                    () -> assertEquals((int) ctx.depositEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet_aggregate.lastSeqNumber"),
                     () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(deposit.amount()), "redis.wallet_aggregate.deposit.amount"),
                     () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), deposit.status(), "redis.wallet_aggregate.deposit.status"),
                     () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), deposit.nodeUUID(), "redis.wallet_aggregate.deposit.nodeUUID"),

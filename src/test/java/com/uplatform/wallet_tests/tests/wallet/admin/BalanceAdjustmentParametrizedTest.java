@@ -140,7 +140,7 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
         step("Redis: Проверка данных кошелька после корректировки", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.balanceAdjustedEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.balanceAdjustedEvent.getSequence())
                     .fetch();
             assertAll(
                     () -> assertEquals(0, ctx.expectedBalanceAfterAdjustment.compareTo(aggregate.balance()), "redis.wallet.balance")
@@ -149,7 +149,7 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения balance_adjusted в топик wallet.v8.projectionSource", () -> {
             ctx.projectionAdjustEvent = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.balanceAdjustedEvent.sequence())
+                    .with("seq_number", ctx.balanceAdjustedEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(ctx.projectionAdjustEvent, ctx.balanceAdjustedEvent), "kafka.payload");
         });

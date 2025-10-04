@@ -108,7 +108,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
         step("Kafka: Сравнение сообщения из Kafka с событием из NATS", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.limitCreateEvent.sequence())
+                    .with("seq_number", ctx.limitCreateEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.limitCreateEvent), "kafka.wallet_projection.equivalent_to_nats");
         });
@@ -116,7 +116,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.limitCreateEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.limitCreateEvent.getSequence())
                     .fetch();
 
             assertAll("redis.wallet_aggregate.limit_content_validation",

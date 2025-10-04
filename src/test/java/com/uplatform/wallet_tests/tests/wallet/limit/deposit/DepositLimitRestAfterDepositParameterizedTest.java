@@ -195,7 +195,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
         step("Redis(Wallet): Проверка изменений лимита", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.getSequence())
                     .fetch();
 
             var redisLimit = aggregate.limits().stream()

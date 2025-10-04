@@ -236,16 +236,16 @@ class BetParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(payload.uuid(), transaction.uuid(), "db.gpth.uuid"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.gpth.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.gpth.date"),
-                    () -> assertEquals(payload.getType(), transaction.getType(), "db.gpth.type"),
-                    () -> assertEquals(payload.getOperation(), transaction.getOperation(), "db.gpth.operation"),
-                    () -> assertEquals(payload.getGameUuid(), transaction.getGameUuid(), "db.gpth.game_uuid"),
-                    () -> assertEquals(payload.getGameSessionUuid(), transaction.getGameSessionUuid(), "db.gpth.game_session_uuid"),
-                    () -> assertEquals(payload.getCurrency(), transaction.getCurrency(), "db.gpth.currency"),
+                    () -> assertEquals(payload.type(), transaction.getType(), "db.gpth.type"),
+                    () -> assertEquals(payload.operation(), transaction.getOperation(), "db.gpth.operation"),
+                    () -> assertEquals(payload.gameUuid(), transaction.getGameUuid(), "db.gpth.game_uuid"),
+                    () -> assertEquals(payload.gameSessionUuid(), transaction.getGameSessionUuid(), "db.gpth.game_session_uuid"),
+                    () -> assertEquals(payload.currency(), transaction.getCurrency(), "db.gpth.currency"),
                     () -> assertEquals(0, amountParam.negate().compareTo(transaction.getAmount()), "db.gpth.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.gpth.created_at"),
-                    () -> assertEquals(ctx.betEvent.sequence(), transaction.getSeqnumber(), "db.gpth.seqnumber"),
+                    () -> assertEquals(ctx.betEvent.getSequence(), transaction.getSeqnumber(), "db.gpth.seqnumber"),
                     () -> assertEquals(payload.providerRoundClosed(), transaction.getProviderRoundClosed(), "db.gpth.provider_round_closed"),
-                    () -> assertEquals(payload.getBetUuid(), transaction.getBetUuid(), "db.gpth.bet_uuid")
+                    () -> assertEquals(payload.betUuid(), transaction.getBetUuid(), "db.gpth.bet_uuid")
             );
         });
 
@@ -261,7 +261,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var walletUuid = ctx.registeredPlayer.getWalletData().walletUUID();
-            int sequence = (int) ctx.betEvent.sequence();
+            int sequence = (int) ctx.betEvent.getSequence();
             var transactionUuid = ctx.betEvent.getPayload().uuid();
 
             var aggregate = redisWalletClient
@@ -281,7 +281,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения betted_from_gamble в топик wallet.v8.projectionSource", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.betEvent.sequence())
+                    .with("seq_number", ctx.betEvent.getSequence())
                     .fetch();
 
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.betEvent), "wallet.v8.projectionSource");

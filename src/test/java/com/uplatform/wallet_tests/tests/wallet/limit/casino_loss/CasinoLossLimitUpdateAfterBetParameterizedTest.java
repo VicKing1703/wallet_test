@@ -234,7 +234,7 @@ class CasinoLossLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTe
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
             var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.updateEvent.sequence())
+                    .with("seq_number", ctx.updateEvent.getSequence())
                     .fetch();
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
             assertTrue(utils.areEquivalent(projectionMsg, ctx.updateEvent), "kafka.wallet_projection.equivalent_to_nats");
@@ -243,7 +243,7 @@ class CasinoLossLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTe
         step("Redis(Wallet): Проверка данных лимита в агрегате", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.updateEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.updateEvent.getSequence())
                     .fetch();
 
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");

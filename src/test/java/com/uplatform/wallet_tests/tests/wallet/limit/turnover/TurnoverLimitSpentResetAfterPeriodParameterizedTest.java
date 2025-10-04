@@ -203,7 +203,7 @@ class TurnoverLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteri
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
             var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.resetEvent.sequence())
+                    .with("seq_number", ctx.resetEvent.getSequence())
                     .fetch();
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
             assertTrue(utils.areEquivalent(projectionMsg, ctx.resetEvent), "kafka.wallet_projection.equivalent_to_nats");
@@ -212,7 +212,7 @@ class TurnoverLimitSpentResetAfterPeriodParameterizedTest extends BaseParameteri
         step("Redis(Wallet): Проверка данных лимита в агрегате", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.resetEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.resetEvent.getSequence())
                     .fetch();
 
             var redisLimitOpt = aggregate.limits().stream()

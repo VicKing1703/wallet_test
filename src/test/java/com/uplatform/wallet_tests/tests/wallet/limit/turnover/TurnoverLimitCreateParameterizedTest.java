@@ -180,7 +180,7 @@ public class TurnoverLimitCreateParameterizedTest extends BaseParameterizedTest 
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
             var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.natsLimitChangeEvent.sequence())
+                    .with("seq_number", ctx.natsLimitChangeEvent.getSequence())
                     .fetch();
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
             assertTrue(utils.areEquivalent(projectionMsg, ctx.natsLimitChangeEvent), "kafka.wallet_projection.equivalent_to_nats");
@@ -189,7 +189,7 @@ public class TurnoverLimitCreateParameterizedTest extends BaseParameterizedTest 
         step("Redis (Wallet Aggregate): Проверка данных лимита в агрегате кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.natsLimitChangeEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.natsLimitChangeEvent.getSequence())
                     .fetch();
 
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");

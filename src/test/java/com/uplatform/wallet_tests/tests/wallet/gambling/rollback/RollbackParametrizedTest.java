@@ -279,7 +279,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(ctx.rollbackEvent.getPayload().currency(), transaction.getCurrency(), "db.transaction.currency"),
                     () -> assertEquals(0, ctx.rollbackAmount.compareTo(transaction.getAmount()), "db.transaction.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.transaction.created_at"),
-                    () -> assertEquals(ctx.rollbackEvent.sequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
+                    () -> assertEquals(ctx.rollbackEvent.getSequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
                     () -> assertEquals(ctx.rollbackEvent.getPayload().providerRoundClosed(), transaction.getProviderRoundClosed(), "db.transaction.provider_round_closed")
             );
         });
@@ -299,7 +299,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения о роллбэке в топик wallet.v8.projectionSource", () -> {
             var message = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.rollbackEvent.sequence())
+                    .with("seq_number", ctx.rollbackEvent.getSequence())
                     .fetch();
 
             assertNotNull(message, "kafka.message");
@@ -309,13 +309,13 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька после роллбэка", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.rollbackEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.rollbackEvent.getSequence())
                     .fetch();
 
             assertNotNull(aggregate, "redis.aggregate");
 
             assertAll(
-                    () -> assertEquals(ctx.rollbackEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.seq_number"),
+                    () -> assertEquals(ctx.rollbackEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_balance"),
                     () -> assertTrue(aggregate.gambling().containsKey(ctx.rollbackEvent.getPayload().uuid()), "redis.aggregate.gambling_contains_uuid"),

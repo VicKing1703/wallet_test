@@ -112,7 +112,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Проверка флагов активности в Redis", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.updateBlockersEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.updateBlockersEvent.getSequence())
                     .fetch();
             assertAll(
                     () -> assertEquals(gamblingEnabled, aggregate.isGamblingActive(), "redis.wallet.gambling_active"),
@@ -135,7 +135,7 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения setting_prevent_gamble_setted в топик wallet.v8.projectionSource", () -> {
             var kafkaMsg = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.updateBlockersEvent.sequence())
+                    .with("seq_number", ctx.updateBlockersEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(kafkaMsg, ctx.updateBlockersEvent), "kafka.payload");
         });

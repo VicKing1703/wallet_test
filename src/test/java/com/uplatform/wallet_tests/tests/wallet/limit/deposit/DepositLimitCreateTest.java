@@ -162,7 +162,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
 
         step("Kafka Projection: Сравнение данных из NATS и Kafka Wallet Projection", () -> {
             var projectionMsg = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", testData.natsLimitChangeEvent.sequence())
+                    .with("seq_number", testData.natsLimitChangeEvent.getSequence())
                     .fetch();
 
             assertNotNull(projectionMsg, "kafka.wallet_projection.message_not_null");
@@ -172,7 +172,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
         step("Redis (Wallet Aggregate): Проверка данных лимита в агрегате кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(testData.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) testData.natsLimitChangeEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) testData.natsLimitChangeEvent.getSequence())
                     .fetch();
 
             assertFalse(aggregate.limits().isEmpty(), "redis.wallet_aggregate.limits_list_not_empty");

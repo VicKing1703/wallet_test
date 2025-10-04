@@ -140,10 +140,10 @@ class BetWithSingleBetLimitParameterizedTest extends BaseParameterizedTest {
                         () -> assertEquals(ctx.kafkaLimitMessage.id(), limit.externalId(), "nats.limit_changed_v2_event.limit.externalId"),
                         () -> assertEquals(NatsLimitType.SINGLE_BET.getValue(), limit.limitType(), "nats.limit_changed_v2_event.limit.limitType"),
                         () -> assertTrue(limit.intervalType().isEmpty(), "nats.limit_changed_v2_event.limit.intervalType_empty"),
-                        () -> assertEquals(0, new BigDecimal(ctx.kafkaLimitMessage.amount()).compareTo(limit.getAmount()), "nats.limit_changed_v2_event.limit.amount"),
+                        () -> assertEquals(0, new BigDecimal(ctx.kafkaLimitMessage.amount()).compareTo(limit.amount()), "nats.limit_changed_v2_event.limit.amount"),
                         () -> assertEquals(ctx.kafkaLimitMessage.currencyCode(), limit.currencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
-                        () -> assertNotNull(limit.getStartedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
-                        () -> assertEquals(expectedExpiresAt, limit.getExpiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
+                        () -> assertNotNull(limit.startedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
+                        () -> assertEquals(expectedExpiresAt, limit.expiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                         () -> assertTrue(limit.status(), "nats.limit_changed_v2_event.limit.status")
                 );
             });

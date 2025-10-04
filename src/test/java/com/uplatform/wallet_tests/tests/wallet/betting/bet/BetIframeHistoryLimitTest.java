@@ -137,7 +137,7 @@ class BetIframeHistoryLimitTest extends BaseTest {
             step("Redis(Wallet): Получение и проверка данных кошелька (лимит iFrame ставок)", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                        .withAtLeast("LastSeqNumber", (int) ctx.lastBetEvent.sequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.lastBetEvent.getSequence())
                         .fetch();
 
                 var iFrameRecordsInRedis = aggregate.iFrameRecords();

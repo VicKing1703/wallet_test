@@ -266,9 +266,9 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                         () -> assertNotNull(ctx.rollbackEvent, "then.nats.rollback_event.not_null"),
                         () -> assertEquals(ctx.rollbackRequest.getTransactionId(), payload.uuid(), "then.nats.rollback.uuid"),
                         () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "then.nats.rollback.node_uuid"),
-                        () -> assertEquals(0, betAmount.compareTo(payload.getAmount()), "then.nats.rollback.amount"),
-                        () -> assertEquals(NatsGamblingTransactionOperation.ROLLBACK, payload.getOperation(), "then.nats.rollback.operation"),
-                        () -> assertEquals(NatsGamblingTransactionType.TYPE_ROLLBACK, payload.getType(), "then.nats.rollback.type")
+                        () -> assertEquals(0, betAmount.compareTo(payload.amount()), "then.nats.rollback.amount"),
+                        () -> assertEquals(NatsGamblingTransactionOperation.ROLLBACK, payload.operation(), "then.nats.rollback.operation"),
+                        () -> assertEquals(NatsGamblingTransactionType.TYPE_ROLLBACK, payload.type(), "then.nats.rollback.type")
                 );
 
                 assertTrue(payload.wageredDepositInfo().isEmpty(), "then.nats.rollback.wagered_deposit_info.is_empty");
@@ -277,7 +277,7 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
             step("Redis: Проверка агрегата кошелька после роллбэка", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.player.getWalletData().walletUUID())
-                        .withAtLeast("LastSeqNumber", (int) ctx.rollbackEvent.sequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.rollbackEvent.getSequence())
                         .fetch();
 
                 var depositData = aggregate.deposits().stream()
@@ -288,7 +288,7 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                 var rollbackData = aggregate.gambling().get(ctx.rollbackEvent.getPayload().uuid());
 
                 assertAll("Проверка финального состояния агрегата кошелька в Redis",
-                        () -> assertEquals((int) ctx.rollbackEvent.sequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),
+                        () -> assertEquals((int) ctx.rollbackEvent.getSequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),
                         () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(aggregate.balance()), "then.redis.wallet.balance"),
                         () -> assertNotNull(depositData, "then.redis.wallet.deposit.not_null"),
                         () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.status(), "then.redis.wallet.deposit.status"),

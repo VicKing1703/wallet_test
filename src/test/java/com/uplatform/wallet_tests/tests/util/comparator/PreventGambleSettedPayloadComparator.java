@@ -32,27 +32,27 @@ public class PreventGambleSettedPayloadComparator implements PayloadComparatorSt
         var nats  = (NatsPreventGambleSettedPayload) natsPayload;
         boolean ok = true;
 
-        if (kafka.isGamblingActive() != nats.isGamblingActive()) {
+        if (kafka.gamblingActive() != nats.gamblingActive()) {
             logMismatch(seqNum,
                     "isGamblingActive",
-                    kafka.isGamblingActive(),
-                    nats.isGamblingActive(),
+                    kafka.gamblingActive(),
+                    nats.gamblingActive(),
                     actualEventType);
             ok = false;
         }
-        if (kafka.isBettingActive() != nats.isBettingActive()) {
+        if (kafka.bettingActive() != nats.bettingActive()) {
             logMismatch(seqNum,
                     "isBettingActive",
-                    kafka.isBettingActive(),
-                    nats.isBettingActive(),
+                    kafka.bettingActive(),
+                    nats.bettingActive(),
                     actualEventType);
             ok = false;
         }
-        if (kafka.getCreatedAt() != nats.getCreatedAt()) {
+        if (kafka.createdAt() != nats.createdAt()) {
             logMismatch(seqNum,
                     "createdAt",
-                    kafka.getCreatedAt(),
-                    nats.getCreatedAt(),
+                    kafka.createdAt(),
+                    nats.createdAt(),
                     actualEventType);
             ok = false;
         }

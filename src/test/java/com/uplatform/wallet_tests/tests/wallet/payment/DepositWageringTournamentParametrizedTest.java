@@ -149,7 +149,7 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
                 assertAll("Проверка полей NATS-события о депозите",
                         () -> assertNotNull(ctx.depositEvent, "given.nats.deposit_event.not_null"),
                         () -> assertEquals(ctx.depositRequest.getCurrency(), payload.currencyCode(), "given.nats.deposit.currency_code"),
-                        () -> assertEquals(0, depositAmount.compareTo(payload.getAmount()), "given.nats.deposit.amount"),
+                        () -> assertEquals(0, depositAmount.compareTo(payload.amount()), "given.nats.deposit.amount"),
                         () -> assertEquals(NatsDepositStatus.SUCCESS, payload.status(), "given.nats.deposit.status"),
                         () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "given.nats.deposit.node_uuid")
                 );
@@ -196,10 +196,10 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
                         () -> assertNotNull(ctx.tournamentEvent, "then.nats.tournament_event.not_null"),
                         () -> assertEquals(ctx.tournamentRequest.getTransactionId(), payload.uuid(), "then.nats.tournament.uuid"),
                         () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "then.nats.tournament.node_uuid"),
-                        () -> assertEquals(0, tournamentAmountParam.compareTo(payload.getAmount()), "then.nats.tournament.amount"),
-                        () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.getGameSessionUuid(), "then.nats.tournament.game_session_uuid"),
-                        () -> assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, payload.getOperation(), "then.nats.tournament.operation"),
-                        () -> assertEquals(NatsGamblingTransactionType.TYPE_TOURNAMENT, payload.getType(), "then.nats.tournament.type")
+                        () -> assertEquals(0, tournamentAmountParam.compareTo(payload.amount()), "then.nats.tournament.amount"),
+                        () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.gameSessionUuid(), "then.nats.tournament.game_session_uuid"),
+                        () -> assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, payload.operation(), "then.nats.tournament.operation"),
+                        () -> assertEquals(NatsGamblingTransactionType.TYPE_TOURNAMENT, payload.type(), "then.nats.tournament.type")
                 );
 
                 assertTrue(payload.wageredDepositInfo().isEmpty(), "then.nats.tournament.wagered_deposit_info.is_empty");
@@ -208,7 +208,7 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
             step("Redis: Проверка агрегата кошелька после выигрыша", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.player.getWalletData().walletUUID())
-                        .withAtLeast("LastSeqNumber", (int) ctx.tournamentEvent.sequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.tournamentEvent.getSequence())
                         .fetch();
 
                 var depositData = aggregate.deposits().stream()
@@ -218,7 +218,7 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
                 var tournamentData = aggregate.gambling().get(ctx.tournamentEvent.getPayload().uuid());
 
                 assertAll("Проверка финального состояния агрегата кошелька в Redis",
-                        () -> assertEquals((int) ctx.tournamentEvent.sequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),
+                        () -> assertEquals((int) ctx.tournamentEvent.getSequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),
                         () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.balance()), "then.redis.wallet.balance"),
                         () -> assertNotNull(depositData, "then.redis.wallet.deposit.not_null"),
                         () -> assertEquals(0, depositAmount.compareTo(depositData.amount()), "then.redis.wallet.deposit.amount"),

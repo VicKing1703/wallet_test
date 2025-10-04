@@ -200,7 +200,7 @@ class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
         step("Redis: Определение вытесненной ставки", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
                     .fetch();
 
             var gamblingTransactionsInRedis = aggregate.gambling();

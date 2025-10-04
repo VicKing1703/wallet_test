@@ -277,7 +277,7 @@ class RefundParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(ctx.refundEvent.getPayload().currency(), transaction.getCurrency(), "db.transaction.currency"),
                     () -> assertEquals(0, ctx.refundAmount.compareTo(transaction.getAmount()), "db.transaction.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.transaction.created_at"),
-                    () -> assertEquals(ctx.refundEvent.sequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
+                    () -> assertEquals(ctx.refundEvent.getSequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
                     () -> assertEquals(ctx.refundEvent.getPayload().providerRoundClosed(), transaction.getProviderRoundClosed(), "db.transaction.provider_round_closed")
             );
         });
@@ -297,7 +297,7 @@ class RefundParametrizedTest extends BaseParameterizedTest {
 
         step("Kafka: Проверка поступления сообщения о рефанде в топик wallet.v8.projectionSource", () -> {
             var message = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.refundEvent.sequence())
+                    .with("seq_number", ctx.refundEvent.getSequence())
                     .fetch();
 
             assertNotNull(message, "kafka.message");
@@ -307,13 +307,13 @@ class RefundParametrizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька после рефанда", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.getSequence())
                     .fetch();
 
             assertNotNull(aggregate, "redis.aggregate");
 
             assertAll(
-                    () -> assertEquals(ctx.refundEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.seq_number"),
+                    () -> assertEquals(ctx.refundEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_balance"),
                     () -> assertTrue(aggregate.gambling().containsKey(ctx.refundEvent.getPayload().uuid()), "redis.aggregate.gambling_contains_uuid"),

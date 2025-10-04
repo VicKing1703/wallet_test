@@ -266,9 +266,9 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                         () -> assertNotNull(ctx.refundEvent, "then.nats.refund_event.not_null"),
                         () -> assertEquals(ctx.refundRequest.getTransactionId(), payload.uuid(), "then.nats.refund.uuid"),
                         () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "then.nats.refund.node_uuid"),
-                        () -> assertEquals(0, betAmount.compareTo(payload.getAmount()), "then.nats.refund.amount"),
-                        () -> assertEquals(NatsGamblingTransactionOperation.REFUND, payload.getOperation(), "then.nats.refund.operation"),
-                        () -> assertEquals(NatsGamblingTransactionType.TYPE_REFUND, payload.getType(), "then.nats.refund.type")
+                        () -> assertEquals(0, betAmount.compareTo(payload.amount()), "then.nats.refund.amount"),
+                        () -> assertEquals(NatsGamblingTransactionOperation.REFUND, payload.operation(), "then.nats.refund.operation"),
+                        () -> assertEquals(NatsGamblingTransactionType.TYPE_REFUND, payload.type(), "then.nats.refund.type")
                 );
 
                 assertTrue(payload.wageredDepositInfo().isEmpty(), "then.nats.refund.wagered_deposit_info.is_empty");
@@ -277,7 +277,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
             step("Redis: Проверка агрегата кошелька после рефанда", () -> {
                 var aggregate = redisWalletClient
                         .key(ctx.player.getWalletData().walletUUID())
-                        .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.sequence())
+                        .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.getSequence())
                         .fetch();
 
                 var depositData = aggregate.deposits().stream()
@@ -288,7 +288,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                 var refundData = aggregate.gambling().get(ctx.refundEvent.getPayload().uuid());
 
                 assertAll("Проверка финального состояния агрегата кошелька в Redis",
-                        () -> assertEquals((int) ctx.refundEvent.sequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),
+                        () -> assertEquals((int) ctx.refundEvent.getSequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),
                         () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(aggregate.balance()), "then.redis.wallet.balance"),
                         () -> assertNotNull(depositData, "then.redis.wallet.deposit.not_null"),
                         () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.status(), "then.redis.wallet.deposit.status"),

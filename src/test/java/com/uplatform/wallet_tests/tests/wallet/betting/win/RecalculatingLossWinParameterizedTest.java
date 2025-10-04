@@ -181,21 +181,21 @@ class RecalculatingLossWinParameterizedTest extends BaseParameterizedTest {
 
             var actualBetInfo = actualPayload.betInfo().get(0);
             assertAll("Проверка полей внутри bet_info NATS payload",
-                    () -> assertEquals(expectedBetInfo.getChampId(), actualBetInfo.getChampId(), "nats.payload.bet_info.champId"),
-                    () -> assertEquals(expectedBetInfo.getChampName(), actualBetInfo.getChampName(), "nats.payload.bet_info.champ_name"),
-                    () -> assertEquals(0, expectedBetInfo.getCoef().compareTo(actualBetInfo.getCoef()), "nats.payload.bet_info.coef"),
-                    () -> assertEquals(expectedBetInfo.getCouponType(), actualBetInfo.getCouponType(), "nats.payload.bet_info.coupon_type"),
-                    () -> assertEquals(expectedBetInfo.getDateStart(), actualBetInfo.getDateStart(), "nats.payload.bet_info.date_start"),
-                    () -> assertEquals(expectedBetInfo.getEvent(), actualBetInfo.getEvent(), "nats.payload.bet_info.event"),
-                    () -> assertEquals(expectedBetInfo.getGameName(), actualBetInfo.getGameName(), "nats.payload.bet_info.game_name"),
-                    () -> assertEquals(expectedBetInfo.getScore(), actualBetInfo.getScore(), "nats.payload.bet_info.score"),
-                    () -> assertEquals(expectedBetInfo.getSportName(), actualBetInfo.getSportName(), "nats.payload.bet_info.sport_name")
+                    () -> assertEquals(expectedBetInfo.champId(), actualBetInfo.champId(), "nats.payload.bet_info.champId"),
+                    () -> assertEquals(expectedBetInfo.champName(), actualBetInfo.champName(), "nats.payload.bet_info.champ_name"),
+                    () -> assertEquals(0, expectedBetInfo.coef().compareTo(actualBetInfo.coef()), "nats.payload.bet_info.coef"),
+                    () -> assertEquals(expectedBetInfo.couponType(), actualBetInfo.couponType(), "nats.payload.bet_info.coupon_type"),
+                    () -> assertEquals(expectedBetInfo.dateStart(), actualBetInfo.dateStart(), "nats.payload.bet_info.date_start"),
+                    () -> assertEquals(expectedBetInfo.event(), actualBetInfo.event(), "nats.payload.bet_info.event"),
+                    () -> assertEquals(expectedBetInfo.gameName(), actualBetInfo.gameName(), "nats.payload.bet_info.game_name"),
+                    () -> assertEquals(expectedBetInfo.score(), actualBetInfo.score(), "nats.payload.bet_info.score"),
+                    () -> assertEquals(expectedBetInfo.sportName(), actualBetInfo.sportName(), "nats.payload.bet_info.sport_name")
             );
         });
 
         step("Kafka: Проверка поступления сообщения recalculated_from_iframe в топик wallet.v8.projectionSource", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.recalculatedEvent.sequence())
+                    .with("seq_number", ctx.recalculatedEvent.getSequence())
                     .fetch();
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.recalculatedEvent), "kafka.payload");
         });
@@ -228,7 +228,7 @@ class RecalculatingLossWinParameterizedTest extends BaseParameterizedTest {
                     () -> assertEquals(recalculatedEventPayload.uuid(), dbTransaction.uuid(), "db.iframe_history.uuid"),
                     () -> assertEquals(player.walletUUID(), dbTransaction.getWalletUuid(), "db.iframe_history.wallet_uuid"),
                     () -> assertEquals(player.playerUUID(), dbTransaction.getPlayerUuid(), "db.iframe_history.player_uuid"),
-                    () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.getCouponType(), "db.iframe_history.coupon_type"),
+                    () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.couponType(), "db.iframe_history.coupon_type"),
                     () -> assertEquals(CouponStatus.WIN, dbTransaction.getCouponStatus(),  "db.iframe_history.coupon_status"),
                     () -> assertEquals(CouponCalcStatus.RECALCULATED, dbTransaction.getCouponCalcStatus(),  "db.iframe_history.coupon_calc_status"),
                     () -> assertEquals(recalculatedEventPayload.betId(), dbTransaction.getBetId(), "db.iframe_history.bet_id"),
@@ -241,7 +241,7 @@ class RecalculatingLossWinParameterizedTest extends BaseParameterizedTest {
                     () -> assertNotNull(dbTransaction.getBetTime(), "db.iframe_history.bet_time"),
                     () -> assertNotNull(dbTransaction.getModifiedAt(), "db.iframe_history.modified_at"),
                     () -> assertNotNull(dbTransaction.getCreatedAt(), "db.iframe_history.created_at"),
-                    () -> assertEquals(ctx.recalculatedEvent.sequence(), dbTransaction.getSeq(), "db.iframe_history.seq"),
+                    () -> assertEquals(ctx.recalculatedEvent.getSequence(), dbTransaction.getSeq(), "db.iframe_history.seq"),
                     () -> {
                         var expectedCoeff = new BigDecimal(ctx.betRequestBody.getTotalCoef());
                         assertEquals(0, expectedCoeff.compareTo(dbTransaction.getPrevCoeff()), "db.iframe_history.prev_coeff");
@@ -259,7 +259,7 @@ class RecalculatingLossWinParameterizedTest extends BaseParameterizedTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
                     .fetch();
 
             var actualBetInfo = aggregate.iFrameRecords().get(2);
@@ -269,9 +269,9 @@ class RecalculatingLossWinParameterizedTest extends BaseParameterizedTest {
                     () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
                     () -> assertEquals(expectedBetInfo.uuid(), actualBetInfo.uuid(), "redis.aggregate.iframe.uuid"),
-                    () -> assertEquals(expectedBetInfo.getBetId(), actualBetInfo.getBetID(), "redis.aggregate.iframe.bet_id"),
-                    () -> assertEquals(expectedBetInfo.getAmount(), actualBetInfo.getAmount(), "redis.aggregate.iframe.amount"),
-                    () -> assertEquals(0, expectedBetInfo.getTotalCoeff().compareTo(actualBetInfo.getTotalCoeff()), "redis.aggregate.iframe.total_coeff"),
+                    () -> assertEquals(expectedBetInfo.betId(), actualBetInfo.getBetID(), "redis.aggregate.iframe.bet_id"),
+                    () -> assertEquals(expectedBetInfo.amount(), actualBetInfo.getAmount(), "redis.aggregate.iframe.amount"),
+                    () -> assertEquals(0, expectedBetInfo.totalCoeff().compareTo(actualBetInfo.getTotalCoeff()), "redis.aggregate.iframe.total_coeff"),
                     () -> assertNotNull(actualBetInfo.getTime(), "redis.aggregate.iframe.time"),
                     () -> assertNotNull(actualBetInfo.getCreatedAt(), "redis.aggregate.iframe.created_at"),
                     () -> assertEquals(IFrameRecordType.WIN, actualBetInfo.getType(), "redis.aggregate.iframe.type")

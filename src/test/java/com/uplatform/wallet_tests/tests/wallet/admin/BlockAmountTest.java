@@ -108,7 +108,7 @@ class BlockAmountTest extends BaseTest {
         
         step("Kafka: Проверка поступления сообщения block_amount_started в топик wallet.v8.projectionSource", () -> {
             var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.blockAmountEvent.sequence())
+                    .with("seq_number", ctx.blockAmountEvent.getSequence())
                     .fetch();
         
             assertTrue(utils.areEquivalent(kafkaMessage, ctx.blockAmountEvent), "kafka.payload");
@@ -117,7 +117,7 @@ class BlockAmountTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.blockAmountEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.blockAmountEvent.getSequence())
                     .fetch();
 
             var blockedAmountInfo = aggregate.blockedAmounts().get(0);
@@ -125,7 +125,7 @@ class BlockAmountTest extends BaseTest {
             var expectedBalance = adjustmentAmount.subtract(blockAmount);
 
             assertAll("Проверка агрегата после BlockAmount",
-                    () -> assertEquals((int) ctx.blockAmountEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals((int) ctx.blockAmountEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, expectedBalance.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, expectedBalance.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
                     () -> assertEquals(0, adjustmentAmount.compareTo(aggregate.balanceBefore()), "redis.aggregate.balance_before"),

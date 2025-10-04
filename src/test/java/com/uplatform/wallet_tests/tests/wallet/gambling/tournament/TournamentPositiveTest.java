@@ -141,7 +141,7 @@ class TournamentPositiveTest extends BaseTest {
                     () -> assertEquals(ctx.tournamentEvent.getPayload().currency(), transaction.getCurrency(), "db.transaction.currency"),
                     () -> assertEquals(0, ctx.tournamentEvent.getPayload().amount().compareTo(transaction.getAmount()), "db.transaction.amount"),
                     () -> assertNotNull(transaction.getCreatedAt(), "db.transaction.created_at"),
-                    () -> assertEquals(ctx.tournamentEvent.sequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
+                    () -> assertEquals(ctx.tournamentEvent.getSequence(), transaction.getSeqnumber(), "db.transaction.seq_number"),
                     () -> assertEquals(ctx.tournamentEvent.getPayload().providerRoundClosed(), transaction.getProviderRoundClosed(), "db.transaction.provider_round_closed")
             );
         });
@@ -160,10 +160,10 @@ class TournamentPositiveTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка полных данных кошелька после турнирного выигрыша", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.tournamentEvent.sequence())
+                    .withAtLeast("LastSeqNumber", (int) ctx.tournamentEvent.getSequence())
                     .fetch();
             assertAll(
-                    () -> assertEquals(ctx.tournamentEvent.sequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals(ctx.tournamentEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
                     () -> assertTrue(aggregate.gambling().containsKey(ctx.tournamentEvent.getPayload().uuid()), "redis.aggregate.gambling.contains"),
@@ -174,7 +174,7 @@ class TournamentPositiveTest extends BaseTest {
 
         step("Kafka: Проверка поступления сообщения турнира в топик wallet.projectionSource", () -> {
             var message = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.tournamentEvent.sequence())
+                    .with("seq_number", ctx.tournamentEvent.getSequence())
                     .fetch();
 
             assertTrue(utils.areEquivalent(message, ctx.tournamentEvent), "kafka.payload");
