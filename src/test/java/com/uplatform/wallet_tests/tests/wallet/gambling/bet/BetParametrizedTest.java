@@ -233,7 +233,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
             var transaction = walletDatabaseClient.findTransactionByUuidOrFail(ctx.betRequestBody.getTransactionId());
             var payload = ctx.betEvent.getPayload();
             assertAll("Проверка полей gambling_projection_transaction_history",
-                    () -> assertEquals(payload.uuid(), transaction.uuid(), "db.gpth.uuid"),
+                    () -> assertEquals(payload.uuid(), transaction.getUuid(), "db.gpth.uuid"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.gpth.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.gpth.date"),
                     () -> assertEquals(payload.type(), transaction.getType(), "db.gpth.type"),

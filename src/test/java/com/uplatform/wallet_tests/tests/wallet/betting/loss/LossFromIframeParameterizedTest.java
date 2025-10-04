@@ -209,10 +209,10 @@ class LossFromIframeParameterizedTest extends BaseParameterizedTest {
                             new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
 
             assertAll("Проверка записанной строки в таблицу с историей ставок на спорт",
-                    () -> assertEquals(lossEventPayload.uuid(), dbTransaction.uuid(), "db.iframe_history.uuid"),
+                    () -> assertEquals(lossEventPayload.uuid(), dbTransaction.getUuid(), "db.iframe_history.uuid"),
                     () -> assertEquals(player.walletUUID(), dbTransaction.getWalletUuid(), "db.iframe_history.wallet_uuid"),
                     () -> assertEquals(player.playerUUID(), dbTransaction.getPlayerUuid(), "db.iframe_history.player_uuid"),
-                    () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.couponType(), "db.iframe_history.coupon_type"),
+                    () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.getCouponType(), "db.iframe_history.coupon_type"),
                     () -> assertEquals(CouponStatus.LOSS, dbTransaction.getCouponStatus(),  "db.iframe_history.coupon_status"),
                     () -> assertEquals(CouponCalcStatus.CALCULATED, dbTransaction.getCouponCalcStatus(),  "db.iframe_history.coupon_calc_status"),
                     () -> assertEquals(lossEventPayload.betId(), dbTransaction.getBetId(), "db.iframe_history.bet_id"),

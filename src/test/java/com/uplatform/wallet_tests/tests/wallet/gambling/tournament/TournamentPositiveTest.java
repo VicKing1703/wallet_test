@@ -131,7 +131,7 @@ class TournamentPositiveTest extends BaseTest {
                     findTransactionByUuidOrFail(ctx.tournamentRequestBody.getTransactionId());
 
             assertAll(
-                    () -> assertEquals(ctx.tournamentEvent.getPayload().uuid(), transaction.uuid(), "db.transaction.uuid"),
+                    () -> assertEquals(ctx.tournamentEvent.getPayload().uuid(), transaction.getUuid(), "db.transaction.uuid"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.transaction.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.transaction.date"),
                     () -> assertEquals(ctx.tournamentEvent.getPayload().type(), transaction.getType(), "db.transaction.type"),

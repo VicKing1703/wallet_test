@@ -175,10 +175,10 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
                         dbTransaction.getBetInfo(), new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
 
                 assertAll("Проверка записи в таблице истории (iframe_history)",
-                        () -> assertEquals(betEventPayload.uuid(), dbTransaction.uuid(), "db.history.uuid"),
+                        () -> assertEquals(betEventPayload.uuid(), dbTransaction.getUuid(), "db.history.uuid"),
                         () -> assertEquals(playerData.walletUUID(), dbTransaction.getWalletUuid(), "db.history.wallet_uuid"),
                         () -> assertEquals(playerData.playerUUID(), dbTransaction.getPlayerUuid(), "db.history.player_uuid"),
-                        () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.couponType(), "db.history.coupon_type"),
+                        () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.getCouponType(), "db.history.coupon_type"),
                         () -> assertEquals(CouponStatus.ACCEPTED, dbTransaction.getCouponStatus(), "db.history.coupon_status"),
                         () -> assertEquals(CouponCalcStatus.NO, dbTransaction.getCouponCalcStatus(), "db.history.coupon_calc_status"),
                         () -> assertEquals(betEventPayload.betId(), dbTransaction.getBetId(), "db.history.bet_id"),

@@ -269,7 +269,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
             assertNotNull(transaction, "db.transaction");
 
             assertAll(
-                    () -> assertEquals(ctx.rollbackEvent.getPayload().uuid(), transaction.uuid(), "db.transaction.uuid"),
+                    () -> assertEquals(ctx.rollbackEvent.getPayload().uuid(), transaction.getUuid(), "db.transaction.uuid"),
                     () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.transaction.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.transaction.date"),
                     () -> assertEquals(NatsGamblingTransactionType.TYPE_ROLLBACK, transaction.getType(), "db.transaction.type"),
