@@ -73,22 +73,22 @@ class CasinoLossLimitWhenWinFromIframeParametrizedTest extends BaseParameterized
 
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setCasinoLossLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "public_api.status_code");
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().playerUUID(),
-                        ctx.registeredPlayer.getWalletData().walletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -102,10 +102,10 @@ class CasinoLossLimitWhenWinFromIframeParametrizedTest extends BaseParameterized
         step("Manager API: Совершение ставки на спорт", () -> {
             ctx.betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -125,8 +125,8 @@ class CasinoLossLimitWhenWinFromIframeParametrizedTest extends BaseParameterized
 
             step("NATS: Проверка поступления события won_from_iframe", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().playerUUID(),
-                        ctx.registeredPlayer.getWalletData().walletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
@@ -140,7 +140,7 @@ class CasinoLossLimitWhenWinFromIframeParametrizedTest extends BaseParameterized
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.winEvent.getSequence())
                     .fetch();
 

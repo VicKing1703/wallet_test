@@ -81,7 +81,7 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение ставки для последующего рефанда", () -> {
             var betRequest = BetRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
@@ -184,15 +184,15 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
         final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         RefundRequestBody requestBody = RefundRequestBody.builder()
-                .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                 .amount(betAmount)
                 .transactionId(UUID.randomUUID().toString())
                 .betTransactionId(this.precedingBetRequestBody.getTransactionId())
                 .roundId(this.precedingBetRequestBody.getRoundId())
                 .roundClosed(true)
-                .playerId(this.registeredPlayer.getWalletData().walletUUID())
-                .currency(this.registeredPlayer.getWalletData().currency())
-                .gameUuid(this.gameLaunchData.getDbGameSession().getGameUuid())
+                .playerId(this.registeredPlayer.walletData().walletUUID())
+                .currency(this.registeredPlayer.walletData().currency())
+                .gameUuid(this.gameLaunchData.dbGameSession().getGameUuid())
                 .build();
 
         requestModifier.accept(requestBody);

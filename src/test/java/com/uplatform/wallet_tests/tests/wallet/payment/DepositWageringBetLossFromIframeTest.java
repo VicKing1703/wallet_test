@@ -91,7 +91,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
                 var depositRequest = DepositRequestBody.builder()
                         .amount(DEPOSIT_AMOUNT.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().currency())
+                        .currency(ctx.player.walletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -100,13 +100,13 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
                                 .build())
                         .build();
 
-                publicClient.deposit(ctx.player.getAuthorizationResponse().getBody().getToken(), depositRequest);
+                publicClient.deposit(ctx.player.authorizationResponse().getBody().getToken(), depositRequest);
             });
 
             step("Проверка получения подтверждающего события о депозите в NATS", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.depositEvent = natsClient
                         .expect(NatsDepositedMoneyPayload.class)
@@ -120,17 +120,17 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
             step("Совершение ставки для начала отыгрыша", () -> {
                 var betInput = MakePaymentData.builder()
                         .type(NatsBettingTransactionOperation.BET)
-                        .playerId(ctx.player.getWalletData().playerUUID())
+                        .playerId(ctx.player.walletData().playerUUID())
                         .summ(BET_AMOUNT.toPlainString())
                         .couponType(NatsBettingCouponType.SINGLE)
-                        .currency(ctx.player.getWalletData().currency())
+                        .currency(ctx.player.walletData().currency())
                         .build();
                 ctx.betRequest = generateRequest(betInput);
                 managerClient.makePayment(ctx.betRequest);
 
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class).from(subject)
                         .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
@@ -158,8 +158,8 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
 
         step("THEN: wallet-manager отправляет событие `loosed_from_iframe` в NATS без wager_info", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().playerUUID(),
-                    ctx.player.getWalletData().walletUUID());
+                    ctx.player.walletData().playerUUID(),
+                    ctx.player.walletData().walletUUID());
 
             ctx.lossEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
@@ -178,7 +178,7 @@ class DepositWageringBetLossFromIframeTest extends BaseTest {
 
         step("THEN: wallet_wallet_redis сохраняет сумму отыгрыша, баланс не меняется", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.player.getWalletData().walletUUID())
+                    .key(ctx.player.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lossEvent.getSequence())
                     .fetch();
 

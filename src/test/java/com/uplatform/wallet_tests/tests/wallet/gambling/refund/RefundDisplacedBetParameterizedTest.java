@@ -130,7 +130,7 @@ class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            ctx.currentCalculatedBalance = ctx.registeredPlayer.getWalletData().balance();
+            ctx.currentCalculatedBalance = ctx.registeredPlayer.walletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -147,7 +147,7 @@ class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
                 }
 
                 var betRequestBody = BetRequestBody.builder()
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .amount(betAmountParam)
                         .transactionId(transactionId)
                         .type(typeParam)
@@ -185,8 +185,8 @@ class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события betted_from_gamble для последней ставки", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.lastBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -199,7 +199,7 @@ class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
         step("Redis: Определение вытесненной ставки", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
                     .fetch();
 
@@ -222,15 +222,15 @@ class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Рефанд вытесненной ставки", () -> {
 
             RefundRequestBody refundRequestBody = RefundRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(ctx.betToRefundRequest.getAmount())
                     .transactionId(UUID.randomUUID().toString())
                     .betTransactionId(ctx.betToRefundRequest.getTransactionId())
                     .roundId(ctx.betToRefundRequest.getRoundId())
                     .roundClosed(true)
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .build();
 
             var expectedBalanceInApiResponse = ctx.balanceFromApiAfterAllBets.add(refundRequestBody.getAmount());

@@ -98,14 +98,14 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на депозит", () -> {
             testData.setLimitRequest = SetDepositLimitRequest.builder()
-                    .currency(testData.registeredPlayer.getWalletData().currency())
+                    .currency(testData.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setDepositLimit(
-                    testData.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    testData.registeredPlayer.authorizationResponse().getBody().getToken(),
                     testData.setLimitRequest
             );
 
@@ -116,9 +116,9 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             var expectedAmount = limitAmount.stripTrailingZeros().toPlainString();
 
             testData.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
-                    .with("playerId", testData.registeredPlayer.getWalletData().playerUUID())
+                    .with("playerId", testData.registeredPlayer.walletData().playerUUID())
                     .with("limitType", NatsLimitType.DEPOSIT.getValue())
-                    .with("currencyCode", testData.registeredPlayer.getWalletData().currency())
+                    .with("currencyCode", testData.registeredPlayer.walletData().currency())
                     .with("amount", expectedAmount
             )
                     .fetch();
@@ -129,14 +129,14 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
                     () -> assertEquals(NatsLimitType.DEPOSIT.getValue(), testData.kafkaLimitMessage.limitType(), "kafka.limits_v2_event.limitType"),
                     () -> assertEquals(periodType.getValue(), testData.kafkaLimitMessage.intervalType(), "kafka.limits_v2_event.intervalType"),
                     () -> assertEquals(0, limitAmount.compareTo(new BigDecimal(testData.kafkaLimitMessage.amount())), "kafka.limits_v2_event.amount"),
-                    () -> assertEquals(testData.registeredPlayer.getWalletData().currency(), testData.kafkaLimitMessage.currencyCode(), "kafka.limits_v2_event.currencyCode")
+                    () -> assertEquals(testData.registeredPlayer.walletData().currency(), testData.kafkaLimitMessage.currencyCode(), "kafka.limits_v2_event.currencyCode")
             );
         });
 
         step("NATS: Проверка получения события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    testData.registeredPlayer.getWalletData().playerUUID(),
-                    testData.registeredPlayer.getWalletData().walletUUID());
+                    testData.registeredPlayer.walletData().playerUUID(),
+                    testData.registeredPlayer.walletData().walletUUID());
 
             testData.natsLimitChangeEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -171,7 +171,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
 
         step("Redis (Wallet Aggregate): Проверка данных лимита в агрегате кошелька", () -> {
             var aggregate = redisWalletClient
-                    .key(testData.registeredPlayer.getWalletData().walletUUID())
+                    .key(testData.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) testData.natsLimitChangeEvent.getSequence())
                     .fetch();
 
@@ -201,7 +201,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
 
         step("CAP: Получение и валидация лимитов игрока", () -> {
             var response = capAdminClient.getPlayerLimits(
-                    testData.registeredPlayer.getWalletData().playerUUID(),
+                    testData.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId
             );
@@ -219,7 +219,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
 
             assertAll("cap.get_player_limits.limit_content_validation",
                     () -> assertTrue(capLimit.status(), "cap.get_player_limits.limit.status_is_true"),
-                    () -> assertEquals(testData.registeredPlayer.getWalletData().currency(), capLimit.currency(), "cap.get_player_limits.limit.currency"),
+                    () -> assertEquals(testData.registeredPlayer.walletData().currency(), capLimit.currency(), "cap.get_player_limits.limit.currency"),
                     () -> assertEquals(0, limitAmount.compareTo(capLimit.amount()), "cap.get_player_limits.limit.amount"),
                     () -> assertEquals(0, limitAmount.compareTo(capLimit.rest()), "cap.get_player_limits.limit.rest_equals_amount"),
                     () -> assertNotNull(capLimit.createdAt(), "cap.get_player_limits.limit.createdAt"),
@@ -231,7 +231,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
 
         step("Public API: Получение и валидация лимита Deposit", () -> {
             var response = publicClient.getDepositLimits(
-                    testData.registeredPlayer.getAuthorizationResponse().getBody().getToken()
+                    testData.registeredPlayer.authorizationResponse().getBody().getToken()
             );
 
             assertEquals(HttpStatus.OK, response.getStatusCode(), "fapi.get_deposit_limits.status_code");
@@ -248,7 +248,7 @@ public class DepositLimitCreateTest extends BaseParameterizedTest {
             assertAll("fapi.get_deposit_limits.limit_content_validation",
                     () -> assertEquals(testData.kafkaLimitMessage.id(), fapiLimit.id(), "fapi.get_deposit_limits.limit.id"),
                     () -> assertEquals(periodType.getValue(), fapiLimit.type(), "fapi.get_deposit_limits.limit.type"),
-                    () -> assertEquals(testData.registeredPlayer.getWalletData().currency(), fapiLimit.currency(), "fapi.get_deposit_limits.limit.currency"),
+                    () -> assertEquals(testData.registeredPlayer.walletData().currency(), fapiLimit.currency(), "fapi.get_deposit_limits.limit.currency"),
                     () -> assertTrue(fapiLimit.status(), "fapi.get_deposit_limits.limit.status_is_true"),
                     () -> assertEquals(0, limitAmount.compareTo(fapiLimit.amount()), "fapi.get_deposit_limits.limit.amount"),
                     () -> assertEquals(0, limitAmount.compareTo(fapiLimit.rest()), "fapi.get_deposit_limits.limit.rest_equals_amount"),

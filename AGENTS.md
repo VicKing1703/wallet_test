@@ -203,7 +203,7 @@ When you need a new HTTP step, follow the same recipe used across the casino-los
    ```java
    step("Manager API: place bet", () -> {
        var request = BetRequestBody.builder()
-               .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+               .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                .amount(betAmount)
                .transactionId(UUID.randomUUID().toString())
                .type(NatsGamblingTransactionOperation.BET)
@@ -300,16 +300,64 @@ Mirror the Feign workflow by walking through these preparation steps before asse
    Keep the class in `src/test/java/com/uplatform/wallet_tests/api/nats/dto`, favour nested records for structured sub-documents, and mirror the JSON names with `@JsonProperty` whenever the field is not idiomatic camelCase.
 
 #### Kafka
-`BetParametrizedTest` demonstrates the Kafka projection check, ensuring the message sequence aligns with the NATS event:
+Treat Kafka expectations the same way—prepare the wiring before asserting the projection/event.
 
-```java
-var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
-        .with("seq_number", ctx.betEvent.getSequence())
-        .fetch();
+1. **Register the topic mapping.** Extend [`KafkaConsumerConfig`](src/test/java/com/uplatform/wallet_tests/api/kafka/config/KafkaConsumerConfig.java) so every DTO is paired with the topic suffix it should listen to. The bean wraps a `SimpleKafkaTopicMappingRegistry`; when you add a mapping, the background consumer automatically subscribes and the in-memory buffer starts capturing that topic.
+   ```java
+   mappings.put(MyNewMessage.class, "wallet.v8.my_topic_suffix");
+   ```
+   Reuse the same suffix for multiple DTOs when they share a topic, and keep the suffix clean—the runtime prepends the environment-specific prefix from `walletTests.kafka.topicPrefix`, so do **not** add the prefix manually. If the payload lives on a non-wallet topic, map the literal topic name and mention the exception in the documentation block below.
 
-assertTrue(utils.areEquivalent(kafkaMessage, ctx.betEvent), "wallet.v8.projectionSource");
-```
-Reference [`src/test/java/com/uplatform/wallet_tests/tests/wallet/gambling/bet/BetParametrizedTest.java`](src/test/java/com/uplatform/wallet_tests/tests/wallet/gambling/bet/BetParametrizedTest.java).
+2. **Wire configuration.** Double-check the active environment file under `src/test/resources/configs` contains the Kafka block with `bootstrapServer`, `groupId`, buffer size, and timeout knobs. Follow the structure already present in [`configs/beta-09.json`](src/test/resources/configs/beta-09.json). New topics do **not** require extra configuration beyond the DTO mapping, but long-running searches can tune `kafka.findMessageTimeout` or `kafka.findMessageSleepInterval` when necessary.
+
+3. **Model payload DTOs as records.** Place the Java records in `src/test/java/com/uplatform/wallet_tests/api/kafka/dto`. Avoid Lombok—express the shape directly in a `record`, annotate the type with `@JsonIgnoreProperties(ignoreUnknown = true)`, and use `@JsonProperty` for every snake_case field. Nested structures should be represented as nested records so Jackson can deserialize them without auxiliary setters. Example template:
+   ```java
+   @JsonIgnoreProperties(ignoreUnknown = true)
+   public record KafkaExampleMessage(
+           @JsonProperty("player_id") String playerId,
+           @JsonProperty("payload") Payload payload
+   ) {
+       @JsonIgnoreProperties(ignoreUnknown = true)
+       public record Payload(
+               @JsonProperty("transaction_id") String transactionId,
+               @JsonProperty("amount") BigDecimal amount
+       ) { }
+   }
+   ```
+   Keep enums or helper records inside the same package so expectations have a single import surface.
+
+4. **Compose the fluent expectation deliberately.** Mirror the NATS documentation pattern by annotating each chained method in situ:
+   ```java
+   step("Kafka: wallet.v8 projection updated", () -> {
+       ctx.projectionMessage = kafkaClient.expect(WalletProjectionMessage.class)
+               // 1) provide JSONPath filter key/value pairs
+               .with("seq_number", ctx.betEvent.getSequence())
+               .with("wallet_uuid", ctx.registeredPlayer.walletData().walletUUID())
+               // 2) enforce that only a single message matches
+               .unique()
+               // 3) override the default timeout when projections lag
+               .within(Duration.ofSeconds(45))
+               // 4) trigger the polling loop and deserialize the payload
+               .fetch();
+   });
+   ```
+   The builder methods behave as follows:
+   - `.expect(Type.class)` resolves the topic via `KafkaTopicMappingRegistry` and primes the search buffer.
+   - `.with(key, value)` adds an equality filter against the deserialized JSON (use JsonPath selectors such as `"$.payload.uuid"`).
+   - `.unique()` asserts that exactly one message matches before returning it; omit the call when duplicates are acceptable.
+   - `.within(Duration timeout)` overrides the default `kafka.findMessageTimeout` configured in `configs/*.json`.
+   - `.fetch()` starts the polling loop and returns the deserialized record, or throws if nothing matches.
+
+5. **Document the topic.** Record each topic/DTO pair in this file right next to the scenario that consumes it, using the template below. This keeps the contract searchable via `rg "Kafka:" AGENTS.md` and saves future readers from chasing implicit mappings.
+   ```md
+   > **Kafka: `<topic_suffix>`**
+   > - Topic: `wallet.%s.<topic_suffix>`
+   > - DTO: `<RecordName>` (asserted JsonPath selectors: `<$.field[0]>`, `<$.field[1]>`)
+   > - Notes: Optional clarifications (ordering rules, deduplication windows, etc.)
+   ```
+   If the topic lives outside the wallet prefix, state the literal topic name instead of the template and mention any prerequisite configuration (e.g., separate consumer group).
+
+Reference [`src/test/java/com/uplatform/wallet_tests/tests/wallet/gambling/bet/BetParametrizedTest.java`](src/test/java/com/uplatform/wallet_tests/tests/wallet/gambling/bet/BetParametrizedTest.java) for the fully wired example.
 
 #### Redis
 The same bet test uses the Redis client to wait for the aggregate to catch up to the NATS sequence and assert individual fields:
@@ -336,7 +384,7 @@ var transaction = walletDatabaseClient.findTransactionByUuidOrFail(ctx.betReques
 
 assertAll("db.gpth.validation",
         () -> assertEquals(ctx.betEvent.getPayload().getUuid(), transaction.getUuid(), "db.gpth.uuid"),
-        () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(),
+        () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), transaction.getPlayerUuid(),
                 "db.gpth.player_uuid"),
         () -> assertEquals(ctx.betEvent.getSequence(), transaction.getSeqnumber(), "db.gpth.seqnumber")
 );
@@ -393,25 +441,25 @@ Always follow this pattern:
 
 ## DTO Objects (Field Map & Usage)
 - **Response DTO rule:** Whenever you introduce a new HTTP response wrapper, declare it as a Java `record` (e.g., `public record LaunchGameResponseBody(...) {}`). Records are already used across the suite to guarantee immutability and concise field exposure, and Jackson handles them out of the box in our test runtime.
-- **`RegisteredPlayerData`:** Thin wrapper that stores the *raw* HTTP authorization response together with the Redis snapshot of the wallet at registration time. Use it to avoid repeatedly hitting the APIs in every verification step.
-  - `authorizationResponse` — `ResponseEntity<TokenCheckResponse>` produced by the FAPI `/token/check` call inside `DefaultTestSteps`. Access the bearer token via `registeredPlayer.getAuthorizationResponse().getBody().getToken()`; the helper already prefixes it with `Bearer`.
+- **`RegisteredPlayerData`:** Thin record wrapper that stores the *raw* HTTP authorization response together with the Redis snapshot of the wallet at registration time. Use it to avoid repeatedly hitting the APIs in every verification step.
+  - `authorizationResponse` — `ResponseEntity<TokenCheckResponse>` produced by the FAPI `/token/check` call inside `DefaultTestSteps`. Access the bearer token via `registeredPlayer.authorizationResponse().getBody().getToken()`; the helper already prefixes it with `Bearer`.
   - `walletData` — `WalletFullData` deserialized from Redis right after the player is created. It exposes the wallet UUID, player UUID, balance figures, limit collections, gambling map (keyed by transaction UUID), and helper records for bonus, deposits, and blocked amounts.
   - **Typical usage:**
     ```java
-    String playerToken = ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken();
-    String walletUuid = ctx.registeredPlayer.getWalletData().walletUUID();
+    String playerToken = ctx.registeredPlayer.authorizationResponse().getBody().getToken();
+    String walletUuid = ctx.registeredPlayer.walletData().walletUUID();
 
-    assertFalse(ctx.registeredPlayer.getWalletData().isBlocked(), "redis.wallet.is_blocked");
+    assertFalse(ctx.registeredPlayer.walletData().isBlocked(), "redis.wallet.is_blocked");
     ```
     For deep limit assertions rely on `WalletFullData#limits()` – each `LimitData` exposes amount/spent/rest fields already converted to `BigDecimal`.
-- **`GameLaunchData`:** Couples the database entity returned by `WalletDatabaseClient` with the HTTP launch response, allowing the test to assert both persistence and the client-facing payload.
+- **`GameLaunchData`:** Record that couples the database entity returned by `WalletDatabaseClient` with the HTTP launch response, allowing the test to assert both persistence and the client-facing payload.
   - `dbGameSession` — `WalletGameSession` JPA entity fetched from the `game_session` table. Fields such as `gameSessionUuid`, `walletUuid`, `providerUuid`, and `gameCurrency` are available for DB-level checks.
   - `launchGameResponse` — `ResponseEntity<LaunchGameResponseBody>` from the game launch HTTP call. Extract the lobby URL via `getBody().getUrl()` and compare with `WalletGameSession#getGameExternalUuid()` or provider metadata when needed.
   - **Typical usage:**
     ```java
-    assertEquals(ctx.gameLaunchData.getDbGameSession().getWalletUuid(), ctx.registeredPlayer.getWalletData().walletUUID(),
+    assertEquals(ctx.gameLaunchData.dbGameSession().getWalletUuid(), ctx.registeredPlayer.walletData().walletUUID(),
             "db.game_session.wallet_uuid");
-    assertTrue(ctx.gameLaunchData.getLaunchGameResponse().getBody().getUrl().contains("session="),
+    assertTrue(ctx.gameLaunchData.launchGameResponse().getBody().getUrl().contains("session="),
             "fapi.launch.response.url_contains_session");
     ```
     Because both responses are cached inside the DTO, you can pass `GameLaunchData` between steps without re-querying Redis or the DB.

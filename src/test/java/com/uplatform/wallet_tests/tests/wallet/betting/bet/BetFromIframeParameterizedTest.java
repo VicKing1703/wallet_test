@@ -105,10 +105,10 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
         step("WHEN: Игрок совершает ставку на спорт через manager_api", () -> {
             var betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.player.getWalletData().playerUUID())
+                    .playerId(ctx.player.walletData().playerUUID())
                     .summ(BET_AMOUNT.toPlainString())
                     .couponType(couponType)
-                    .currency(ctx.player.getWalletData().currency())
+                    .currency(ctx.player.walletData().currency())
                     .build();
 
             ctx.betRequest = generateRequest(betInputData);
@@ -123,8 +123,8 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
         step("THEN: Система корректно обрабатывает ставку во всех компонентах", () -> {
             step("wallet-manager отправляет событие `betted_from_iframe` в NATS", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
                         .from(subject)
@@ -155,10 +155,10 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
             step("AND: В БД обновляется порог выигрыша", () -> {
                 var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
-                        ctx.player.getWalletData().playerUUID());
+                        ctx.player.walletData().playerUUID());
 
                 assertAll("Проверка записи в таблице порогов (thresholds)",
-                        () -> assertEquals(ctx.player.getWalletData().playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
+                        () -> assertEquals(ctx.player.walletData().playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
                         () -> assertEquals(0, BET_AMOUNT.negate().compareTo(threshold.getAmount()), "db.threshold.amount"),
                         () -> assertNotNull(threshold.getUpdatedAt(), "db.threshold.updated_at")
                 );
@@ -169,7 +169,7 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
                         ctx.betEvent.getPayload().uuid());
 
                 var betEventPayload = ctx.betEvent.getPayload();
-                var playerData = ctx.player.getWalletData();
+                var playerData = ctx.player.walletData();
 
                 var actualDbBetInfoList = objectMapper.readValue(
                         dbTransaction.getBetInfo(), new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
@@ -189,7 +189,7 @@ class BetFromIframeParameterizedTest extends BaseParameterizedTest {
 
             step("AND: В Redis обновляется агрегат кошелька", () -> {
                 var aggregate = redisWalletClient
-                        .key(ctx.player.getWalletData().walletUUID())
+                        .key(ctx.player.walletData().walletUUID())
                         .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
                         .fetch();
 

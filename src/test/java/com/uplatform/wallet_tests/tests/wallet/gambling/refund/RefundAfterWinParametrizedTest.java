@@ -143,7 +143,7 @@ class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение исходной транзакции выигрыша", () -> {
             ctx.winRequestBody = WinRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(winOperationTypeParam)
@@ -161,7 +161,7 @@ class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Попытка выполнения рефанда для транзакции выигрыша", () -> {
             var refundRequestBody = RefundRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .betTransactionId(ctx.winRequestBody.getTransactionId())

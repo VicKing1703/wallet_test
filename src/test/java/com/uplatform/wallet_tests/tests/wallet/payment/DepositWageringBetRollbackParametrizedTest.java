@@ -162,7 +162,7 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                 ctx.depositRequest = DepositRequestBody.builder()
                         .amount(depositAmount.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().currency())
+                        .currency(ctx.player.walletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -172,7 +172,7 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                         .build();
 
                 var response = publicClient.deposit(
-                        ctx.player.getAuthorizationResponse().getBody().getToken(),
+                        ctx.player.authorizationResponse().getBody().getToken(),
                         ctx.depositRequest);
 
                 assertEquals(HttpStatus.CREATED, response.getStatusCode(), "given.fapi.deposit.status_code");
@@ -180,8 +180,8 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
             step("NATS: Проверка события deposited_money", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
@@ -193,7 +193,7 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
             step("Manager API: Совершение ставки", () -> {
                 ctx.betRequest = BetRequestBody.builder()
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .amount(betAmount)
                         .transactionId(UUID.randomUUID().toString())
                         .type(operationParam)
@@ -211,8 +211,8 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
             step("NATS: Проверка события betted_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
@@ -226,13 +226,13 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
         step("WHEN: Выполняется роллбэк ставки", () -> {
             ctx.rollbackRequest = RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequest.getTransactionId())
-                    .currency(ctx.player.getWalletData().currency())
-                    .playerId(ctx.player.getWalletData().walletUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .currency(ctx.player.walletData().currency())
+                    .playerId(ctx.player.walletData().walletUUID())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(ctx.betRequest.getRoundId())
                     .roundClosed(true)
                     .build();
@@ -252,8 +252,8 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
         step("THEN: Состояние систем корректно обновлено", () -> {
             step("NATS: Проверка события rollbacked_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
@@ -276,7 +276,7 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
 
             step("Redis: Проверка агрегата кошелька после роллбэка", () -> {
                 var aggregate = redisWalletClient
-                        .key(ctx.player.getWalletData().walletUUID())
+                        .key(ctx.player.walletData().walletUUID())
                         .withAtLeast("LastSeqNumber", (int) ctx.rollbackEvent.getSequence())
                         .fetch();
 

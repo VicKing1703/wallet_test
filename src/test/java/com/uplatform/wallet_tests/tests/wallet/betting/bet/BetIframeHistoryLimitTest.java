@@ -79,7 +79,7 @@ class BetIframeHistoryLimitTest extends BaseTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            ctx.currentBalance = ctx.registeredPlayer.getWalletData().balance();
+            ctx.currentBalance = ctx.registeredPlayer.walletData().balance();
 
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
@@ -88,10 +88,10 @@ class BetIframeHistoryLimitTest extends BaseTest {
             for (int i = 0; i < currentTransactionCountToMake; i++) {
                 var betInputData = MakePaymentData.builder()
                         .type(NatsBettingTransactionOperation.BET)
-                        .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                        .playerId(ctx.registeredPlayer.walletData().playerUUID())
                         .summ(singleBetAmount.toPlainString())
                         .couponType(NatsBettingCouponType.SINGLE)
-                        .currency(ctx.registeredPlayer.getWalletData().currency())
+                        .currency(ctx.registeredPlayer.walletData().currency())
                         .build();
 
                 var betRequestBody = MakePaymentRequestGenerator.generateRequest(betInputData);
@@ -121,8 +121,8 @@ class BetIframeHistoryLimitTest extends BaseTest {
 
         step("NATS: Ожидание NATS-события betted_from_iframe для последней ставки", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.lastBetEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
@@ -136,7 +136,7 @@ class BetIframeHistoryLimitTest extends BaseTest {
         step("Redis(Wallet): Получение и проверка данных кошелька (лимит iFrame ставок)", () -> {
             step("Redis(Wallet): Получение и проверка данных кошелька (лимит iFrame ставок)", () -> {
                 var aggregate = redisWalletClient
-                        .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                        .key(ctx.registeredPlayer.walletData().walletUUID())
                         .withAtLeast("LastSeqNumber", (int) ctx.lastBetEvent.getSequence())
                         .fetch();
 

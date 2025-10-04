@@ -51,12 +51,12 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
         step("Public API: Установка лимита на одиночную ставку", () -> {
             ctx.singleBetLimitRequest = SetSingleBetLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .amount(ctx.limitAmount.toString())
                     .build();
 
             var response = publicClient.setSingleBetLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.singleBetLimitRequest
             );
 
@@ -66,9 +66,9 @@ public class SingleBetLimitCreateTest extends BaseTest {
         step("Kafka: Получение сообщения из топика limits.v2", () -> {
             var expectedAmount = ctx.limitAmount.stripTrailingZeros().toPlainString();
             ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
-                    .with("playerId", ctx.registeredPlayer.getWalletData().playerUUID())
+                    .with("playerId", ctx.registeredPlayer.walletData().playerUUID())
                     .with("limitType", NatsLimitType.SINGLE_BET.getValue())
-                    .with("currencyCode", ctx.registeredPlayer.getWalletData().currency())
+                    .with("currencyCode", ctx.registeredPlayer.walletData().currency())
                     .with("amount", expectedAmount
             )
                     .fetch();
@@ -77,8 +77,8 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
         step("NATS: Проверка поступления события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -115,7 +115,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.limitCreateEvent.getSequence())
                     .fetch();
 
@@ -135,7 +135,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
         step("CAP: Получение лимитов игрока и их валидация", () -> {
             var response = capAdminClient.getPlayerLimits(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId
             );
@@ -156,7 +156,7 @@ public class SingleBetLimitCreateTest extends BaseTest {
 
         step("Public API: Получение лимитов игрока и их валидация", () -> {
             var response = publicClient.getSingleBetLimits(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken()
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken()
             );
 
             assertAll("fapi.get_single_bet_limits.limit_content_validation",

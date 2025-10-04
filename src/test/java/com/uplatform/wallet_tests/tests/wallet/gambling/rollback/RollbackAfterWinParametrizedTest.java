@@ -141,7 +141,7 @@ class RollbackAfterWinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение исходной транзакции выигрыша", () -> {
             ctx.winRequestBody = WinRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(winOperationTypeParam)
@@ -159,13 +159,13 @@ class RollbackAfterWinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Попытка выполнения роллбэка для транзакции выигрыша", () -> {
             var rollbackRequestBody = RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.winRequestBody.getTransactionId())
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(ctx.winRequestBody.getRoundId())
                     .roundClosed(true)
                     .build();

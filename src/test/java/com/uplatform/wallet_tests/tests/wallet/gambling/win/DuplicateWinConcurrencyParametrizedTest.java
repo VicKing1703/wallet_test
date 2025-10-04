@@ -101,7 +101,7 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
 
         step("Default Step: Совершение базовой ставки для привязки выигрыша", () -> {
             this.initialBetRequest = BetRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(baseBetAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
@@ -132,7 +132,7 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
         step(String.format("Manager API: Одновременная отправка дублирующихся выигрышей (тип: %s, сумма: %s)", operationParam, winAmountParam), () -> {
 
             var request = WinRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)

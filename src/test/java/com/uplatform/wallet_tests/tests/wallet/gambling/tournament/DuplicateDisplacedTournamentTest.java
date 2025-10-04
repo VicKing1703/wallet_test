@@ -101,13 +101,13 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
                     ctx.lastMadeTournamentTransactionId = transactionId;
                 }
                 var tournamentRequestBody = TournamentRequestBody.builder()
-                        .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .amount(singleTournamentAmount)
                         .transactionId(transactionId)
                         .roundId(UUID.randomUUID().toString())
-                        .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
-                        .providerUuid(ctx.gameLaunchData.getDbGameSession().getProviderUuid())
+                        .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
+                        .providerUuid(ctx.gameLaunchData.dbGameSession().getProviderUuid())
                         .build();
                 ctx.allMadeTournamentRequests.add(tournamentRequestBody);
 
@@ -125,8 +125,8 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
 
         step("NATS: Ожидание NATS-события tournament_won_from_gamble для последнего начисления", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.lastTournamentNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -139,7 +139,7 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
 
         step("Redis: Определение вытесненного турнирного начисления", () -> {
             WalletFullData aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lastTournamentNatsEvent.getSequence())
                     .fetch();
 
@@ -160,8 +160,8 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
 
         step("Manager API: Попытка дублирования вытесненного турнирного начисления (ID: " + ctx.displacedTournamentRequestToDuplicate.getTransactionId() + ") и проверка ошибки", () -> {
             var duplicateTournamentAttemptRequest = TournamentRequestBody.builder()
-                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(ctx.displacedTournamentRequestToDuplicate.getAmount())
                     .transactionId(ctx.displacedTournamentRequestToDuplicate.getTransactionId())
                     .roundId(ctx.displacedTournamentRequestToDuplicate.getRoundId())

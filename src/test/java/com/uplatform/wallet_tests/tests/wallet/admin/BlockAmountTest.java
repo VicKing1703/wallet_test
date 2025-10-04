@@ -56,19 +56,19 @@ class BlockAmountTest extends BaseTest {
         step("CAP API: Создание блокировки средств", () -> {
             ctx.blockAmountRequest = CreateBlockAmountRequest.builder()
                     .reason(get(NAME))
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .amount(blockAmount.toString())
                     .build();
 
             ctx.blockAmountResponse = capAdminClient.createBlockAmount(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     ctx.blockAmountRequest
             );
 
             var responseBody = ctx.blockAmountResponse.getBody();
-            var player = ctx.registeredPlayer.getWalletData();
+            var player = ctx.registeredPlayer.walletData();
             assertAll("Проверка данных в ответе на создание блокировки средств",
                     () -> assertEquals(HttpStatus.OK, ctx.blockAmountResponse.getStatusCode(), "cap_api.block_amount.status_code"),
                     () -> assertNotNull(responseBody.transactionId(), "cap_api.block_amount.transaction_id"),
@@ -83,8 +83,8 @@ class BlockAmountTest extends BaseTest {
 
         step("NATS: Проверка поступления события block_amount_started", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.blockAmountEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
                     .from(subject)
@@ -116,7 +116,7 @@ class BlockAmountTest extends BaseTest {
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.blockAmountEvent.getSequence())
                     .fetch();
 
@@ -147,11 +147,11 @@ class BlockAmountTest extends BaseTest {
             var response = capAdminClient.getBlockAmountList(
                     utils.getAuthorizationHeader(),
                     platformNodeId,
-                    ctx.registeredPlayer.getWalletData().playerUUID());
+                    ctx.registeredPlayer.walletData().playerUUID());
 
             var expectedTxId = ctx.blockAmountResponse.getBody().transactionId();
             var createdItem = response.getBody().items().get(0);
-            var player = ctx.registeredPlayer.getWalletData();
+            var player = ctx.registeredPlayer.walletData();
 
             assertAll("Проверка данных созданной блокировки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.status_code"),

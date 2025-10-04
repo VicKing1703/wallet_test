@@ -124,7 +124,7 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение исходной транзакции (ставки)", () -> {
             ctx.betRequestBody = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(typeParam)
@@ -147,7 +147,7 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
@@ -157,15 +157,15 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Выполнение рефанда транзакции", () -> {
             var refundRequestBody = com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .betTransactionId(ctx.betRequestBody.getTransactionId())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .build();
 
             var response = managerClient.refund(

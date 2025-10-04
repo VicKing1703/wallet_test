@@ -103,10 +103,10 @@ class LossFromIframeParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки на спорт", () -> {
             ctx.betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(couponType)
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -135,8 +135,8 @@ class LossFromIframeParameterizedTest extends BaseParameterizedTest {
 
         step("NATS: Проверка поступления события loosed_from_iframe", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             var expectedBetInfoList = objectMapper.readValue(
                     ctx.betRequestBody.getBetInfo(),
@@ -186,8 +186,8 @@ class LossFromIframeParameterizedTest extends BaseParameterizedTest {
 
         step("DB Wallet: Проверка записи порога выигрыша в player_threshold_win", () -> {
             var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().playerUUID());
-            var player = ctx.registeredPlayer.getWalletData();
+                    ctx.registeredPlayer.walletData().playerUUID());
+            var player = ctx.registeredPlayer.walletData();
             var expectedAmount = betAmount.negate();
             assertAll("Проверка трешхолда после совершения ставки на спорт",
                     () -> assertEquals(player.playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
@@ -201,7 +201,7 @@ class LossFromIframeParameterizedTest extends BaseParameterizedTest {
                     ctx.lossNatsEvent.getPayload().uuid());
 
             var lossEventPayload = ctx.lossNatsEvent.getPayload();
-            var player = ctx.registeredPlayer.getWalletData();
+            var player = ctx.registeredPlayer.walletData();
             var betInfo = lossEventPayload.betInfo().get(0);
 
             var actualDbBetInfoList = objectMapper
@@ -242,7 +242,7 @@ class LossFromIframeParameterizedTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lossNatsEvent.getSequence())
                     .fetch();
 

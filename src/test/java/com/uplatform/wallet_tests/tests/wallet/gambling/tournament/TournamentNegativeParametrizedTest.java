@@ -119,12 +119,12 @@ class TournamentNegativeParametrizedTest extends BaseParameterizedTest {
 
         var requestBody = TournamentRequestBody.builder()
                 .amount(this.validTournamentAmount)
-                .playerId(this.registeredPlayer.getWalletData().playerUUID())
-                .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                .playerId(this.registeredPlayer.walletData().playerUUID())
+                .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                 .transactionId(UUID.randomUUID().toString())
-                .gameUuid(this.gameLaunchData.getDbGameSession().getGameUuid())
+                .gameUuid(this.gameLaunchData.dbGameSession().getGameUuid())
                 .roundId(UUID.randomUUID().toString())
-                .providerUuid(this.gameLaunchData.getDbGameSession().getProviderUuid())
+                .providerUuid(this.gameLaunchData.dbGameSession().getProviderUuid())
                 .build();
 
         requestModifier.accept(requestBody);

@@ -118,7 +118,7 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
                     ctx.lastMadeWinTransactionId = transactionId;
                 }
                 var winRequestBody = WinRequestBody.builder()
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .amount(winAmountParam)
                         .transactionId(transactionId)
                         .type(operationParam)
@@ -140,8 +140,8 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события для последнего выигрыша", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.lastWinNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -154,7 +154,7 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
 
         step("Redis: Определение вытесненной транзакции", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lastWinNatsEvent.getSequence())
                     .fetch();
 

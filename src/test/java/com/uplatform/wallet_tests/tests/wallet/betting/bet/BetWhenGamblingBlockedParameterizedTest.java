@@ -82,7 +82,7 @@ class BetWhenGamblingBlockedParameterizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
@@ -93,10 +93,10 @@ class BetWhenGamblingBlockedParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки на спорт", () -> {
             var data = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(couponType)
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             var request = generateRequest(data);

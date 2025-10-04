@@ -177,7 +177,7 @@ class WinNegativeParametrizedTest extends BaseParameterizedTest {
 
         step("Подготовка некорректного запроса: " + description, () -> {
             ctx.request = WinRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(this.validWinAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.WIN)

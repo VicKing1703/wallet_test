@@ -91,7 +91,7 @@ class RefundDisplacedIframeBetParameterizedTest extends BaseParameterizedTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            ctx.currentCalculatedBalance = ctx.registeredPlayer.getWalletData().balance();
+            ctx.currentCalculatedBalance = ctx.registeredPlayer.walletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -99,10 +99,10 @@ class RefundDisplacedIframeBetParameterizedTest extends BaseParameterizedTest {
             for (int i = 0; i < currentTransactionCountToMake; i++) {
                 var betInputData = MakePaymentData.builder()
                         .type(NatsBettingTransactionOperation.BET)
-                        .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                        .playerId(ctx.registeredPlayer.walletData().playerUUID())
                         .summ(singleBetAmount.toPlainString())
                         .couponType(couponType)
-                        .currency(ctx.registeredPlayer.getWalletData().currency())
+                        .currency(ctx.registeredPlayer.walletData().currency())
                         .build();
                 var betRequestBody = MakePaymentRequestGenerator.generateRequest(betInputData);
 
@@ -131,8 +131,8 @@ class RefundDisplacedIframeBetParameterizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события betted_from_iframe для последней ставки (для sequence)", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             var lastBetRequest = ctx.madeBetsRequests.stream()
                     .filter(req -> Objects.equals(req.getBetId(), ctx.lastMadeBetId))
@@ -148,7 +148,7 @@ class RefundDisplacedIframeBetParameterizedTest extends BaseParameterizedTest {
 
         step("Определение вытесненных iFrame ставок из Redis", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
                     .fetch();
             var iFrameRecordsInRedis = aggregate.iFrameRecords();

@@ -89,7 +89,7 @@ class RollbackAfterRollbackTest extends BaseTest {
 
         step("Manager API: Совершение ставки", () -> {
             ctx.betRequestBody = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
@@ -107,13 +107,13 @@ class RollbackAfterRollbackTest extends BaseTest {
 
         step("Manager API: Выполнение первого роллбэка для ставки", () -> {
             ctx.firstRollbackRequestBody = RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(rollbackAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)
                     .build();
@@ -128,13 +128,13 @@ class RollbackAfterRollbackTest extends BaseTest {
 
         step("Manager API: Попытка выполнения повторного роллбэка для той же ставки", () -> {
             RollbackRequestBody secondRollbackAttemptBody = RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(rollbackAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)
                     .build();

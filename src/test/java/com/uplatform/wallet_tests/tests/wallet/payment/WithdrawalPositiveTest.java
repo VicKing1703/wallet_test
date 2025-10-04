@@ -87,7 +87,7 @@ class WithdrawalPositiveTest extends BaseTest {
 
             step("Пополнение баланса через CAP", () -> {
                 var request = CreateBalanceAdjustmentRequest.builder()
-                        .currency(ctx.player.getWalletData().currency())
+                        .currency(ctx.player.walletData().currency())
                         .amount(ADJUSTMENT_AMOUNT)
                         .reason(ReasonType.MALFUNCTION)
                         .operationType(OperationType.CORRECTION)
@@ -96,7 +96,7 @@ class WithdrawalPositiveTest extends BaseTest {
                         .build();
 
                 var response = capAdminClient.createBalanceAdjustment(
-                        ctx.player.getWalletData().playerUUID(),
+                        ctx.player.walletData().playerUUID(),
                         utils.getAuthorizationHeader(),
                         configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                         "6dfe249e-e967-477b-8a42-83efe85c7c3a", // idempotency-key
@@ -114,7 +114,7 @@ class WithdrawalPositiveTest extends BaseTest {
             var withdrawalRequest = WithdrawalRequestBody.builder()
                     .amount(WITHDRAWAL_AMOUNT.toPlainString())
                     .paymentMethodId(PaymentMethodId.MOCK)
-                    .currency(ctx.player.getWalletData().currency())
+                    .currency(ctx.player.walletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .context(Collections.emptyMap())
                     .redirect(WithdrawalRequestBody.RedirectUrls.builder()
@@ -125,14 +125,14 @@ class WithdrawalPositiveTest extends BaseTest {
                     .build();
 
             var response = publicClient.withdrawal(
-                    ctx.player.getAuthorizationResponse().getBody().getToken(),
+                    ctx.player.authorizationResponse().getBody().getToken(),
                     withdrawalRequest);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.withdrawal.status_code");
 
             step("Получение transactionId из Kafka", () -> {
                 var paymentMessage = kafkaClient.expect(PaymentTransactionMessage.class)
-                        .with("playerId", ctx.player.getWalletData().playerUUID())
+                        .with("playerId", ctx.player.walletData().playerUUID())
                         .fetch();
 
                 ctx.transactionId = paymentMessage.transaction().transactionId();
@@ -142,8 +142,8 @@ class WithdrawalPositiveTest extends BaseTest {
 
         step("THEN: wallet-manager отправляет событие `block_amount_started` в NATS", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().playerUUID(),
-                    ctx.player.getWalletData().walletUUID());
+                    ctx.player.walletData().playerUUID(),
+                    ctx.player.walletData().walletUUID());
 
             ctx.blockEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
                     .from(subject)
@@ -168,7 +168,7 @@ class WithdrawalPositiveTest extends BaseTest {
 
         step("THEN: wallet_wallet_redis обновляет баланс и создает блокировку", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.player.getWalletData().walletUUID())
+                    .key(ctx.player.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.blockEvent.getSequence())
                     .fetch();
 

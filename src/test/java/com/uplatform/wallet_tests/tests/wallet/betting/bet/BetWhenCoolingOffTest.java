@@ -68,7 +68,7 @@ class BetWhenCoolingOffTest extends BaseTest {
         step("FAPI: Установка самоограничения игрока", () -> {
             var request = new PlayerRestrictionsRequest(RestrictionExpireType.DAY);
             var response = publicClient.getPlayerRestrictions(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request
             );
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.restrictions.status_code");
@@ -84,10 +84,10 @@ class BetWhenCoolingOffTest extends BaseTest {
 
             var data = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             var request = generateRequest(data);

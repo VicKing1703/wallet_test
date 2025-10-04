@@ -108,22 +108,22 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
 
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setCasinoLossLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.set_casino_loss_limit.status_code");
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().playerUUID(),
-                        ctx.registeredPlayer.getWalletData().walletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -136,7 +136,7 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
 
         step("Manager API: Получение выигрыша в турнире", () -> {
             ctx.tournamentRequestBody = TournamentRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(ctx.tournamentAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .roundId(UUID.randomUUID().toString())
@@ -151,8 +151,8 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
 
             step("Sub-step NATS: Проверка поступления события tournament_won_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().playerUUID(),
-                        ctx.registeredPlayer.getWalletData().walletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.tournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -166,7 +166,7 @@ class CasinoLossLimitWhenTournamentFromGambleParametrizedTest extends BaseParame
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.tournamentEvent.getSequence())
                     .fetch();
 

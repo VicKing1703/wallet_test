@@ -102,7 +102,7 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.createBalanceAdjustment(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     "6dfe249e-e967-477b-8a42-83efe85c7c3a",
@@ -112,8 +112,8 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Проверка поступления события balance_adjusted", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.balanceAdjustedEvent = natsClient.expect(NatsBalanceAdjustedPayload.class)
                     .from(subject)
@@ -139,7 +139,7 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
 
         step("Redis: Проверка данных кошелька после корректировки", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.balanceAdjustedEvent.getSequence())
                     .fetch();
             assertAll(

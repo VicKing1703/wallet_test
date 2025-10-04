@@ -162,7 +162,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                 ctx.depositRequest = DepositRequestBody.builder()
                         .amount(depositAmount.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().currency())
+                        .currency(ctx.player.walletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -172,7 +172,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
                         .build();
 
                 var response = publicClient.deposit(
-                        ctx.player.getAuthorizationResponse().getBody().getToken(),
+                        ctx.player.authorizationResponse().getBody().getToken(),
                         ctx.depositRequest);
 
                 assertEquals(HttpStatus.CREATED, response.getStatusCode(), "given.fapi.deposit.status_code");
@@ -180,8 +180,8 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
             step("NATS: Проверка события deposited_money", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
@@ -193,7 +193,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
             step("Manager API: Совершение ставки", () -> {
                 ctx.betRequest = BetRequestBody.builder()
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .amount(betAmount)
                         .transactionId(UUID.randomUUID().toString())
                         .type(operationParam)
@@ -211,8 +211,8 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
             step("NATS: Проверка события betted_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
@@ -226,15 +226,15 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
         step("WHEN: Выполняется рефанд ставки", () -> {
             ctx.refundRequest = RefundRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .betTransactionId(ctx.betRequest.getTransactionId())
                     .roundId(ctx.betRequest.getRoundId())
                     .roundClosed(true)
-                    .playerId(ctx.player.getWalletData().walletUUID())
-                    .currency(ctx.player.getWalletData().currency())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .playerId(ctx.player.walletData().walletUUID())
+                    .currency(ctx.player.walletData().currency())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .build();
 
             var response = managerClient.refund(
@@ -252,8 +252,8 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
         step("THEN: Состояние систем корректно обновлено", () -> {
             step("NATS: Проверка события refunded_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.refundEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
@@ -276,7 +276,7 @@ public class DepositWageringBetRefundParametrizedTest extends BaseParameterizedT
 
             step("Redis: Проверка агрегата кошелька после рефанда", () -> {
                 var aggregate = redisWalletClient
-                        .key(ctx.player.getWalletData().walletUUID())
+                        .key(ctx.player.walletData().walletUUID())
                         .withAtLeast("LastSeqNumber", (int) ctx.refundEvent.getSequence())
                         .fetch();
 

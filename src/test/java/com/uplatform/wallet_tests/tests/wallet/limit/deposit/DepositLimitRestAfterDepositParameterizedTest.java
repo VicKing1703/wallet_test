@@ -107,14 +107,14 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("Public API: Установка лимита на депозит", () -> {
             ctx.limitRequest = SetDepositLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setDepositLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.limitRequest
             );
 
@@ -123,8 +123,8 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -142,7 +142,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
             ctx.depositRequest = DepositRequestBody.builder()
                     .amount(depositAmount.toPlainString())
                     .paymentMethodId(PaymentMethodId.FAKE)
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .redirect(DepositRequestBody.RedirectUrls.builder()
                             .failed(DepositRedirect.FAILED.url())
@@ -152,7 +152,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
                     .build();
 
             var response = publicClient.deposit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.depositRequest
             );
 
@@ -161,7 +161,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("Kafka: Получение transactionId", () -> {
             ctx.kafkaPaymentMessage = kafkaClient.expect(PaymentTransactionMessage.class)
-                    .with("playerId", ctx.registeredPlayer.getWalletData().playerUUID())
+                    .with("playerId", ctx.registeredPlayer.walletData().playerUUID())
                     .with("nodeId", nodeId)
                     .fetch();
 
@@ -172,8 +172,8 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("NATS: Проверка события deposited_money", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
@@ -194,7 +194,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("Redis(Wallet): Проверка изменений лимита", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.getSequence())
                     .fetch();
 

@@ -81,7 +81,7 @@ class ManagerSignatureNegativeParametrizedTest extends BaseParameterizedTest {
 
     private BetRequestBody createValidBetRequestBody() {
         return BetRequestBody.builder()
-                .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                 .amount(defaultAmount)
                 .transactionId(UUID.randomUUID().toString())
                 .type(NatsGamblingTransactionOperation.BET)
@@ -92,7 +92,7 @@ class ManagerSignatureNegativeParametrizedTest extends BaseParameterizedTest {
 
     private WinRequestBody createValidWinRequestBody() {
         return WinRequestBody.builder()
-                .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                 .amount(defaultAmount)
                 .transactionId(UUID.randomUUID().toString())
                 .type(NatsGamblingTransactionOperation.WIN)
@@ -103,41 +103,41 @@ class ManagerSignatureNegativeParametrizedTest extends BaseParameterizedTest {
 
     private RefundRequestBody createValidRefundRequestBody() {
         return RefundRequestBody.builder()
-                .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                 .amount(new BigDecimal("10.10"))
                 .transactionId(UUID.randomUUID().toString())
                 .betTransactionId(UUID.randomUUID().toString())
                 .roundId(UUID.randomUUID().toString())
                 .roundClosed(true)
-                .playerId(registeredPlayer.getWalletData().playerUUID())
-                .currency(registeredPlayer.getWalletData().currency())
-                .gameUuid(gameLaunchData.getDbGameSession().getGameUuid())
+                .playerId(registeredPlayer.walletData().playerUUID())
+                .currency(registeredPlayer.walletData().currency())
+                .gameUuid(gameLaunchData.dbGameSession().getGameUuid())
                 .build();
     }
 
     private RollbackRequestBody createValidRollbackRequestBody() {
         return RollbackRequestBody.builder()
-                .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                 .amount(new BigDecimal("10.10"))
                 .transactionId(UUID.randomUUID().toString())
                 .rollbackTransactionId(UUID.randomUUID().toString())
                 .roundId(UUID.randomUUID().toString())
                 .roundClosed(true)
-                .playerId(registeredPlayer.getWalletData().playerUUID())
-                .currency(registeredPlayer.getWalletData().currency())
-                .gameUuid(gameLaunchData.getDbGameSession().getGameUuid())
+                .playerId(registeredPlayer.walletData().playerUUID())
+                .currency(registeredPlayer.walletData().currency())
+                .gameUuid(gameLaunchData.dbGameSession().getGameUuid())
                 .build();
     }
 
     private TournamentRequestBody createValidTournamentRequestBody() {
         return TournamentRequestBody.builder()
                 .amount(defaultAmount)
-                .playerId(registeredPlayer.getWalletData().playerUUID())
-                .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                .playerId(registeredPlayer.walletData().playerUUID())
+                .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                 .transactionId(UUID.randomUUID().toString())
-                .gameUuid(gameLaunchData.getDbGameSession().getGameUuid())
+                .gameUuid(gameLaunchData.dbGameSession().getGameUuid())
                 .roundId(UUID.randomUUID().toString())
-                .providerUuid(gameLaunchData.getDbGameSession().getProviderUuid())
+                .providerUuid(gameLaunchData.dbGameSession().getProviderUuid())
                 .build();
     }
 

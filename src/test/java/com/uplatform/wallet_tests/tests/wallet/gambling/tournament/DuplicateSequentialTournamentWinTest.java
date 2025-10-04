@@ -83,13 +83,13 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
 
         step("Manager API: Совершение первого (успешного) турнирного выигрыша", () -> {
             ctx.firstTournamentRequest = TournamentRequestBody.builder()
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(singleTournamentAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .roundId(UUID.randomUUID().toString())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
-                    .providerUuid(ctx.gameLaunchData.getDbGameSession().getProviderUuid())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
+                    .providerUuid(ctx.gameLaunchData.dbGameSession().getProviderUuid())
                     .build();
 
             var response = managerClient.tournament(
@@ -102,8 +102,8 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
 
         step("NATS: Ожидание NATS-события tournament_won_from_gamble для первого турнирного выигрыша", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.firstTournamentNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
