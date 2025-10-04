@@ -62,7 +62,7 @@ class QueriesSignatureNegativeParametrizedTest extends BaseParameterizedTest {
         step("Default Step: Создание игровой сессии", () -> {
             gameLaunchData = defaultTestSteps.createGameSession(registeredPlayer);
             assertNotNull(gameLaunchData, "default_step.create_game_session");
-            validSessionToken = gameLaunchData.getDbGameSession().getGameSessionUuid();
+            validSessionToken = gameLaunchData.dbGameSession().getGameSessionUuid();
         });
 
         step("Prerequisite Step: Генерация заведомо невалидной подписи", () -> {

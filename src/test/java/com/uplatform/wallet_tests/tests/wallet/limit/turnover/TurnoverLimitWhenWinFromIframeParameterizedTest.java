@@ -73,22 +73,22 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(limitAmountBase.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setTurnoverLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.set_turnover_limit.status_code");
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().playerUUID(),
-                        ctx.registeredPlayer.getWalletData().walletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 var expectedAmount = new BigDecimal(request.amount()).stripTrailingZeros().toPlainString();
 
@@ -109,10 +109,10 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
         step("Manager API: Совершение ставки на спорт (BET)", () -> {
             ctx.betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -129,8 +129,8 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
 
             step("Sub-step NATS: Проверка поступления события won_from_iframe", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().playerUUID(),
-                        ctx.registeredPlayer.getWalletData().walletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
                         .from(subject)
@@ -153,7 +153,7 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
 
         step("Redis(Wallet): Проверка изменений лимита в агрегате после всех операций", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.winEvent.getSequence())
                     .fetch();
 
@@ -164,7 +164,7 @@ class TurnoverLimitWhenWinFromIframeParameterizedTest extends BaseParameterizedT
                         var turnoverLimitOpt = aggregate.limits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
                                         periodType.getValue().equals(l.getIntervalType()) &&
-                                        ctx.registeredPlayer.getWalletData().currency().equals(l.getCurrencyCode()))
+                                        ctx.registeredPlayer.walletData().currency().equals(l.getCurrencyCode()))
                                 .findFirst();
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit_present");
                         var turnoverLimit = turnoverLimitOpt.get();

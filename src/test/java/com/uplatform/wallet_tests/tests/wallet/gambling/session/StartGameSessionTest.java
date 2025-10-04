@@ -72,7 +72,7 @@ class StartGameSessionTest extends BaseTest {
 
             ctx.launchResponse = publicClient.launchGame(
                     ctx.fapiGame.alias(),
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.launchGameRequestBody);
 
             assertEquals(HttpStatus.OK, ctx.launchResponse.getStatusCode(), "fapi.launch_game.status_code");
@@ -80,7 +80,7 @@ class StartGameSessionTest extends BaseTest {
 
         step("DB Core: Получение данных игровой сессии из БД Core", () -> {
             ctx.coreGameSession = coreDatabaseClient.findLatestGameSessionByPlayerUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().playerUUID());
+                    ctx.registeredPlayer.walletData().playerUUID());
 
             var coreWallet = coreDatabaseClient.findWalletByIdOrFail(ctx.coreGameSession.getWalletId());
             ctx.coreGame = coreDatabaseClient.findGameByIdOrFail(ctx.coreGameSession.getGameId());
@@ -90,7 +90,7 @@ class StartGameSessionTest extends BaseTest {
                     () -> assertNotNull(ctx.coreGameSession.getId(), "db.core_game_session.id"),
                     () -> assertEquals(coreWallet.getId(), ctx.coreGameSession.getWalletId(), "db.core_game_session.wallet_id"),
                     () -> assertEquals(ctx.coreGame.getId(), ctx.coreGameSession.getGameId(), "db.core_game_session.game_id"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), ctx.coreGameSession.getPlayerUuid(), "db.core_game_session.player_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), ctx.coreGameSession.getPlayerUuid(), "db.core_game_session.player_uuid"),
                     () -> assertEquals(GameSessionMode.REAL.getId(), ctx.coreGameSession.getModeId(), "db.core_game_session.mode_id"),
                     () -> assertNotNull(ctx.coreGameSession.getPlayerIp(), "db.core_game_session.player_ip"),
                     () -> assertEquals(ctx.launchGameRequestBody.getLanguage(), ctx.coreGameSession.getLanguage(), "db.core_game_session.language"),
@@ -112,7 +112,7 @@ class StartGameSessionTest extends BaseTest {
 
             assertAll(
                     () -> assertEquals("wallet.gameSession", kafkaMessage.message().eventType(), "kafka.game_session.event_type"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), kafkaMessage.playerId(), "kafka.game_session.player_id"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), kafkaMessage.playerId(), "kafka.game_session.player_id"),
                     () -> assertTrue(kafkaMessage.playerBonusUuid().isEmpty(), "kafka.game_session.player_bonus_uuid"),
                     () -> assertEquals(platformNodeId, kafkaMessage.nodeId(), "kafka.game_session.node_id"),
                     () -> assertEquals(ctx.coreGameSession.getUuid(), kafkaMessage.id(), "kafka.game_session.id"),
@@ -122,11 +122,11 @@ class StartGameSessionTest extends BaseTest {
                     () -> assertNotNull(kafkaMessage.gameTypeName(), "kafka.game_session.game_type_name"),
                     () -> assertEquals(ctx.coreGame.getUuid(), kafkaMessage.gameId(), "kafka.game_session.game_id"),
                     () -> assertEquals(ctx.coreGame.getExternalUuid(), kafkaMessage.gameExternalId(), "kafka.game_session.game_external_id"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), kafkaMessage.currency(), "kafka.game_session.currency"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), kafkaMessage.currency(), "kafka.game_session.currency"),
                     () -> assertNotNull(kafkaMessage.startDate(), "kafka.game_session.start_date"),
                     () -> assertEquals(GameSessionMode.REAL.getName(), kafkaMessage.gameMode(), "kafka.game_session.game_mode"),
                     () -> assertEquals(ctx.coreGameSession.getUserAgent(), kafkaMessage.useragent(), "kafka.game_session.user_agent"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().walletUUID(), kafkaMessage.walletUuid(), "kafka.game_session.wallet_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().walletUUID(), kafkaMessage.walletUuid(), "kafka.game_session.wallet_uuid"),
                     () -> assertEquals(secretKey, kafkaMessage.secretKey(), "kafka.game_session.secret_key"),
                     () -> assertNotNull(kafkaMessage.typeId(), "kafka.game_session.type_id"),
                     () -> assertNotNull(kafkaMessage.categoryId(), "kafka.game_session.category_id")
@@ -135,10 +135,10 @@ class StartGameSessionTest extends BaseTest {
 
         step("DB Wallet: Получение данных игровой сессии из БД", () -> {
             ctx.walletGameSession = walletDatabaseClient.findSingleGameSessionByPlayerUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().playerUUID());
+                    ctx.registeredPlayer.walletData().playerUUID());
 
             assertAll(
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().walletUUID(), ctx.walletGameSession.getWalletUuid(), "db.wallet_game_session.wallet_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().walletUUID(), ctx.walletGameSession.getWalletUuid(), "db.wallet_game_session.wallet_uuid"),
                     () -> assertEquals(ctx.coreGameSession.getUuid(), ctx.walletGameSession.getGameSessionUuid(), "db.wallet_game_session.game_session_uuid"),
                     () -> assertEquals(secretKey, ctx.walletGameSession.getSecretKey(), "db.wallet_game_session.secret_key"),
                     () -> assertTrue(ctx.walletGameSession.getPlayerBonusUuid().isEmpty(), "db.wallet_game_session.player_bonus_uuid"),

@@ -88,14 +88,14 @@ class BetWithCasinoLossLimitParameterizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(NatsLimitIntervalType.DAILY)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setCasinoLossLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "public_api.status_code");
@@ -103,9 +103,9 @@ class BetWithCasinoLossLimitParameterizedTest extends BaseParameterizedTest {
             step("Sub-step Kafka: получение события limit_changed_v2", () -> {
                 var expectedAmount = limitAmount.stripTrailingZeros().toPlainString();
                 ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
-                        .with("playerId", ctx.registeredPlayer.getWalletData().playerUUID())
+                        .with("playerId", ctx.registeredPlayer.walletData().playerUUID())
                         .with("limitType", NatsLimitType.CASINO_LOSS.getValue())
-                        .with("currencyCode", ctx.registeredPlayer.getWalletData().currency())
+                        .with("currencyCode", ctx.registeredPlayer.walletData().currency())
                         .with("amount", expectedAmount)
                         .fetch();
 
@@ -114,8 +114,8 @@ class BetWithCasinoLossLimitParameterizedTest extends BaseParameterizedTest {
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().playerUUID(),
-                        ctx.registeredPlayer.getWalletData().walletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                         .from(subject)
@@ -150,10 +150,10 @@ class BetWithCasinoLossLimitParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки на спорт", () -> {
             var data = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(couponType)
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             var request = generateRequest(data);

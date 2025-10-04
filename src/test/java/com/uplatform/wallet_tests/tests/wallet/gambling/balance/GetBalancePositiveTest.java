@@ -49,13 +49,13 @@ class GetBalancePositiveTest extends BaseTest {
         });
 
         step("Manager API: Запрос баланса пользователя через /balance", () -> {
-            var sessionToken = ctx.gameLaunchData.getDbGameSession().getGameSessionUuid();
+            var sessionToken = ctx.gameLaunchData.dbGameSession().getGameSessionUuid();
             var queryString = "sessionToken=" + sessionToken;
 
             var response = managerClient.getBalance(
                     casinoId,
                     utils.createSignature(ApiEndpoints.BALANCE, queryString, null),
-                    ctx.gameLaunchData.getDbGameSession().getGameSessionUuid()
+                    ctx.gameLaunchData.dbGameSession().getGameSessionUuid()
             );
 
             assertAll(

@@ -99,7 +99,7 @@ class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение первой ставки", () -> {
             ctx.firstBetRequest = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
@@ -117,8 +117,8 @@ class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события betted_from_gamble для первой ставки", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.firstBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)

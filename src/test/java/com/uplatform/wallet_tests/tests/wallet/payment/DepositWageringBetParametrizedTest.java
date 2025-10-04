@@ -154,7 +154,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                 var depositRequest = DepositRequestBody.builder()
                         .amount(DEPOSIT_AMOUNT.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().currency())
+                        .currency(ctx.player.walletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -163,13 +163,13 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
                                 .build())
                         .build();
 
-                publicClient.deposit(ctx.player.getAuthorizationResponse().getBody().getToken(), depositRequest);
+                publicClient.deposit(ctx.player.authorizationResponse().getBody().getToken(), depositRequest);
             });
 
             step("Проверка получения подтверждающего события о депозите в NATS", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().playerUUID(),
-                        ctx.player.getWalletData().walletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
@@ -189,7 +189,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
         step("WHEN: Игрок совершает ставку через manager_api", () -> {
             ctx.betRequest = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
@@ -207,8 +207,8 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
         step("THEN: wallet-manager отправляет событие `betted_from_gamble` в NATS", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().playerUUID(),
-                    ctx.player.getWalletData().walletUUID());
+                    ctx.player.walletData().playerUUID(),
+                    ctx.player.walletData().walletUUID());
 
             ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -233,7 +233,7 @@ public class DepositWageringBetParametrizedTest extends BaseParameterizedTest {
 
         step("THEN: wallet_wallet_redis обновляет баланс и сумму отыгрыша в агрегате Redis", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.player.getWalletData().walletUUID())
+                    .key(ctx.player.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
                     .fetch();
 

@@ -94,14 +94,14 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
 
         step("Public API: Установка лимита на депозит", () -> {
             ctx.limitRequest = SetDepositLimitRequest.builder()
-                    .currency(ctx.player.getWalletData().currency())
+                    .currency(ctx.player.walletData().currency())
                     .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setDepositLimit(
-                    ctx.player.getAuthorizationResponse().getBody().getToken(),
+                    ctx.player.authorizationResponse().getBody().getToken(),
                     ctx.limitRequest
             );
 
@@ -110,8 +110,8 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().playerUUID(),
-                    ctx.player.getWalletData().walletUUID());
+                    ctx.player.walletData().playerUUID(),
+                    ctx.player.walletData().walletUUID());
 
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -126,7 +126,7 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
             ctx.depositRequest = DepositRequestBody.builder()
                     .amount(exceedAmount.toPlainString())
                     .paymentMethodId(PaymentMethodId.FAKE)
-                    .currency(ctx.player.getWalletData().currency())
+                    .currency(ctx.player.walletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .redirect(DepositRequestBody.RedirectUrls.builder()
                             .failed(DepositRedirect.FAILED.url())
@@ -138,7 +138,7 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
             ctx.depositException = assertThrows(
                     FeignException.class,
                     () -> publicClient.deposit(
-                            ctx.player.getAuthorizationResponse().getBody().getToken(),
+                            ctx.player.authorizationResponse().getBody().getToken(),
                             ctx.depositRequest
                     ),
                     "fapi.deposit.exception"

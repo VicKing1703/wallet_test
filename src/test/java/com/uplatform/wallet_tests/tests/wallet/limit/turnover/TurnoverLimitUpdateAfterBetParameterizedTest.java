@@ -128,14 +128,14 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
         step("Public API: Установка лимита на оборот средств", () -> {
             ctx.createRequest = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(limitAmountBase.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setTurnoverLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.createRequest
             );
 
@@ -144,8 +144,8 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
         step("NATS: получение события limit_changed_v2 о создании лимита", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             var expectedCreateAmount = new BigDecimal(ctx.createRequest.amount()).stripTrailingZeros().toPlainString();
 
@@ -165,7 +165,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
         step("Manager API: Совершение ставки", () -> {
             ctx.betRequestBody = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
@@ -185,8 +185,8 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
             step("Sub-step NATS: получение события betted_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().playerUUID(),
-                        ctx.registeredPlayer.getWalletData().walletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
@@ -206,7 +206,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     .build();
 
             var response = publicClient.updateRecalculatedLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.createEvent.getPayload().limits().get(0).externalId(),
                     ctx.updateRequest
             );
@@ -216,8 +216,8 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
         step("NATS: Проверка события limit_changed_v2 об обновлении", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             var expectedUpdateAmount = newAmount.stripTrailingZeros().toPlainString();
 
@@ -228,7 +228,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     .with("$.limits[0].external_id", ctx.createEvent.getPayload().limits().get(0).externalId())
                     .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
                     .with("$.limits[0].interval_type", periodType.getValue())
-                    .with("$.limits[0].currency_code", ctx.registeredPlayer.getWalletData().currency())
+                    .with("$.limits[0].currency_code", ctx.registeredPlayer.walletData().currency())
                     .with("$.limits[0].amount", expectedUpdateAmount)
                     .fetch();
 
@@ -241,7 +241,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     () -> assertEquals(NatsLimitType.TURNOVER_FUNDS.getValue(), updLimit.limitType(), "nats.limit_changed_v2_event.limit.limitType"),
                     () -> assertEquals(periodType.getValue(), updLimit.intervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
                     () -> assertEquals(0, newAmount.compareTo(updLimit.amount()), "nats.limit_changed_v2_event.limit.amount"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), updLimit.currencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), updLimit.currencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
                     () -> assertNotNull(updLimit.startedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
                     () -> assertNotNull(updLimit.expiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
                     () -> assertTrue(updLimit.status(), "nats.limit_changed_v2_event.limit.status")
@@ -258,7 +258,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
         step("Redis(Wallet): Проверка данных лимита в агрегате", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.updateEvent.getSequence())
                     .fetch();
 
@@ -278,7 +278,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
                     () -> assertEquals(0, newAmount.compareTo(redisLimit.amount()), "redis.wallet_aggregate.limit.amount"),
                     () -> assertEquals(0, expectedSpentAfterUpdate.compareTo(redisLimit.spent()), "redis.wallet_aggregate.limit.spent"),
                     () -> assertEquals(0, expectedRestAfterUpdate.compareTo(redisLimit.rest()), "redis.wallet_aggregate.limit.rest"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), redisLimit.getCurrencyCode(), "redis.wallet_aggregate.limit.currencyCode"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), redisLimit.getCurrencyCode(), "redis.wallet_aggregate.limit.currencyCode"),
                     () -> assertNotNull(redisLimit.startedAt(), "redis.wallet_aggregate.limit.startedAt"),
                     () -> assertNotNull(redisLimit.expiresAt(), "redis.wallet_aggregate.limit.expiresAt"),
                     () -> assertTrue(redisLimit.status(), "redis.wallet_aggregate.limit.status_is_true")
@@ -287,7 +287,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
         step("CAP: Получение лимитов игрока и их валидация", () -> {
             var response = capAdminClient.getPlayerLimits(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId
             );
@@ -306,7 +306,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
             assertAll("cap.get_player_limits.limit_content_validation",
                     () -> assertTrue(capLimit.status(), "cap.get_player_limits.limit.status_is_true"),
                     () -> assertEquals(periodType.getValue(), capLimit.period().toString().toLowerCase(), "cap.get_player_limits.limit.intervalType"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), capLimit.currency(), "cap.get_player_limits.limit.currency"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), capLimit.currency(), "cap.get_player_limits.limit.currency"),
                     () -> assertEquals(0, newAmount.compareTo(capLimit.amount()), "cap.get_player_limits.limit.amount"),
                     () -> assertEquals(0, expectedRestAfterUpdate.compareTo(capLimit.rest()), "cap.get_player_limits.limit.rest"),
                     () -> {
@@ -324,7 +324,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
 
         step("Public API: Получение лимитов игрока и их валидация", () -> {
             var response = publicClient.getTurnoverLimits(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken()
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken()
             );
 
             assertEquals(HttpStatus.OK, response.getStatusCode(), "fapi.get_turnover_limits.status_code");
@@ -340,7 +340,7 @@ class TurnoverLimitUpdateAfterBetParameterizedTest extends BaseParameterizedTest
             assertAll("fapi.get_turnover_limits.limit_content_validation",
                     () -> assertEquals(ctx.updateEvent.getPayload().limits().get(0).externalId(), fapiLimit.id(), "fapi.get_turnover_limits.limit.id"),
                     () -> assertEquals(periodType.getValue(), fapiLimit.type(), "fapi.get_turnover_limits.limit.type"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), fapiLimit.currency(), "fapi.get_turnover_limits.limit.currency"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), fapiLimit.currency(), "fapi.get_turnover_limits.limit.currency"),
                     () -> assertTrue(fapiLimit.status(), "fapi.get_turnover_limits.limit.status_is_true"),
                     () -> assertEquals(0, newAmount.compareTo(fapiLimit.amount()), "fapi.get_turnover_limits.limit.amount"),
                     () -> assertEquals(0, expectedRestAfterUpdate.compareTo(fapiLimit.rest()), "fapi.get_turnover_limits.limit.rest"),

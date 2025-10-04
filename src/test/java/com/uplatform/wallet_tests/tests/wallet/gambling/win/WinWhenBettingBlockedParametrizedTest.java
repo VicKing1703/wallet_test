@@ -83,7 +83,7 @@ class WinWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    registeredPlayer.getWalletData().playerUUID(),
+                    registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
@@ -114,7 +114,7 @@ class WinWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
             var roundId = UUID.randomUUID().toString();
 
             var request = WinRequestBody.builder()
-                    .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmount)
                     .transactionId(transactionId)
                     .type(typeParam)

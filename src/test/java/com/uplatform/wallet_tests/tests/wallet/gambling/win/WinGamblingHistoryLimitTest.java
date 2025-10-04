@@ -103,7 +103,7 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialBalance);
-            ctx.currentBalance = ctx.registeredPlayer.getWalletData().balance();
+            ctx.currentBalance = ctx.registeredPlayer.walletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -120,7 +120,7 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
                 }
 
                 WinRequestBody winRequestBody = WinRequestBody.builder()
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .amount(operationAmount)
                         .transactionId(transactionId)
                         .type(operationParam)
@@ -150,8 +150,8 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
         step(String.format("NATS: Ожидание NATS-события won_from_gamble для последней операции %s (ID: %s)", operationParam, ctx.lastTransactionId), () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.lastWinEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -164,7 +164,7 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
         step(String.format("Redis(Wallet): Получение и проверка данных кошелька для операции %s", operationParam), () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lastWinEvent.getSequence())
                     .fetch();
             var gamblingTransactionsInRedis = aggregate.gambling();

@@ -79,8 +79,8 @@ class RefundForNonExistingBetParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Попытка зарегистрировать рефанд для несуществующей ставки", () -> {
             var refundInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.REFUND)
-                    .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .summ(refundSumForRequest.toPlainString())
                     .totalCoef(refundCoefficientForRequest)
                     .couponType(couponType)

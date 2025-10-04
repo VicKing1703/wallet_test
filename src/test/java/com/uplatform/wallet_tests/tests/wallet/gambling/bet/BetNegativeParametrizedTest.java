@@ -177,7 +177,7 @@ class BetNegativeParametrizedTest extends BaseParameterizedTest {
 
         step("Подготовка некорректного запроса: " + description, () -> {
             ctx.request = BetRequestBody.builder()
-                    .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(this.validBetAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)

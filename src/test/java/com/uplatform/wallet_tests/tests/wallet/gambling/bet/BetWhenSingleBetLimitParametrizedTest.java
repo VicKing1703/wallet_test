@@ -81,12 +81,12 @@ class BetWhenSingleBetLimitParametrizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на одиночную ставку", () -> {
             var singleBetLimitRequest = SetSingleBetLimitRequest.builder()
-                    .currency(registeredPlayer.getWalletData().currency())
+                    .currency(registeredPlayer.walletData().currency())
                     .amount(limitAmount.toString())
                     .build();
 
             var response = publicClient.setSingleBetLimit(
-                    registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    registeredPlayer.authorizationResponse().getBody().getToken(),
                     singleBetLimitRequest
             );
 
@@ -95,8 +95,8 @@ class BetWhenSingleBetLimitParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    registeredPlayer.getWalletData().playerUUID(),
-                    registeredPlayer.getWalletData().walletUUID());
+                    registeredPlayer.walletData().playerUUID(),
+                    registeredPlayer.walletData().walletUUID());
 
             var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -149,7 +149,7 @@ class BetWhenSingleBetLimitParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Попытка совершения ставки, превышающей лимит", () -> {
             var request = BetRequestBody.builder()
-                    .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(limitAmount.add(exceededBetAmount))
                     .transactionId(UUID.randomUUID().toString())
                     .type(type)

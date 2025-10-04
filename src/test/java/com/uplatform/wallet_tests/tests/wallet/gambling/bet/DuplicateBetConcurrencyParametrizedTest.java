@@ -105,7 +105,7 @@ class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
         step(String.format("Manager API: Одновременная отправка дублирующихся ставок (тип: %s, сумма: %s)", operationParam, betAmountParam), () -> {
 
             var request = BetRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)

@@ -85,12 +85,12 @@ class RefundAfterTournamentTest extends BaseTest {
         step("Manager API: Начисление турнирного выигрыша", () -> {
             ctx.tournamentRequest = TournamentRequestBody.builder()
                     .amount(tournamentAmount)
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .transactionId(UUID.randomUUID().toString())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(UUID.randomUUID().toString())
-                    .providerUuid(ctx.gameLaunchData.getDbGameSession().getProviderUuid())
+                    .providerUuid(ctx.gameLaunchData.dbGameSession().getProviderUuid())
                     .build();
 
             var response = managerClient.tournament(
@@ -103,7 +103,7 @@ class RefundAfterTournamentTest extends BaseTest {
 
         step("Manager API: Попытка выполнения рефанда для турнирного выигрыша", () -> {
             var request = RefundRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(tournamentAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .betTransactionId(ctx.tournamentRequest.getTransactionId())

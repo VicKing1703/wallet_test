@@ -91,7 +91,7 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
         step("Default Step: Регистрация нового пользователя с нулевым балансом", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialBalance);
-            ctx.currentBalance = ctx.registeredPlayer.getWalletData().balance();
+            ctx.currentBalance = ctx.registeredPlayer.walletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -109,12 +109,12 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
                 var tournamentRequestBody = TournamentRequestBody.builder()
                         .amount(operationAmount)
-                        .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .transactionId(transactionId)
-                        .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                        .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                         .roundId(UUID.randomUUID().toString())
-                        .providerUuid(ctx.gameLaunchData.getDbGameSession().getProviderUuid())
+                        .providerUuid(ctx.gameLaunchData.dbGameSession().getProviderUuid())
                         .build();
 
                 var currentOperationNumber = i + 1;
@@ -140,8 +140,8 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
         step(String.format("NATS: Ожидание NATS-события tournament_won_from_gamble для последней операции (ID: %s)", ctx.lastTransactionId), () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.lastTournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -155,7 +155,7 @@ class TournamentGamblingHistoryLimitTest extends BaseTest {
 
         step("Redis(Wallet): Получение и проверка данных кошелька после серии турнирных выигрышей", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lastTournamentEvent.getSequence())
                     .fetch();
             var gamblingTransactionsInRedis = aggregate.gambling();

@@ -118,7 +118,7 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
                     ctx.lastMadeBetTransactionId = transactionId;
                 }
                 var betRequestBody = BetRequestBody.builder()
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .amount(betAmountParam)
                         .transactionId(transactionId)
                         .type(operationParam)
@@ -140,8 +140,8 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события betted_from_gamble для последней ставки", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
             ctx.lastBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
                     .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
@@ -153,7 +153,7 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
 
         step("Redis: Определение вытесненной ставки", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
                     .fetch();
             var transactionIdsCurrentlyInRedis = aggregate.gambling().keySet();

@@ -59,7 +59,7 @@ class RollbackNegativeParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение ставки для последующего роллбэка", () -> {
             var request = BetRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(this.betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
@@ -158,15 +158,15 @@ class RollbackNegativeParametrizedTest extends BaseParameterizedTest {
         final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         var request = RollbackRequestBody.builder()
-                .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                 .amount(this.validRollbackAmount)
                 .transactionId(UUID.randomUUID().toString())
                 .rollbackTransactionId(this.betRequestBody.getTransactionId())
                 .roundId(this.betRequestBody.getRoundId())
                 .roundClosed(true)
-                .playerId(this.registeredPlayer.getWalletData().walletUUID())
-                .currency(this.registeredPlayer.getWalletData().currency())
-                .gameUuid(this.gameLaunchData.getDbGameSession().getGameUuid())
+                .playerId(this.registeredPlayer.walletData().walletUUID())
+                .currency(this.registeredPlayer.walletData().currency())
+                .gameUuid(this.gameLaunchData.dbGameSession().getGameUuid())
                 .build();
 
         requestModifier.accept(request);

@@ -105,7 +105,7 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение базовой ставки", () -> {
             ctx.initialBetRequest = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
@@ -123,7 +123,7 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение первого выигрыша", () -> {
             ctx.firstWinRequest = WinRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
@@ -141,8 +141,8 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Ожидание NATS-события won_from_gamble для первого выигрыша", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.firstWinNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)

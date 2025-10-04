@@ -312,7 +312,7 @@ step("Kafka: получение сообщения", () -> {
 
 ```java
 var aggregate = redisWalletClient
-        .key(ctx.registeredPlayer.getWalletData().walletUUID())
+        .key(ctx.registeredPlayer.walletData().walletUUID())
         .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
         .with("isGamblingActive", true)
         .within(Duration.ofSeconds(10))
@@ -672,7 +672,7 @@ step("Default Step: регистрация", () -> {
 });
 
 step("Manager API: ставка", () -> {
-    ctx.betRequest = generateRequest(ctx.registeredPlayer.getWalletData().walletUUID());
+    ctx.betRequest = generateRequest(ctx.registeredPlayer.walletData().walletUUID());
     managerClient.makePayment(ctx.betRequest);
 });
 ```
@@ -707,10 +707,10 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
     step("Manager API: Совершение ставки на спорт", () -> {
         ctx.betInputData = MakePaymentData.builder()
                 .type(NatsBettingTransactionOperation.BET)
-                .playerId(ctx.registeredPlayer.getWalletData().playerUUID())
+                .playerId(ctx.registeredPlayer.walletData().playerUUID())
                 .summ(betAmount.toPlainString())
                 .couponType(NatsBettingCouponType.SINGLE)
-                .currency(ctx.registeredPlayer.getWalletData().currency())
+                .currency(ctx.registeredPlayer.walletData().currency())
                 .build();
 
         ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -725,8 +725,8 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
 
     step("NATS: Проверка события", () -> {
         var subject = natsClient.buildWalletSubject(
-                ctx.registeredPlayer.getWalletData().playerUUID(),
-                ctx.registeredPlayer.getWalletData().walletUUID());
+                ctx.registeredPlayer.walletData().playerUUID(),
+                ctx.registeredPlayer.walletData().walletUUID());
         ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
                 .from(subject)
                 .fetch();
@@ -745,7 +745,7 @@ void shouldProcessWinFromIframeAndVerifyEvent() {
 
     step("Redis(Wallet): Проверка агрегата", () -> {
         redisWalletClient
-                .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                .key(ctx.registeredPlayer.walletData().walletUUID())
                 .withAtLeast("LastSeqNumber", (int) ctx.winEvent.getSequence())
                 .fetch();
     });

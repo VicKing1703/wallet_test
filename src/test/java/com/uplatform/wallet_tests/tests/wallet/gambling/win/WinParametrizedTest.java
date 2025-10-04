@@ -163,7 +163,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение ставки", () -> {
             var request = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
@@ -187,7 +187,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Получение выигрыша", () -> {
             ctx.winRequestBody = WinRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
@@ -210,8 +210,8 @@ class WinParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Проверка поступления события won_from_gamble", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -221,8 +221,8 @@ class WinParametrizedTest extends BaseParameterizedTest {
 
             var winRequest = ctx.winRequestBody;
             var winEventPayload = ctx.winEvent.getPayload();
-            var session = ctx.gameLaunchData.getDbGameSession();
-            var player = ctx.registeredPlayer.getWalletData();
+            var session = ctx.gameLaunchData.dbGameSession();
+            var player = ctx.registeredPlayer.walletData();
 
             assertAll("Проверка основных полей NATS payload",
                     () -> assertEquals(winRequest.getTransactionId(), winEventPayload.uuid(), "nats.payload.uuid"),
@@ -262,7 +262,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
 
             assertAll("Проверка полей gambling_projection_transaction_history",
                     () -> assertEquals(payload.uuid(), transaction.getUuid(), "db.gpth.uuid"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.gpth.player_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), transaction.getPlayerUuid(), "db.gpth.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.gpth.date"),
                     () -> assertEquals(payload.type(), transaction.getType(), "db.gpth.type"),
                     () -> assertEquals(payload.operation(), transaction.getOperation(), "db.gpth.operation"),
@@ -278,7 +278,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
         });
 
         step("DB Wallet: Проверка записи порога выигрыша в player_threshold_win", () -> {
-            var playerUuid = ctx.registeredPlayer.getWalletData().playerUUID();
+            var playerUuid = ctx.registeredPlayer.walletData().playerUUID();
             var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(playerUuid);
             BigDecimal expectedThresholdAmount = winAmountParam.subtract(betAmountParam);
 
@@ -290,7 +290,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
-            var walletUuid = ctx.registeredPlayer.getWalletData().walletUUID();
+            var walletUuid = ctx.registeredPlayer.walletData().walletUUID();
             int sequence = (int) ctx.winEvent.getSequence();
             var transactionUuid = ctx.winEvent.getPayload().uuid();
 

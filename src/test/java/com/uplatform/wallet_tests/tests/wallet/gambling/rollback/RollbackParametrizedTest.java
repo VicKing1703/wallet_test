@@ -182,7 +182,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение исходной транзакции", () -> {
             ctx.betRequestBody = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(ctx.betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationTypeParam)
@@ -200,13 +200,13 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Выполнение роллбэка транзакции", () -> {
             ctx.rollbackRequestBody = RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(ctx.rollbackAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)
                     .build();
@@ -225,8 +225,8 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: Проверка поступления события rollbacked_from_gamble", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().playerUUID(),
-                    ctx.registeredPlayer.getWalletData().walletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
@@ -239,9 +239,9 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
             assertAll(
                     () -> assertEquals(ctx.rollbackRequestBody.getTransactionId(), ctx.rollbackEvent.getPayload().uuid(), "nats.rollback.uuid"),
                     () -> assertEquals(ctx.betRequestBody.getTransactionId(), ctx.rollbackEvent.getPayload().betUuid(), "nats.rollback.bet_uuid"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), ctx.rollbackEvent.getPayload().gameSessionUuid(), "nats.rollback.game_session_uuid"),
+                    () -> assertEquals(ctx.gameLaunchData.dbGameSession().getGameSessionUuid(), ctx.rollbackEvent.getPayload().gameSessionUuid(), "nats.rollback.game_session_uuid"),
                     () -> assertEquals(ctx.rollbackRequestBody.getRoundId(), ctx.rollbackEvent.getPayload().providerRoundId(), "nats.rollback.provider_round_id"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.rollbackEvent.getPayload().currency(), "nats.rollback.currency"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), ctx.rollbackEvent.getPayload().currency(), "nats.rollback.currency"),
                     () -> assertEquals(0, ctx.rollbackAmount.compareTo(ctx.rollbackEvent.getPayload().amount()), "nats.rollback.amount"),
                     () -> assertEquals(NatsGamblingTransactionType.TYPE_ROLLBACK, ctx.rollbackEvent.getPayload().type(), "nats.rollback.type"),
                     () -> assertTrue(ctx.rollbackEvent.getPayload().providerRoundClosed(), "nats.rollback.round_closed"),
@@ -250,13 +250,13 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(NatsTransactionDirection.DEPOSIT, ctx.rollbackEvent.getPayload().direction(), "nats.rollback.direction"),
                     () -> assertEquals(NatsGamblingTransactionOperation.ROLLBACK, ctx.rollbackEvent.getPayload().operation(), "nats.rollback.operation"),
                     () -> assertEquals(platformNodeId, ctx.rollbackEvent.getPayload().nodeUuid(), "nats.rollback.node_uuid"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameUuid(), ctx.rollbackEvent.getPayload().gameUuid(), "nats.rollback.game_uuid"),
-                    () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getProviderUuid(), ctx.rollbackEvent.getPayload().providerUuid(), "nats.rollback.provider_uuid"),
+                    () -> assertEquals(ctx.gameLaunchData.dbGameSession().getGameUuid(), ctx.rollbackEvent.getPayload().gameUuid(), "nats.rollback.game_uuid"),
+                    () -> assertEquals(ctx.gameLaunchData.dbGameSession().getProviderUuid(), ctx.rollbackEvent.getPayload().providerUuid(), "nats.rollback.provider_uuid"),
                     () -> assertTrue(ctx.rollbackEvent.getPayload().wageredDepositInfo().isEmpty(), "nats.rollback.wagered_deposit_info"),
                     () -> assertEquals(0, ctx.rollbackAmount.compareTo(ctx.rollbackEvent.getPayload().currencyConversionInfo().gameAmount()), "nats.rollback.game_amount"),
                     () -> assertFalse(ctx.rollbackEvent.getPayload().currencyConversionInfo().gameCurrency().isEmpty(), "nats.rollback.game_currency"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.rollbackEvent.getPayload().currencyConversionInfo().currencyRates().get(0).baseCurrency(), "nats.rollback.base_currency"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().currency(), ctx.rollbackEvent.getPayload().currencyConversionInfo().currencyRates().get(0).quoteCurrency(), "nats.rollback.quote_currency"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), ctx.rollbackEvent.getPayload().currencyConversionInfo().currencyRates().get(0).baseCurrency(), "nats.rollback.base_currency"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), ctx.rollbackEvent.getPayload().currencyConversionInfo().currencyRates().get(0).quoteCurrency(), "nats.rollback.quote_currency"),
                     () -> assertEquals(ctx.expectedCurrencyRates, ctx.rollbackEvent.getPayload().currencyConversionInfo().currencyRates().get(0).value(), "nats.rollback.currency_rates"),
                     () -> assertNotNull(ctx.rollbackEvent.getPayload().currencyConversionInfo().currencyRates().get(0).updatedAt(), "nats.rollback.updated_at")
             );
@@ -270,7 +270,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(ctx.rollbackEvent.getPayload().uuid(), transaction.getUuid(), "db.transaction.uuid"),
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), transaction.getPlayerUuid(), "db.transaction.player_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), transaction.getPlayerUuid(), "db.transaction.player_uuid"),
                     () -> assertNotNull(transaction.getDate(), "db.transaction.date"),
                     () -> assertEquals(NatsGamblingTransactionType.TYPE_ROLLBACK, transaction.getType(), "db.transaction.type"),
                     () -> assertEquals(NatsGamblingTransactionOperation.ROLLBACK, transaction.getOperation(), "db.transaction.operation"),
@@ -286,12 +286,12 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
         step("DB Wallet: Проверка записи порога выигрыша в player_threshold_win после rollback", () -> {
             var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().playerUUID());
+                    ctx.registeredPlayer.walletData().playerUUID());
 
             assertNotNull(threshold, "db.threshold");
 
             assertAll(
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
                     () -> assertEquals(0, ctx.betAmount.negate().add(ctx.rollbackEvent.getPayload().amount()).compareTo(threshold.getAmount()), "db.threshold.amount"),
                     () -> assertNotNull(threshold.getUpdatedAt(), "db.threshold.updated_at")
             );
@@ -308,7 +308,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька после роллбэка", () -> {
             var aggregate = redisWalletClient
-                    .key(ctx.registeredPlayer.getWalletData().walletUUID())
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.rollbackEvent.getSequence())
                     .fetch();
 

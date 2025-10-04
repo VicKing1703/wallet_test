@@ -82,14 +82,14 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(registeredPlayer.getWalletData().currency())
+                    .currency(registeredPlayer.walletData().currency())
                     .type(NatsLimitIntervalType.DAILY)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setTurnoverLimit(
-                    registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "public_api.status_code");
@@ -97,8 +97,8 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    registeredPlayer.getWalletData().playerUUID(),
-                    registeredPlayer.getWalletData().walletUUID());
+                    registeredPlayer.walletData().playerUUID(),
+                    registeredPlayer.walletData().walletUUID());
 
             var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
@@ -151,7 +151,7 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Попытка совершения ставки, превышающей лимит на оборот средств", () -> {
             var request = BetRequestBody.builder()
-                    .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(limitAmount.add(exceededBetAmount))
                     .transactionId(UUID.randomUUID().toString())
                     .type(type)

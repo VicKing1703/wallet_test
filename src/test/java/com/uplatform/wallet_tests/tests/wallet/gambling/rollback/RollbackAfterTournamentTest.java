@@ -85,12 +85,12 @@ class RollbackAfterTournamentTest extends BaseTest {
         step("Manager API: Начисление турнирного выигрыша", () -> {
             ctx.tournamentRequest = TournamentRequestBody.builder()
                     .amount(tournamentAmount)
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .transactionId(UUID.randomUUID().toString())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(UUID.randomUUID().toString())
-                    .providerUuid(ctx.gameLaunchData.getDbGameSession().getProviderUuid())
+                    .providerUuid(ctx.gameLaunchData.dbGameSession().getProviderUuid())
                     .build();
 
             var response = managerClient.tournament(
@@ -103,13 +103,13 @@ class RollbackAfterTournamentTest extends BaseTest {
 
         step("Manager API: Попытка выполнения роллбэка для турнирного выигрыша", () -> {
             var request = RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(tournamentAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.tournamentRequest.getTransactionId())
-                    .currency(ctx.registeredPlayer.getWalletData().currency())
-                    .playerId(ctx.registeredPlayer.getWalletData().walletUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(ctx.tournamentRequest.getRoundId())
                     .roundClosed(true)
                     .build();

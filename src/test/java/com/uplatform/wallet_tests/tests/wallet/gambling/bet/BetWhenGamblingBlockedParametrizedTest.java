@@ -85,7 +85,7 @@ class BetWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    registeredPlayer.getWalletData().playerUUID(),
+                    registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
@@ -137,7 +137,7 @@ class BetWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Попытка совершения ставки с заблокированным гемблингом", () -> {
             var request = BetRequestBody.builder()
-                    .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(type)
