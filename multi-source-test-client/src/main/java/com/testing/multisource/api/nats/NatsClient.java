@@ -20,7 +20,6 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class NatsClient {
-
     private final NatsSubscriber subscriber;
     private final String streamPrefix;
     private final String natsBaseName;

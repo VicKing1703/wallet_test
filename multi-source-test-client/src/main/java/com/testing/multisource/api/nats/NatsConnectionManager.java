@@ -22,7 +22,6 @@ import java.util.concurrent.TimeoutException;
 @Slf4j
 @Getter
 public class NatsConnectionManager {
-
     private final Connection connection;
     private final JetStream jetStream;
     private final String streamName;

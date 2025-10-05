@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @RequiredArgsConstructor
 public class NatsAttachmentHelper {
-
     private final ObjectMapper objectMapper;
     private final AllureAttachmentService attachmentService;
 

@@ -8,7 +8,6 @@ import java.util.Objects;
 import org.springframework.util.StringUtils;
 
 public class RedisTypeMappingRegistry {
-
     private final Map<String, TypeReference<?>> mappings = new LinkedHashMap<>();
 
     public RedisTypeMappingRegistry register(String clientName, TypeReference<?> reference) {

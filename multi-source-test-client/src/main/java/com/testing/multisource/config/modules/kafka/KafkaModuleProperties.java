@@ -18,7 +18,6 @@ public record KafkaModuleProperties(
         String autoOffsetReset,
         boolean enableAutoCommit
 ) {
-    
 
     public KafkaConfig toLegacyKafkaConfig() {
         return new KafkaConfig(
@@ -34,13 +33,9 @@ public record KafkaModuleProperties(
         );
     }
 
-    
-
     public KafkaConnectionConfig connection() {
         return new KafkaConnectionConfig(bootstrapServers, groupId);
     }
-
-    
 
     public KafkaClientConfig client() {
         return new KafkaClientConfig(
@@ -51,8 +46,6 @@ public record KafkaModuleProperties(
                 shutdownTimeout
         );
     }
-
-    
 
     public KafkaConsumerConfig consumer() {
         return new KafkaConsumerConfig(autoOffsetReset, enableAutoCommit);

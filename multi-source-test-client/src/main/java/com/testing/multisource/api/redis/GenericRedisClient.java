@@ -9,7 +9,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import java.util.Objects;
 
 public class GenericRedisClient<T> {
-
     private final String beanName;
     private final String instanceName;
     private final RedisTemplate<String, String> redisTemplate;

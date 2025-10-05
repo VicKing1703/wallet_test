@@ -27,7 +27,6 @@ import java.util.function.Predicate;
 import static org.awaitility.Awaitility.await;
 
 public class RedisExpectationBuilder<T> {
-
     private final String beanName;
     private final String instanceName;
     private final String key;
@@ -36,7 +35,6 @@ public class RedisExpectationBuilder<T> {
     private final ObjectMapper objectMapper;
     private final AllureAttachmentService attachmentService;
     private final RedisAwaitilityProperties awaitilityProperties;
-
     private final List<FieldExpectation> expectations = new ArrayList<>();
     private Duration customTimeout;
 

@@ -21,7 +21,6 @@ public class MessageBuffer {
     private final int bufferSize;
     private final String topicPrefix;
     private final KafkaTopicMappingRegistry topicMappingRegistry;
-
     private final ConcurrentHashMap<String, LinkedBlockingDeque<ConsumerRecord<String, String>>> buffers = new ConcurrentHashMap<>();
     private List<String> fullListeningTopics;
 

@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 class NatsSubscriber {
-
     private final io.nats.client.Connection nc;
     private final JetStream js;
     private final ObjectMapper objectMapper;

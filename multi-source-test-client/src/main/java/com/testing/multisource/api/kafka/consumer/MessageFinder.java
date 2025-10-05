@@ -22,7 +22,6 @@ import java.util.List;
 @Slf4j
 @Component
 public class MessageFinder {
-
     private final ObjectMapper objectMapper;
     private final KafkaAllureReporter allureReporter;
     private final ConcurrentMap<String, JsonPath> pathCache = new ConcurrentHashMap<>();
