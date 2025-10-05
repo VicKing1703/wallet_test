@@ -5,9 +5,6 @@ import com.testing.multisource.config.modules.nats.NatsConfig;
 
 import java.util.List;
 
-/**
- * NATS module configuration with structured sub-configs
- */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record NatsModuleProperties(
         List<String> hosts,
@@ -32,9 +29,8 @@ public record NatsModuleProperties(
         }
     }
 
-    /**
-     * Convert to NatsConfig record for API layer compatibility
-     */
+    
+
     public NatsConfig toLegacyNatsConfig() {
         return new NatsConfig(
                 hosts,
@@ -52,9 +48,8 @@ public record NatsModuleProperties(
         );
     }
 
-    /**
-     * Get connection configuration
-     */
+    
+
     public NatsConnectionConfig connection() {
         return new NatsConnectionConfig(
                 hosts,
@@ -63,16 +58,14 @@ public record NatsModuleProperties(
         );
     }
 
-    /**
-     * Get stream configuration
-     */
+    
+
     public NatsStreamConfig stream() {
         return new NatsStreamConfig(streamName, uniqueDuplicateWindowMs);
     }
 
-    /**
-     * Get subscription configuration
-     */
+    
+
     public NatsSubscriptionConfig subscription() {
         return new NatsSubscriptionConfig(
                 subscriptionRetryCount,
@@ -83,9 +76,8 @@ public record NatsModuleProperties(
         );
     }
 
-    /**
-     * Get behavior configuration
-     */
+    
+
     public NatsBehaviorConfig behavior() {
         return new NatsBehaviorConfig(searchTimeoutSeconds, failOnDeserialization);
     }

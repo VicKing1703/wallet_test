@@ -44,7 +44,6 @@ public class WalletTestsPropertiesConfigurator implements ApplicationContextInit
                 return;
             }
 
-            // Process HTTP service overrides (credentials, secrets, casinoId)
             WalletHttpOverrides httpOverrides = walletTests.getHttp();
             if (httpOverrides != null && httpOverrides.getServices() != null) {
                 httpOverrides.getServices().forEach((serviceId, serviceOverride) -> {
@@ -52,7 +51,6 @@ public class WalletTestsPropertiesConfigurator implements ApplicationContextInit
                         return;
                     }
 
-                    // Automatically register credentials for any service
                     Credentials credentials = serviceOverride.getCredentials();
                     if (credentials != null) {
                         if (credentials.getUsername() != null) {
@@ -63,19 +61,16 @@ public class WalletTestsPropertiesConfigurator implements ApplicationContextInit
                         }
                     }
 
-                    // Automatically register secret for any service
                     if (serviceOverride.getSecret() != null) {
                         properties.add("app.api." + serviceId + ".secret=" + serviceOverride.getSecret());
                     }
 
-                    // Automatically register casinoId for any service
                     if (serviceOverride.getCasinoId() != null) {
                         properties.add("app.api." + serviceId + ".casino-id=" + serviceOverride.getCasinoId());
                     }
                 });
             }
 
-            // Process platform configuration
             PlatformConfig platform = walletTests.getPlatform();
             if (platform != null) {
                 if (platform.getNodeId() != null) {

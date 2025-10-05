@@ -4,9 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.Map;
 
-/**
- * Database module configuration containing all database instances
- */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record DatabaseModuleProperties(
         Map<String, DatabaseInstanceConfig> instances

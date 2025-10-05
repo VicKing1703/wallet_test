@@ -10,9 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Fluent builder for awaiting Kafka messages with optional filters and timeout.
- */
 public class KafkaExpectationBuilder<T> {
     private final KafkaBackgroundConsumer consumer;
     private final Duration defaultTimeout;

@@ -6,9 +6,6 @@ import com.testing.multisource.config.modules.kafka.KafkaConfig;
 
 import java.time.Duration;
 
-/**
- * Kafka module configuration with structured sub-configs
- */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record KafkaModuleProperties(
         @JsonProperty("bootstrapServer") String bootstrapServers,
@@ -21,9 +18,8 @@ public record KafkaModuleProperties(
         String autoOffsetReset,
         boolean enableAutoCommit
 ) {
-    /**
-     * Legacy compatibility: convert to old KafkaConfig
-     */
+    
+
     public KafkaConfig toLegacyKafkaConfig() {
         return new KafkaConfig(
                 bootstrapServers,
@@ -38,16 +34,14 @@ public record KafkaModuleProperties(
         );
     }
 
-    /**
-     * Get connection configuration
-     */
+    
+
     public KafkaConnectionConfig connection() {
         return new KafkaConnectionConfig(bootstrapServers, groupId);
     }
 
-    /**
-     * Get client configuration
-     */
+    
+
     public KafkaClientConfig client() {
         return new KafkaClientConfig(
                 bufferSize,
@@ -58,9 +52,8 @@ public record KafkaModuleProperties(
         );
     }
 
-    /**
-     * Get consumer configuration
-     */
+    
+
     public KafkaConsumerConfig consumer() {
         return new KafkaConsumerConfig(autoOffsetReset, enableAutoCommit);
     }

@@ -2,14 +2,10 @@ package com.testing.multisource.config.modules.http;
 
 import java.util.Map;
 
-/**
- * Helper class to extract values from HTTP services configuration.
- */
 public class HttpServiceHelper {
 
-    /**
-     * Get casinoId from manager service configuration
-     */
+    
+
     @SuppressWarnings("unchecked")
     public static String getManagerCasinoId(HttpModuleProperties http) {
         if (http == null || http.getServices() == null) {
@@ -23,9 +19,8 @@ public class HttpServiceHelper {
         return null;
     }
 
-    /**
-     * Get secret from manager service configuration
-     */
+    
+
     @SuppressWarnings("unchecked")
     public static String getManagerSecret(HttpModuleProperties http) {
         if (http == null || http.getServices() == null) {
@@ -39,9 +34,8 @@ public class HttpServiceHelper {
         return null;
     }
 
-    /**
-     * Get username from CAP service credentials
-     */
+    
+
     @SuppressWarnings("unchecked")
     public static String getCapUsername(HttpModuleProperties http) {
         if (http == null || http.getServices() == null) {
@@ -58,9 +52,8 @@ public class HttpServiceHelper {
         return null;
     }
 
-    /**
-     * Get password from CAP service credentials
-     */
+    
+
     @SuppressWarnings("unchecked")
     public static String getCapPassword(HttpModuleProperties http) {
         if (http == null || http.getServices() == null) {

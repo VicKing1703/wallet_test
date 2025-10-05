@@ -182,7 +182,6 @@ public class AllureFeignLogger extends Logger {
     }
 
     private static class LocalObjectMapperHolder {
-        // single ObjectMapper instance reused for formatting json
         static final ObjectMapper MAPPER = new ObjectMapper()
                 .enable(SerializationFeature.INDENT_OUTPUT);
     }

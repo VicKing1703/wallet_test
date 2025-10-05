@@ -191,7 +191,6 @@ public class RedisClientBeanDefinitionRegistrar implements BeanDefinitionRegistr
     @Override
     public void postProcessBeanFactory(
             org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory) throws BeansException {
-        // no-op
     }
 }
 

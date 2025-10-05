@@ -55,16 +55,11 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
                     if (serviceProperties == null) {
                         return;
                     }
-
-                    // Automatically register baseUrl for any service
                     String baseUrl = valueAsString(serviceProperties.get("baseUrl"));
                     if (baseUrl != null) {
                         properties.add("app.api." + serviceId + ".base-url=" + baseUrl);
-                        // Keep legacy property for backward compatibility
                         properties.add("app.http.services." + serviceId + ".base-url=" + baseUrl);
                     }
-
-                    // Automatically register all other service properties
                     serviceProperties.forEach((key, value) -> {
                         if (!"baseUrl".equals(key) && value != null) {
                             String kebabKey = toKebabCase(key);
@@ -74,8 +69,6 @@ public class DynamicPropertiesConfigurator implements ApplicationContextInitiali
                 });
             }
         }
-
-
 
         if (config.getDatabases() != null) {
             config.getDatabases().forEach((name, dbConfig) -> {

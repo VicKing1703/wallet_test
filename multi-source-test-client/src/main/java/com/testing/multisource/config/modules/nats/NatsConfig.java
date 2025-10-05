@@ -2,10 +2,6 @@ package com.testing.multisource.config.modules.nats;
 
 import java.util.List;
 
-/**
- * NATS configuration record.
- * Used by NATS API clients through NatsConfigProvider.
- */
 public record NatsConfig(
         List<String> hosts,
         String streamName,
