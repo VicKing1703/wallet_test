@@ -292,7 +292,6 @@ public class DepositWageringBetRollbackParametrizedTest extends BaseParameterize
                         () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(aggregate.balance()), "then.redis.wallet.balance"),
                         () -> assertNotNull(depositData, "then.redis.wallet.deposit.not_null"),
                         () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.status(), "then.redis.wallet.deposit.status"),
-                        // TODO: уточнить у пеймента, корректное ли отсутствие изменений wagering_amount после rollback
                         () -> assertEquals(0, ctx.expectedWagerAmountAfterBet.compareTo(depositData.wageringAmount()), "then.redis.wallet.deposit.wagering_amount"),
                         () -> assertNotNull(betData, "then.redis.wallet.bet_data.not_null"),
                         () -> assertNotNull(rollbackData, "then.redis.wallet.rollback_data.not_null")

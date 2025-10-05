@@ -90,7 +90,6 @@ public class EnvironmentConfigurationProvider implements KafkaConfigProvider, Re
         return kafka != null ? kafka.toLegacyKafkaConfig() : null;
     }
 
-
     @Override
     public String getTopicPrefix() {
         return environmentConfig.getTopicPrefix();

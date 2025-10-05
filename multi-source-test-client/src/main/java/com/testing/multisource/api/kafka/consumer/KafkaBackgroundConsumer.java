@@ -136,7 +136,6 @@ public class KafkaBackgroundConsumer {
                     timeout, fullTopicName, targetClass.getSimpleName(), filterCriteria);
             allureReporter.addMessagesNotFoundAttachment(fullTopicName, filterCriteria, targetClass, "(inferred from Type)");
             try {
-                // After hitting the timeout we run the search once more to capture the final buffer snapshot for attachments.
                 return searchCallable.call();
             } catch (Exception ex) {
                 log.warn("Error evaluating final result after timeout: {}", ex.getMessage());

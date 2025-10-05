@@ -99,7 +99,7 @@ class WithdrawalPositiveTest extends BaseTest {
                         ctx.player.walletData().playerUUID(),
                         utils.getAuthorizationHeader(),
                         configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                        "6dfe249e-e967-477b-8a42-83efe85c7c3a", // idempotency-key
+                        "6dfe249e-e967-477b-8a42-83efe85c7c3a",
                         request);
 
                 assertEquals(HttpStatus.OK, response.getStatusCode(), "cap.create_balance_adjustment.status_code");

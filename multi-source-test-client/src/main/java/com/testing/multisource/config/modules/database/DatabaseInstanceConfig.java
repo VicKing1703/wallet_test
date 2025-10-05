@@ -3,9 +3,6 @@ package com.testing.multisource.config.modules.database;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * Configuration for a single database instance
- */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record DatabaseInstanceConfig(
         String host,
@@ -16,7 +13,6 @@ public record DatabaseInstanceConfig(
         @JsonProperty("retryPollIntervalMs") long retryPollIntervalMs,
         @JsonProperty("retryPollDelayMs") long retryPollDelayMs
 ) {
-    // Convenience methods for backward compatibility
     public int getRetryTimeoutSeconds() {
         return retryTimeoutSeconds;
     }
