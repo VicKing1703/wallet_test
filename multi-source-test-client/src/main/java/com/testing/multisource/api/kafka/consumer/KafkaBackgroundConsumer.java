@@ -149,6 +149,51 @@ public class KafkaBackgroundConsumer {
         }
     }
 
+    public <T> FindResult<T> findAndCountMessagesWithinWindow(
+            Map<String, String> filterCriteria,
+            Duration timeout,
+            Class<T> targetClass,
+            long windowMs
+    ) {
+        TopicValidationResult validationResult = validateAndGetTopicName(targetClass);
+        if (!validationResult.isValid()) {
+            handleValidationFailure(validationResult, targetClass, filterCriteria);
+            return new FindResult<>(Optional.empty(), List.of(), 0);
+        }
+
+        String fullTopicName = validationResult.fullTopicName();
+        allureReporter.addSearchInfoAttachment(fullTopicName, "(inferred from Type)", targetClass, filterCriteria);
+
+        Callable<FindResult<T>> searchCallable = () -> {
+            Deque<ConsumerRecord<String, String>> buffer = messageBuffer.getBufferForTopic(fullTopicName);
+            return messageFinder.findAndCountWithinWindow(buffer, filterCriteria, targetClass, fullTopicName, windowMs);
+        };
+
+        try {
+            FindResult<T> result = await()
+                    .alias("search for message in " + fullTopicName)
+                    .atMost(timeout)
+                    .pollInterval(findMessageSleepInterval)
+                    .until(searchCallable, r -> r.getFirstMatch().isPresent());
+            return result;
+        } catch (ConditionTimeoutException e) {
+            log.warn("Timeout after {} waiting for message. Topic: '{}', Target Type: '{}', Criteria: {}",
+                    timeout, fullTopicName, targetClass.getSimpleName(), filterCriteria);
+            allureReporter.addMessagesNotFoundAttachment(fullTopicName, filterCriteria, targetClass, "(inferred from Type)");
+            try {
+                return searchCallable.call();
+            } catch (Exception ex) {
+                log.warn("Error evaluating final result after timeout: {}", ex.getMessage());
+                return new FindResult<>(Optional.empty(), List.of(), 0);
+            }
+        } catch (KafkaDeserializationException kde) {
+            throw kde;
+        } catch (Exception ex) {
+            log.error("Unexpected error during findAndCountMessagesWithinWindow: {}", ex.getMessage(), ex);
+            return new FindResult<>(Optional.empty(), List.of(), 0);
+        }
+    }
+
     public <T> int countMessages(
             Map<String, String> filterCriteria,
             Class<T> targetClass

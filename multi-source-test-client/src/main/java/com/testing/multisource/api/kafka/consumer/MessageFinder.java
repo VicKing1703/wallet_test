@@ -135,6 +135,49 @@ public class MessageFinder {
         return new FindResult<>(firstMatch, matches, matches.size());
     }
 
+    public <T> FindResult<T> findAndCountWithinWindow(
+            Deque<ConsumerRecord<String, String>> buffer,
+            Map<String, String> filterCriteria,
+            Class<T> targetClass,
+            String topicName,
+            long windowMs
+    ) {
+        if (buffer == null || buffer.isEmpty()) {
+            return new FindResult<>(Optional.empty(), List.of(), 0);
+        }
+
+        List<T> matches = new ArrayList<>();
+        Iterator<ConsumerRecord<String, String>> iterator = buffer.descendingIterator();
+        ConsumerRecord<String, String> firstRecord = null;
+        Long firstMatchTimestamp = null;
+
+        while (iterator.hasNext()) {
+            ConsumerRecord<String, String> record = iterator.next();
+            if (matchesFilter(record.value(), filterCriteria)) {
+                Optional<T> deserialized = tryDeserialize(record, targetClass);
+                if (deserialized.isPresent()) {
+                    if (firstMatchTimestamp == null) {
+                        firstMatchTimestamp = record.timestamp();
+                        firstRecord = record;
+                        matches.add(deserialized.get());
+                    } else {
+                        long timeDiff = Math.abs(record.timestamp() - firstMatchTimestamp);
+                        if (timeDiff <= windowMs) {
+                            matches.add(deserialized.get());
+                        }
+                    }
+                }
+            }
+        }
+
+        if (firstRecord != null) {
+            allureReporter.addFoundMessageAttachment(firstRecord);
+        }
+
+        Optional<T> firstMatch = matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
+        return new FindResult<>(firstMatch, matches, matches.size());
+    }
+
     private <T> Optional<T> tryDeserialize(ConsumerRecord<String, String> record, Class<T> targetClass) {
         if (record == null || record.value() == null) {
             return Optional.empty();

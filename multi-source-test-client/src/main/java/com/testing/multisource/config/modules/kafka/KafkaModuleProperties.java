@@ -16,7 +16,8 @@ public record KafkaModuleProperties(
         Duration pollDuration,
         Duration shutdownTimeout,
         String autoOffsetReset,
-        boolean enableAutoCommit
+        boolean enableAutoCommit,
+        long uniqueDuplicateWindowMs
 ) {
 
     public KafkaConfig toLegacyKafkaConfig() {
@@ -29,7 +30,8 @@ public record KafkaModuleProperties(
                 pollDuration,
                 shutdownTimeout,
                 autoOffsetReset,
-                enableAutoCommit
+                enableAutoCommit,
+                uniqueDuplicateWindowMs
         );
     }
 

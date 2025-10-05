@@ -427,7 +427,8 @@ public class KafkaConsumerConfig {
     "pollDuration": "PT1S",
     "shutdownTimeout": "PT5S",
     "autoOffsetReset": "latest",
-    "enableAutoCommit": true
+    "enableAutoCommit": true,
+    "uniqueDuplicateWindowMs": 400
   }
 }
 ```
@@ -445,6 +446,7 @@ public class KafkaConsumerConfig {
 - `shutdownTimeout` (`kafka.shutdownTimeout`) — время на корректное завершение consumer при остановке тестов, например `PT5S`.
 - `autoOffsetReset` (`kafka.autoOffsetReset`) регулирует поведение при отсутствии offset'ов (`latest` или `earliest`).
 - `enableAutoCommit` (`kafka.enableAutoCommit`) включает автоматический коммит offset'ов, чаще всего `true`.
+- `uniqueDuplicateWindowMs` (`kafka.uniqueDuplicateWindowMs`) — временное окно в миллисекундах для контроля дублей при использовании `.unique()`. По умолчанию `400`.
 
 ## Сценарии использования
 
@@ -454,8 +456,9 @@ public class KafkaConsumerConfig {
   подхватывает таймаут по умолчанию из конфигурации.
 - `.with(String key, Object value)` — вызывается на билдере, добавляет JsonPath-фильтр. Значение сериализуется в `String`,
   `null` и пустые строки игнорируются, вложенные поля описываются как `data.player.id` или `$.path.to.field`.
-- `.unique()` — включает проверку уникальности события в буфере. При нарушении будет выброшено
+- `.unique()` — включает контроль дублей, используя окно `uniqueDuplicateWindowMs` из конфигурации. Проверяет уникальность сообщения в пределах временного окна от первого найденного совпадения. При нарушении будет выброшено
   `KafkaMessageNotUniqueException`, при отсутствии подходящего сообщения — `KafkaMessageNotFoundException`.
+- `.unique(Duration window)` — задаёт собственное окно для поиска дублей; повторяющиеся сообщения в пределах окна приводят к `KafkaMessageNotUniqueException`.
 - `.within(Duration timeout)` — переопределяет таймаут ожидания только для текущего запроса. Подходит для ускоренных или
   долгих сценариев без изменения глобальной настройки.
 - `.fetch()` — выполняет поиск сообщения и возвращает десериализованный DTO, формируя Allure-аттачи даже при таймауте или
@@ -478,9 +481,30 @@ step("Kafka: Получение сообщения из топика limits.v2",
 
     assertNotNull(kafkaLimitMessage, "kafka.limits_v2_event.message_not_null");
 });
+
+step("Kafka: Проверка уникальности события с дефолтным окном", () -> {
+    LimitMessage uniqueMessage = kafkaClient.expect(LimitMessage.class)
+            .with("playerId", playerId)
+            .with("limitType", "SINGLE_BET")
+            .unique()
+            .fetch();
+
+    // Если в течение 400мс (по умолчанию) найдено >1 сообщения, выбросится KafkaMessageNotUniqueException
+});
+
+step("Kafka: Проверка уникальности с кастомным окном", () -> {
+    PaymentTransactionMessage transaction = kafkaClient.expect(PaymentTransactionMessage.class)
+            .with("transactionId", txId)
+            .with("status", "COMPLETED")
+            .unique(Duration.ofSeconds(5))
+            .within(Duration.ofSeconds(30))
+            .fetch();
+
+    // Проверяем уникальность в окне 5 секунд, ждём до 30 секунд
+});
 ```
 
-Комбинируйте `.unique()` и `within(...)`, чтобы гибко управлять проверками и таймаутами.
+Комбинируйте `.unique()`, `.unique(Duration window)` и `within(...)`, чтобы гибко управлять проверками уникальности и таймаутами.
 
 ---
 

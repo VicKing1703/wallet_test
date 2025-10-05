@@ -11,6 +11,7 @@ public class KafkaClient {
 
     private final KafkaBackgroundConsumer kafkaBackgroundConsumer;
     private final Duration defaultFindTimeout;
+    private final Duration defaultUniqueWindow;
 
     public KafkaClient(
             KafkaBackgroundConsumer kafkaBackgroundConsumer,
@@ -18,9 +19,14 @@ public class KafkaClient {
     ) {
         this.kafkaBackgroundConsumer = kafkaBackgroundConsumer;
         this.defaultFindTimeout = configProvider.getKafkaConfig().findMessageTimeout();
+        this.defaultUniqueWindow = Duration.ofMillis(configProvider.getKafkaConfig().uniqueDuplicateWindowMs());
     }
 
     public <T> KafkaExpectationBuilder<T> expect(Class<T> messageClass) {
-        return new KafkaExpectationBuilder<>(this.kafkaBackgroundConsumer, this.defaultFindTimeout, messageClass);
+        return new KafkaExpectationBuilder<>(this.kafkaBackgroundConsumer, this.defaultFindTimeout, this.defaultUniqueWindow, messageClass);
+    }
+
+    public Duration getDefaultUniqueWindow() {
+        return defaultUniqueWindow;
     }
 }

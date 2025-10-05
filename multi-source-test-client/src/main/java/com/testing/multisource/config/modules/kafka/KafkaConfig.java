@@ -13,5 +13,12 @@ public record KafkaConfig(
         Duration pollDuration,
         Duration shutdownTimeout,
         String autoOffsetReset,
-        boolean enableAutoCommit
-) {}
+        boolean enableAutoCommit,
+        long uniqueDuplicateWindowMs
+) {
+    public KafkaConfig {
+        if (uniqueDuplicateWindowMs == 0) {
+            uniqueDuplicateWindowMs = 400;
+        }
+    }
+}
