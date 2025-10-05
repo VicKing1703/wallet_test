@@ -308,7 +308,12 @@ Treat Kafka expectations the same way—prepare the wiring before asserting the 
    ```
    Reuse the same suffix for multiple DTOs when they share a topic, and keep the suffix clean—the runtime prepends the environment-specific prefix from `walletTests.kafka.topicPrefix`, so do **not** add the prefix manually. If the payload lives on a non-wallet topic, map the literal topic name and mention the exception in the documentation block below.
 
-2. **Wire configuration.** Double-check the active environment file under `src/test/resources/configs` contains the Kafka block with `bootstrapServer`, `groupId`, buffer size, and timeout knobs. Follow the structure already present in [`configs/beta-09.json`](src/test/resources/configs/beta-09.json). New topics do **not** require extra configuration beyond the DTO mapping, but long-running searches can tune `kafka.findMessageTimeout` or `kafka.findMessageSleepInterval` when necessary.
+2. **Wire configuration.** Double-check the active environment file under `src/test/resources/configs` contains the Kafka block with `bootstrapServer`, `groupId`, buffer size, timeout knobs, and the duplicate window setting. Follow the structure already present in [`configs/beta-09.json`](src/test/resources/configs/beta-09.json). Key configuration parameters include:
+   - `kafka.findMessageTimeout` — default search timeout (e.g., `PT60S`)
+   - `kafka.findMessageSleepInterval` — polling interval between search attempts (e.g., `PT0.2S`)
+   - `kafka.uniqueDuplicateWindowMs` — time window in milliseconds for duplicate detection when using `.unique()` (default: `400`)
+
+   New topics do **not** require extra configuration beyond the DTO mapping, but long-running searches can tune the timeout values when necessary.
 
 3. **Model payload DTOs as records.** Place the Java records in `src/test/java/com/uplatform/wallet_tests/api/kafka/dto`. Avoid Lombok—express the shape directly in a `record`, annotate the type with `@JsonIgnoreProperties(ignoreUnknown = true)`, and use `@JsonProperty` for every snake_case field. Nested structures should be represented as nested records so Jackson can deserialize them without auxiliary setters. Example template:
    ```java
@@ -333,18 +338,29 @@ Treat Kafka expectations the same way—prepare the wiring before asserting the 
                // 1) provide JSONPath filter key/value pairs
                .with("seq_number", ctx.betEvent.getSequence())
                .with("wallet_uuid", ctx.registeredPlayer.walletData().walletUUID())
-               // 2) enforce that only a single message matches
+               // 2) enforce uniqueness within the default duplicate window (400ms)
                .unique()
                // 3) override the default timeout when projections lag
                .within(Duration.ofSeconds(45))
                // 4) trigger the polling loop and deserialize the payload
                .fetch();
    });
+
+   step("Kafka: transaction event with custom duplicate window", () -> {
+       ctx.txMessage = kafkaClient.expect(PaymentTransactionMessage.class)
+               .with("transactionId", txId)
+               .with("status", "COMPLETED")
+               // enforce uniqueness within 5-second window
+               .unique(Duration.ofSeconds(5))
+               .within(Duration.ofSeconds(30))
+               .fetch();
+   });
    ```
    The builder methods behave as follows:
    - `.expect(Type.class)` resolves the topic via `KafkaTopicMappingRegistry` and primes the search buffer.
    - `.with(key, value)` adds an equality filter against the deserialized JSON (use JsonPath selectors such as `"$.payload.uuid"`).
-   - `.unique()` asserts that exactly one message matches before returning it; omit the call when duplicates are acceptable.
+   - `.unique()` enforces uniqueness using the default duplicate window (`uniqueDuplicateWindowMs` from config, typically 400ms). Checks only messages within the time window from the first match.
+   - `.unique(Duration window)` enforces uniqueness with a custom duplicate window. Useful when the second message may arrive later but should still be detected as duplicate.
    - `.within(Duration timeout)` overrides the default `kafka.findMessageTimeout` configured in `configs/*.json`.
    - `.fetch()` starts the polling loop and returns the deserialized record, or throws if nothing matches.
 
