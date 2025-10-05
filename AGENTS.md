@@ -360,21 +360,57 @@ Treat Kafka expectations the same way—prepare the wiring before asserting the 
 Reference [`src/test/java/com/uplatform/wallet_tests/tests/wallet/gambling/bet/BetParametrizedTest.java`](src/test/java/com/uplatform/wallet_tests/tests/wallet/gambling/bet/BetParametrizedTest.java) for the fully wired example.
 
 #### Redis
-The same bet test uses the Redis client to wait for the aggregate to catch up to the NATS sequence and assert individual fields:
+Mirror the Kafka/NATS preparation before asserting cached aggregates. Each new key check should follow the same wiring steps:
 
-```java
-var aggregate = redisWalletClient
-        .key(walletUuid)
-        .withAtLeast("LastSeqNumber", sequence)
-        .fetch();
+1. **Register the type mapping.** Extend [`RedisConfig`](src/test/java/com/uplatform/wallet_tests/api/redis/config/RedisConfig.java) so the client name resolves to the DTO you expect from Redis. The registry drives deserialization for `GenericRedisClient` beans, therefore every new aggregate **must** be registered:
+   ```java
+   @Bean
+   public RedisTypeMappingRegistry redisTypeMappingRegistry() {
+       return new RedisTypeMappingRegistry()
+               .register("wallet", new TypeReference<WalletFullData>() {})
+               .register("player", new TypeReference<Map<String, WalletData>>() {})
+               .register("<client>", new TypeReference<MyDto>() {});
+   }
+   ```
+   Reuse `wallet`/`player` for existing aggregates; only append new `.register(...)` calls when you introduce another Redis structure.
 
-assertAll("redis.wallet.aggregate_validation",
-        () -> assertEquals(sequence, aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
-        () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
-        () -> assertTrue(aggregate.gambling().containsKey(transactionUuid), "redis.wallet.gambling.containsKey")
-);
-```
-Inspect the Redis step in [`BetParametrizedTest`](src/test/java/com/uplatform/wallet_tests/tests/wallet/gambling/bet/BetParametrizedTest.java) for the full assertion list.
+2. **Wire configuration.** Verify the active `configs/<env>.json` profile exposes the Redis connection under `walletTests.redis.clients.<name>`. Copy the structure from [`configs/beta-09.json`](src/test/resources/configs/beta-09.json)—host, port, database, timeouts, optional passwords, and Lettuce pool options. The `<name>` must match the mapping above so Spring creates the corresponding `redis<Name>Client` bean.
+
+3. **Model DTOs.** Keep the payload records in `src/test/java/com/uplatform/wallet_tests/api/redis/model`. Follow the existing pattern in [`WalletFullData`](src/test/java/com/uplatform/wallet_tests/api/redis/model/WalletFullData.java): annotate records with `@JsonIgnoreProperties(ignoreUnknown = true)`, mirror Redis field names with `@JsonProperty`, and provide default constructors when the payload is used in collections or maps.
+
+4. **Compose the fluent expectation deliberately.** Annotate every chained call so the intent matches Kafka/NATS snippets:
+   ```java
+   step("Redis: wallet aggregate updated", () -> {
+       var aggregate = redisWalletClient
+               // 1) pin the Redis key (the helper checks the key is not blank)
+               .key(ctx.registeredPlayer.walletData().walletUUID())
+               // 2) assert numeric thresholds or equality via JsonPath selectors
+               .withAtLeast("LastSeqNumber", ctx.betEvent.getSequence())
+               .with("Gambling['" + ctx.betRequestBody.getTransactionId() + "'].amount",
+                       value -> value != null, "redis.wallet.gambling.amount.present")
+               // 3) override Awaitility timeout when aggregates lag behind
+               .within(Duration.ofSeconds(30))
+               // 4) trigger the polling loop
+               .fetch();
+
+       assertAll("redis.wallet.aggregate_validation",
+               () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
+               () -> assertTrue(aggregate.gambling().containsKey(ctx.betRequestBody.getTransactionId()),
+                       "redis.wallet.gambling.containsKey"));
+   });
+   ```
+   Combine `.with(...)`, `.withAtLeast(...)`, and `.within(...)` as needed; the client automatically attaches "Search Info"/"Found Value"/"Value Not Found" artefacts to Allure on every `.fetch()`.
+
+5. **Document the key.** Add a block next to the scenario that relies on the aggregate, mirroring the other client sections:
+   ```md
+   > **Redis: `<bean_name>`**
+   > - Key: `<literal key pattern>` (e.g. `wallet:aggregate:<wallet_uuid>`)
+   > - DTO: `<RecordName>` (asserted JsonPath selectors: `<$.field[0]>`, `<$.field[1]>`)
+   > - Notes: Optional clarifications (TTL expectations, related Kafka/NATS sequence numbers, etc.)
+   ```
+   Keep the bullet labels intact so `rg "Redis:" AGENTS.md` surfaces every documented key.
+
+Use [`BetParametrizedTest`](src/test/java/com/uplatform/wallet_tests/tests/wallet/gambling/bet/BetParametrizedTest.java) as the canonical example—it performs the Redis fetch right after the NATS/Kafka steps.
 
 #### Database
 Finalize the flow by fetching persisted entities via Awaitility-backed helpers. `BetParametrizedTest` verifies both the transaction history and threshold tables:
