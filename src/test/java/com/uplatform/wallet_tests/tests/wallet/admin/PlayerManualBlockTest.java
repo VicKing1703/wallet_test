@@ -1,7 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
 
 import com.testing.multisource.api.nats.dto.NatsMessage;
-import com.testing.multisource.api.redis.GenericRedisClient;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
@@ -11,23 +10,50 @@ import com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccoun
 import com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccountStatus;
 import com.uplatform.wallet_tests.api.nats.dto.NatsWalletBlockedPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
-import com.uplatform.wallet_tests.api.redis.model.WalletData;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Интеграционный тест, проверяющий процесс ручной блокировки игрока через CAP API
+ * и последующее распространение информации о блокировке по различным компонентам системы.
+ *
+ * <p>Тест эмулирует действие администратора, который вручную блокирует аккаунт игрока.
+ * Проверяется, что после вызова соответствующего эндпоинта CAP API система корректно
+ * обновляет статус игрока и генерирует необходимые события для оповещения других
+ * микросервисов. Это подтверждает целостность и согласованность данных в распределенной среде.</p>
+ *
+ * <p><b>Последовательность действий:</b></p>
+ * <ol>
+ *   <li>Регистрация нового игрока для получения уникальных идентификаторов.</li>
+ *   <li>Отправка запроса в CAP API для обновления свойств игрока с установкой флага {@code manuallyBlocked = true}.</li>
+ *   <li>Прослушивание и валидация Kafka-сообщения в топике {@code player.statusUpdate},
+ *       подтверждающего смену статуса игрока на {@link com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccountStatus#BLOCKED}.</li>
+ *   <li>Прослушивание и валидация NATS-события типа {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType#WALLET_BLOCKED},
+ *       указывающего на блокировку кошелька.</li>
+ *   <li>Проверка того, что NATS-событие было успешно спроецировано в Kafka-топик {@code wallet.v8.projectionSource}.</li>
+ *   <li>Проверка конечного состояния в Redis, чтобы убедиться, что данные кошелька (агрегат) отражают статус блокировки.</li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Запрос на блокировку игрока через CAP API выполняется успешно (HTTP 204 NO CONTENT).</li>
+ *   <li>В Kafka появляется событие о смене статуса игрока на {@code BLOCKED}.</li>
+ *   <li>В NATS публикуется событие о блокировке кошелька.</li>
+ *   <li>Данные из NATS-события корректно дублируются в соответствующий проекционный топик Kafka.</li>
+ *   <li>Состояние кошелька в Redis обновляется, и флаг {@code isBlocked} устанавливается в {@code true}.</li>
+ *   <li>Все ожидаемые события в Kafka и NATS являются уникальными в рамках теста, что гарантирует отсутствие дублирования сообщений.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
 @Feature("PlayerBlockers")
