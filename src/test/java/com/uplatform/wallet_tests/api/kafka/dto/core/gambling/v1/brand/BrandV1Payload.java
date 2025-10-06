@@ -2,7 +2,7 @@ package com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

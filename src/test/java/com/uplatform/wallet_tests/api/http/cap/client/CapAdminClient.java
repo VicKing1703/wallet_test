@@ -2,7 +2,7 @@ package com.uplatform.wallet_tests.api.http.cap.client;
 
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.*;
+import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
@@ -11,6 +11,7 @@ import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlo
 import com.uplatform.wallet_tests.api.http.cap.dto.get_block_amount_list.BlockAmountListResponseBody;
 import com.uplatform.wallet_tests.api.http.cap.dto.get_blockers.GetBlockersResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.get_player_limits.GetPlayerLimitsResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.labels.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_verification_status.UpdateVerificationStatusRequest;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -106,6 +107,18 @@ public interface CapAdminClient {
             @RequestBody UpdateVerificationStatusRequest request
     );
 
+    /**
+     * <h5>Categories</h5>
+     * <ol>
+     * <li>Create game category</li>
+     * <li>Get game category by id</li>
+     * <li>Delete game category</li>
+     * <li>Update game category</li>
+     * <li>Update game category status</li>
+     * <li>Bind game to game category</li>
+     * </ol>
+    **/
+
     @PostMapping("/_cap/api/v1/categories")
     ResponseEntity<CreateGameCategoryResponse> createGameCategory(
             @RequestHeader("Authorization") String authorizationHeader,
@@ -143,6 +156,18 @@ public interface CapAdminClient {
             @RequestBody BindGameCategoryRequest request
     );
 
+    /**
+     * <h5>Brands</h5>
+     * <ol>
+     *  <li>Create brand</li>
+     *  <li>Get brand by id</li>
+     *  <li>Delete brand</li>
+     *  <li>Update brand</li>
+     *  <li>Update brand status</li>
+     *  <li>Bind game to brand</li>
+     * </ol>
+     */
+
     @PostMapping("/_cap/api/v1/brands")
     ResponseEntity<CreateBrandResponse> createBrand(
             @RequestHeader("Authorization") String authorizationHeader,
@@ -172,12 +197,77 @@ public interface CapAdminClient {
             @RequestBody PatchBrandRequest request
     );
 
+    @PatchMapping("_cap/api/v1/brands/{brandId}/status")
+    ResponseEntity<PatchStatusBandResponse> patchStatusBrand(
+            @PathVariable("brandId") String brandId,
+            @RequestHeader("Authtorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody PatchStatusBrandRequest request
+    );
+
     @PostMapping("/_cap/api/v1/brands/{brandId}/bind-game")
     ResponseEntity<Void> bindGameBrand(
             @PathVariable("brandId") String brandId,
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
             @RequestBody BindGameBrandRequest request
+    );
+
+    /**
+     * <h5>Labels</h5>
+     * <ol>
+     *  <li>Create game label</li>
+     *  <li>Get game label by id</li>
+     *  <li>Delete game label</li>
+     *  <li>Update game label</li>
+     *  <li>Update game label status</li>
+     *  <li>Bind game to game label</li>
+     * </ol>
+     */
+
+    @PostMapping("/_cap/api/v1/labels")
+    ResponseEntity<CreateLabelResponse> createLabel(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody CreateLabelRequest request
+    );
+
+    @GetMapping ("/_cap/api/v1/labels/{labelId}")
+    ResponseEntity<GetLabelResponse> getLabelId(
+            @PathVariable("labelId") String labelId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId
+    );
+
+    @DeleteMapping("/_cap/api/v1/labels/{labelId}")
+    ResponseEntity<Void> deleteLabel(
+            @PathVariable("labelId") String labelId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId
+    );
+
+    @PatchMapping("/_cap/api/v1/labels/{labelId}")
+    ResponseEntity<PatchLabelResponse> patchLabel(
+            @PathVariable("labelId") String labelId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody PatchLabelRequest request
+    );
+
+    @PatchMapping("_cap/api/v1/labels/{labelId}/status")
+    ResponseEntity<PatchStatusLabelResponse> patchStatusLabel(
+            @PathVariable("labelId") String labelId,
+            @RequestHeader("Authtorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody PatchStatusLabelRequest request
+    );
+
+    @PostMapping("/_cap/api/v1/labels/{labelId}/bind-game")
+    ResponseEntity<Void> bindGameLabel(
+            @PathVariable("labelId") String labelId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody BindGameLabelRequest request
     );
 
 }

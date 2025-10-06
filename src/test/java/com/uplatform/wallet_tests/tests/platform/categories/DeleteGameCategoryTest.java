@@ -1,12 +1,15 @@
 package com.uplatform.wallet_tests.tests.platform.categories;
 
-import com.uplatform.wallet_tests.api.db.exceptions.DatabaseRecordNotFoundException;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.*;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.CategoryType;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.*;
+import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.enums.CategoryType;
+import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v3.game.GameCategoryEvent;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v3.game.enums.GameEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.allure.Suite;
+import com.uplatform.wallet_tests.tests.util.utils.RetryUtils;
 import io.qameta.allure.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -34,8 +37,12 @@ import static org.junit.jupiter.api.Assertions.*;
  *  по uuid из ответа на создание. В ответ получаем код 204</li>
  *      <li><b>Проверка удаления категории в БД.</b>
  *  Проверка, что в БД {@code `_core`.game_category} отсутствует категория с uuid из создания категории</li>
+ *      <li><b>Поиск сообщения в Кафке о создании категории: </b>
+ *  Проверяем в топике {@code core.gambling.v3.Game} сообщение об удалении категории, что его uuid соответствуют,
+ *  тип категории, статус и имена</li>
  * </ol>
  */
+
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
 @Feature("/categories/{uuid}")
@@ -43,18 +50,20 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Platform") @Tag("GameCategory") @Tag("DeleteGameCategory")
 public class DeleteGameCategoryTest extends BaseTest{
 
-    @Test
-    @DisplayName("Удаление категории по её uuid")
-    void shouldDeleteGameCategory() {
+    static final class TestContext {
+        CreateGameCategoryRequest createGameCategoryRequest;
+        ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
 
-        final class TestContext {
-            CreateGameCategoryRequest createGameCategoryRequest;
-            ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
-            DeleteGameCategoryRequest deleteGameCategoryRequest;
-            ResponseEntity<Void> deleteGameCategoryResponse;
-            String createdGameCategoryId;
-        }
-        final TestContext ctx = new TestContext();
+        DeleteGameCategoryRequest deleteGameCategoryRequest;
+        ResponseEntity<Void> deleteGameCategoryResponse;
+
+        GameCategoryEvent gameCategoryEvent;
+    }
+
+    final TestContext ctx = new TestContext();
+
+    @BeforeEach
+    void setUp() {
 
         step("1. Предусловие. Создание категории", () -> {
             ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
@@ -66,39 +75,44 @@ public class DeleteGameCategoryTest extends BaseTest{
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 5)))
                     .build();
 
-            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
+            ctx.createGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
+                    capAdminClient.createGameCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                     ctx.createGameCategoryRequest
+                    )
             );
 
-            assertAll(
-                    "Проверяем код ответа и тело ответа",
+            assertAll("Проверяем код ответа и тело ответа",
                     () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
                     () -> assertNotNull(ctx.createGameCategoryResponse.getBody().getId())
             );
-
-            ctx.createdGameCategoryId = ctx.createGameCategoryResponse.getBody().getId();
-
         });
-
 
         step("2. Предусловие. DB Category: проверка создания категории", () -> {
-            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createdGameCategoryId);
+            var category = coreDatabaseClient.findCategoryByUuidOrFail(ctx.createGameCategoryResponse.getBody().getId());
+
             assertAll("Проверка что есть категория с uuid как у созданной",
-                    () -> assertEquals(category.getUuid(), ctx.createdGameCategoryId)
+                    () -> assertEquals(category.getUuid(), ctx.createGameCategoryResponse.getBody().getId())
             );
         });
+    }
+
+    @Test
+    @DisplayName("Удаление категории по её uuid")
+    void shouldDeleteGameCategory() {
 
         step("3. Удаление категории по ID", () -> {
             ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder()
-                    .id(ctx.createdGameCategoryId)
+                    .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
-                    ctx.createdGameCategoryId,
+            ctx.deleteGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
+                    capAdminClient.deleteGameCategory(
+                    ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
+                    )
             );
 
             assertEquals(HttpStatus.NO_CONTENT, ctx.deleteGameCategoryResponse.getStatusCode(),
@@ -107,8 +121,46 @@ public class DeleteGameCategoryTest extends BaseTest{
         });
 
         step("4. DB Category: проверка удаления категории", () -> {
-            var category = coreDatabaseClient.findCategoryByUuid(ctx.createdGameCategoryId);
+            var category = coreDatabaseClient.findCategoryByUuid(ctx.createGameCategoryResponse.getBody().getId());
+
             assertTrue(category.isEmpty(), "Категория с данным uuid должна быть удалена из БД");
+        });
+
+        step("5. Kafka: platform отправляет сообщение о создании категории в Kafka, в топик _core.gambling.v3.Game", () -> {
+            ctx.gameCategoryEvent = kafkaClient.expect(GameCategoryEvent.class)
+                    .with("message.eventType", GameEventType.CATEGORY.getValue())
+                    .with("category.uuid", ctx.createGameCategoryResponse.getBody().getId())
+                    .fetch();
+
+            assertAll("Проверяем сообщение в топике Kafka",
+                    () -> assertNotNull(ctx.gameCategoryEvent, "Должно быть сообщение в топике"),
+                    () -> assertEquals(
+                            GameEventType.CATEGORY, ctx.gameCategoryEvent.getMessage().getEventType(),
+                            "Тип события в Kafka должен быть " + GameEventType.CATEGORY
+                    ),
+                    () -> assertEquals(
+                            ctx.createGameCategoryResponse.getBody().getId(),
+                            ctx.gameCategoryEvent.getCategory().getUuid(),
+                            "UUID категории в Kafka должен совпадать с UUID из ответа"
+                    ),
+                    // вопрос - зачем еще раз передавать название, но нет алиаса
+                    () -> assertNotNull(ctx.gameCategoryEvent.getCategory().getName()),
+                    () -> assertEquals(
+                            ctx.createGameCategoryRequest.getNames(),
+                            ctx.gameCategoryEvent.getCategory().getLocalizedNames(),
+                            "Localized names в Kafka должны совпадать с запросом"
+                    ),
+                    () -> assertEquals(
+                            ctx.createGameCategoryRequest.getType().getValue(),
+                            ctx.gameCategoryEvent.getCategory().getType(),
+                            "Тип должен быть как в запросе"
+                    ),
+                    () -> assertEquals(
+                            "disabled",
+                            ctx.gameCategoryEvent.getCategory().getStatus(),
+                            "Статус созданной категории по умолчанию должен быть disabled"
+                    )
+            );
         });
     }
 }

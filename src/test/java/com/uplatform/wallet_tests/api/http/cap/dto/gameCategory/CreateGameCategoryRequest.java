@@ -1,7 +1,7 @@
-package com.uplatform.wallet_tests.api.http.cap.dto.category;
+package com.uplatform.wallet_tests.api.http.cap.dto.gameCategory;
 
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.CategoryType;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.enums.CategoryType;
+import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
 import lombok.Builder;
 import lombok.Data;
 

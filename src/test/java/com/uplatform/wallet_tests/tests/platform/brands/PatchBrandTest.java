@@ -3,7 +3,7 @@ package com.uplatform.wallet_tests.tests.platform.brands;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreBrand;
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandEvent;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.enums.BrandEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
@@ -11,9 +11,7 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
@@ -41,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *      <li><b>Постусловие. Удаление созданного бренда.</b> {@link DeleteBrandTest}</li>
  * </ol>
  */
+
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
 @Feature("/brands/{uuid}")
@@ -48,23 +47,26 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Platform") @Tag("Brands") @Tag("UpdateBrand")
 public class PatchBrandTest extends BaseTest {
 
-    @Test
-    @DisplayName("Изменение бренда")
-    void shouldPatchBrand() {
+    static final class TestContext {
+        CreateBrandRequest createBrandRequest;
+        ResponseEntity<CreateBrandResponse> createBrandResponse;
 
-        final class TestContext {
-            CreateBrandRequest createBrandRequest;
-            ResponseEntity<CreateBrandResponse> createBrandResponse;
-            PatchBrandRequest patchBrandRequest;
-            ResponseEntity<PatchBrandResponse> patchBrandResponse;
-            DeleteBrandRequest deleteBrandRequest;
-            ResponseEntity<Void> DeleteBrandResponse;
-            BrandEvent brandEvent;
-            CoreBrand brand;
-        }
-        final TestContext ctx = new TestContext();
+        PatchBrandRequest patchBrandRequest;
+        ResponseEntity<PatchBrandResponse> patchBrandResponse;
+
+        DeleteBrandRequest deleteBrandRequest;
+        ResponseEntity<Void> deleteBrandResponse;
+
+        BrandEvent brandEvent;
+        CoreBrand brand;
+    }
+    private final TestContext ctx = new TestContext();
+
+    @BeforeEach
+    void setUp() {
 
         step("1. Предусловие.Создание бренда", () -> {
+
             ctx.createBrandRequest = CreateBrandRequest.builder()
                     .sort(1)
                     .alias(get(ALIAS, 5))
@@ -89,12 +91,23 @@ public class PatchBrandTest extends BaseTest {
         });
 
         step("2. Предусловие. DB Brand: проверка создания бренда", () -> {
-            ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createBrandResponse.getBody().getId());
+
+            ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(
+                    ctx.createBrandResponse.getBody().getId()
+            );
+
             assertAll("Проверка записи в БД",
                     () -> assertEquals(ctx.brand.getUuid(), ctx.createBrandResponse.getBody().getId(),
                             "Uuid из ответа и в БД должны быть одинаковые")
             );
+
         });
+
+    };
+
+    @Test
+    @DisplayName("Изменение бренда")
+    void shouldPatchBrand() {
 
         step("3. Изменение бренда", () -> {
             ctx.patchBrandRequest = PatchBrandRequest.builder()
@@ -120,7 +133,11 @@ public class PatchBrandTest extends BaseTest {
         });
 
         step("4. DB Brand: проверка обновления бренда", () -> {
-            ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createBrandResponse.getBody().getId());
+
+            ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(
+                    ctx.createBrandResponse.getBody().getId()
+            );
+
             assertAll("Проверяем запись в БД после PATCH",
                     () -> assertNotNull(ctx.brand.getUpdatedAt(),
                             "После PATCH поле updated_at в БД должно быть заполнено"),
@@ -134,9 +151,11 @@ public class PatchBrandTest extends BaseTest {
                             ctx.brand.getDescription(),
                             "Description в БД должен обновиться")
             );
+
         });
 
         step("5. Kafka: platform отправляет сообщение о изменении бренда в Kafka топик core.gambling.v1.Brand", () -> {
+
             ctx.brandEvent = kafkaClient.expect(BrandEvent.class)
                     .with("message.eventType", BrandEventType.BRAND_UPDATED.getValue())
                     .with("brand.uuid", ctx.createBrandResponse.getBody().getId())
@@ -163,21 +182,33 @@ public class PatchBrandTest extends BaseTest {
                     () -> assertFalse(ctx.brandEvent.getBrand().getStatusEnabled(),
                             "статус созданного бренда по умолчанию должен быть false")
             );
+
         });
 
-        step("6. Постусловие. Удаление бренда по ID", () -> {
-            ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createBrandResponse.getBody().getId()).build();
+    };
 
-            ctx.DeleteBrandResponse = capAdminClient.deleteBrand(
+    @AfterEach
+    void tearDown() {
+
+        step("6. Постусловие. Удаление бренда по ID", () -> {
+
+            ctx.deleteBrandRequest = DeleteBrandRequest.builder()
+                    .id(ctx.createBrandResponse.getBody().getId())
+                    .build();
+
+            ctx.deleteBrandResponse = capAdminClient.deleteBrand(
                     ctx.createBrandResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
             assertEquals(
-                    HttpStatus.NO_CONTENT, ctx.DeleteBrandResponse.getStatusCode(),
+                    HttpStatus.NO_CONTENT, ctx.deleteBrandResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"
             );
         });
-    }
+
+    };
+
+
 }

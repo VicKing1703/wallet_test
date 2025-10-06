@@ -1,13 +1,12 @@
 package com.uplatform.wallet_tests.tests.platform.brands;
 
+import com.uplatform.wallet_tests.api.db.entity.core.CoreBrand;
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import io.qameta.allure.*;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
@@ -33,27 +32,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *      <li><b>Постусловие. Удаление созданного бренда.</b> {@link DeleteBrandTest}</li>
  * </ol>
  */
+
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
 @Feature("/brands/{uuid}")
 @Suite("Позитивный сценарий: Действия с брендами")
-@Tag("Platform") @Tag("Brand")
+@Tag("Platform") @Tag("Brand") @Tag("GetBrand")
 class GetBrandTest extends BaseTest {
 
-    @Test
-    @DisplayName("Получение бренда по его ID")
-    void shouldGetBrand() {
+    private static final class TestContext {
+        CreateBrandRequest createBrandRequest;
+        ResponseEntity<CreateBrandResponse> createBrandResponse;
 
-        final class TestContext {
-            CreateBrandRequest createBrandRequest;
-            ResponseEntity<CreateBrandResponse> createBrandResponse;
-            GetBrandRequest getBrandRequest;
-            ResponseEntity<GetBrandResponse> GetBrandResponse;
-            DeleteBrandRequest deleteBrandRequest;
-            ResponseEntity<Void> DeleteBrandResponse;
-            String createdBrandId;
-        }
-        final TestContext ctx = new TestContext();
+        GetBrandRequest getBrandRequest;
+        ResponseEntity<GetBrandResponse> getBrandResponse;
+
+        DeleteBrandRequest deleteBrandRequest;
+        ResponseEntity<Void> deleteBrandResponse;
+
+        CoreBrand brand;
+    };
+
+    private final TestContext ctx = new TestContext();
+
+    @BeforeEach
+    void setUp() {
 
         step("1. Предусловие. Создание бренда", () -> {
             ctx.createBrandRequest = CreateBrandRequest.builder()
@@ -69,66 +72,88 @@ class GetBrandTest extends BaseTest {
                     ctx.createBrandRequest
             );
 
-            assertAll(
-                    "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.createBrandResponse.getBody().getId())
+            assertAll("Проверяю тело ответа",
+                    () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode(),
+                            "Код ответа должен быть 200 ОК, пришел" + ctx.createBrandResponse.getStatusCode()),
+                    () -> assertNotNull(ctx.createBrandResponse.getBody().getId(),
+                            "В ответе должен быть uuid созданного бренда")
             );
-
-            ctx.createdBrandId = ctx.createBrandResponse.getBody().getId();
-
         });
 
         step("2. Предусловие. DB Brand: проверка создания бренда", () -> {
-            var brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createdBrandId);
-            assertAll("Проверка ",
-                    () -> assertEquals(brand.getUuid(), ctx.createdBrandId)
+            ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createBrandResponse.getBody().getId());
+
+            assertAll("Проверка записи в БД",
+                    () -> assertEquals(ctx.brand.getUuid(), ctx.createBrandResponse.getBody().getId(),
+                            "Uuid из ответа и в БД должны быть одинаковые")
             );
         });
+    };
+
+    @Test
+    @DisplayName("Получение бренда по его ID")
+    void shouldGetBrand() {
 
         step("3. Получение бренда по ID", () -> {
-            ctx.getBrandRequest = GetBrandRequest.builder().id(ctx.createdBrandId).build();
+            ctx.getBrandRequest = GetBrandRequest
+                    .builder()
+                    .id(ctx.createBrandResponse.getBody().getId())
+                    .build();
 
-            ctx.GetBrandResponse = capAdminClient.getBrandId(
-                    ctx.createdBrandId,
+            ctx.getBrandResponse = capAdminClient.getBrandId(
+                    ctx.createBrandResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
-            assertAll(
-                    "Проверяю тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getId()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getNames()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getAlias()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getGameIds()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getStatus()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getSort()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getNodeId()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getCreatedAt()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getUpdatedAt()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getCreatedBy()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getUpdatedAt()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getIcon()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getLogo()),
-                    () -> assertNotNull(ctx.GetBrandResponse.getBody().getColorLogo())
+            assertAll("Проверяем код и тело ответа",
+                    () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode(),
+                            "Ожидаем статус 200 ОК"),
+                    () -> assertEquals(ctx.createBrandResponse.getBody().getId(), ctx.getBrandResponse.getBody().getId(),
+                            "uuid при создании и из получения должны быть одинаковые"),
+                    () -> assertEquals(ctx.createBrandRequest.getNames().get(LangEnum.RUSSIAN),
+                            ctx.getBrandResponse.getBody().getNames().get("ru"),
+                            "names при создании и из получения должны быть одинаковые"),
+                    () -> assertEquals(ctx.createBrandRequest.getAlias(), ctx.getBrandResponse.getBody().getAlias(),
+                            "alias при создании и из получения должны быть одинаковые"),
+                    () -> assertEquals(ctx.createBrandRequest.getDescription(),
+                            ctx.getBrandResponse.getBody().getDescription(),
+                            "description при создании и из получения должны быть одинаковые"),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getGameIds()),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getStatus()),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getSort()),
+                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
+                            ctx.getBrandResponse.getBody().getNodeId(),
+                            "uuid ноды должен быть такой-же как при создании из хедера platform-nodeid"),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getCreatedAt()),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getUpdatedAt()),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getCreatedBy()),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getUpdatedAt()),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getIcon()),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getLogo()),
+                    () -> assertNotNull(ctx.getBrandResponse.getBody().getColorLogo())
             );
-
         });
+    };
+
+    @AfterEach
+    void tearDown() {
 
         step("4. Постусловие. Удаление бренда по ID", () -> {
-            ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createdBrandId).build();
+            ctx.deleteBrandRequest = DeleteBrandRequest
+                    .builder()
+                    .id(ctx.createBrandResponse.getBody().getId())
+                    .build();
 
-            ctx.DeleteBrandResponse = capAdminClient.deleteBrand(
-                    ctx.createdBrandId,
+            ctx.deleteBrandResponse = capAdminClient.deleteBrand(
+                    ctx.createBrandResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
-            assertEquals(
-                    HttpStatus.NO_CONTENT, ctx.DeleteBrandResponse.getStatusCode(),
+            assertEquals(HttpStatus.NO_CONTENT, ctx.deleteBrandResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"
             );
         });
-    }
+    };
 }

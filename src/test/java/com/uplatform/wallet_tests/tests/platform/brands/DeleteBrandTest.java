@@ -2,12 +2,15 @@ package com.uplatform.wallet_tests.tests.platform.brands;
 
 import com.uplatform.wallet_tests.api.db.entity.core.CoreBrand;
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.BrandEvent;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v1.brand.enums.BrandEventType;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v3.game.GameBrandEvent;
+import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v3.game.enums.GameEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import io.qameta.allure.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -40,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *  передаётся дата удаления</li>
  * </ol>
  */
+
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Platform")
 @Feature("/brands/{uuid}")
@@ -47,22 +51,27 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Platform") @Tag("Brand") @Tag("DeleteBrand")
 class DeleteBrandTest extends BaseTest {
 
-    @Test
-    @DisplayName("Удаление бренда по его ID")
-    void shouldDeleteBrand() {
+    static final class TestContext {
 
-        final class TestContext {
-            CreateBrandRequest createBrandRequest;
-            ResponseEntity<CreateBrandResponse> createBrandResponse;
-            DeleteBrandRequest deleteBrandRequest;
-            ResponseEntity<Void> DeleteBrandResponse;
-            BrandEvent brandEvent;
-            CoreBrand brand;
+        CreateBrandRequest createBrandRequest;
+        ResponseEntity<CreateBrandResponse> createBrandResponse;
 
-        }
-        final TestContext ctx = new TestContext();
+        DeleteBrandRequest deleteBrandRequest;
+        ResponseEntity<Void> deleteBrandResponse;
 
+        CoreBrand brand;
+
+        BrandEvent brandEvent;
+        GameBrandEvent gameBrandEvent;
+
+    }
+
+    final TestContext ctx = new TestContext();
+
+    @BeforeEach
+    void setUp() {
         step("1. Предусловие. Создание бренда", () -> {
+
             ctx.createBrandRequest = CreateBrandRequest.builder()
                     .sort(1)
                     .alias(get(ALIAS, 3))
@@ -84,54 +93,105 @@ class DeleteBrandTest extends BaseTest {
                             "ID бренда не должен быть NULL"
                     )
             );
+
         });
 
         step("2. Предусловие. DB Brand: проверка создания бренда", () -> {
+
             ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createBrandResponse.getBody().getId());
+
             assertAll("Проверка записи в БД",
                     () -> assertEquals(ctx.brand.getUuid(), ctx.createBrandResponse.getBody().getId(),
                             "Uuid из ответа и в БД должны быть одинаковые")
             );
+
         });
 
+    };
+
+    @Test
+    @DisplayName("Удаление бренда по его ID")
+    void shouldDeleteBrand() {
+
         step("3. Удаление бренда по ID", () -> {
+
             ctx.deleteBrandRequest = DeleteBrandRequest.builder().id(ctx.createBrandResponse.getBody().getId()).build();
 
-            ctx.DeleteBrandResponse = capAdminClient.deleteBrand(
+            ctx.deleteBrandResponse = capAdminClient.deleteBrand(
                     ctx.createBrandResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
-            assertEquals(HttpStatus.NO_CONTENT, ctx.DeleteBrandResponse.getStatusCode(),
+            assertEquals(HttpStatus.NO_CONTENT, ctx.deleteBrandResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"
             );
+
         });
 
         step("4. DB Brand: проверка удаления бренда", () -> {
+
             ctx.brand = coreDatabaseClient.findBrandByUuidOrFail(ctx.createBrandResponse.getBody().getId());
+
             assertAll("Проверка что в БД не осталось бренда с uuid создания",
                     () -> assertEquals(ctx.brand.getUuid(), ctx.createBrandResponse.getBody().getId(), "Ожидаем бренд в БД"),
                     () -> assertNotNull(ctx.brand.getDeletedAt(), "Ожидаем дату удаления в поле deleted_at")
             );
+
         });
 
         step("5. Kafka: platform отправляет сообщение об удалении бренда в Kafka", () -> {
-            ctx.brandEvent = kafkaClient.expect(BrandEvent.class)
-                    .with("message.eventType", BrandEventType.BRAND_DELETED.getValue())
-                    .with("brand.uuid", ctx.createBrandResponse.getBody().getId())
-                    .fetch();
 
-            assertAll("Проверяем сообщение в Kafka",
-                    () -> assertNotNull(ctx.brandEvent, "Должно быть сообщение из Kafka"),
-                    () -> assertEquals(BrandEventType.BRAND_DELETED, ctx.brandEvent.getMessage().getEventType(),
-                            "Тип события в Kafka должен быть gambling.gameBrandDeleted"),
-                    () -> assertEquals(ctx.createBrandResponse.getBody().getId(),
-                            ctx.brandEvent.getBrand().getUuid(),
-                            "UUID бренда в Kafka должен совпадать с UUID из ответа"),
-                    () -> assertEquals(ctx.brand.getDeletedAt(), ctx.brandEvent.getBrand().getDeletedAt(),
-                            "Поле created_at как и в БД")
-            );
+            step("Топик core.gambling.v1.Brand", () -> {
+
+                ctx.brandEvent = kafkaClient.expect(BrandEvent.class)
+                        .with("message.eventType", BrandEventType.BRAND_DELETED.getValue())
+                        .with("brand.uuid", ctx.createBrandResponse.getBody().getId())
+                        .fetch();
+
+                assertAll("Проверяем сообщение в Kafka",
+                        () -> assertNotNull(ctx.brandEvent, "Должно быть сообщение из Kafka"),
+                        () -> assertEquals(BrandEventType.BRAND_DELETED, ctx.brandEvent.getMessage().getEventType(),
+                                "Тип события в Kafka должен быть gambling.gameBrandDeleted"),
+                        () -> assertEquals(ctx.createBrandResponse.getBody().getId(),
+                                ctx.brandEvent.getBrand().getUuid(),
+                                "UUID бренда в Kafka должен совпадать с UUID из ответа"),
+                        () -> assertEquals(ctx.brand.getDeletedAt(), ctx.brandEvent.getBrand().getDeletedAt(),
+                                "Поле deleted_at как и в БД")
+                );
+
+            });
+
+            step("Топик core.gambling.v3.Game", () -> {
+
+                ctx.gameBrandEvent = kafkaClient.expect(GameBrandEvent.class)
+                        .with("message.eventType", GameEventType.BRAND.getValue())
+                        .with("brand.uuid", ctx.createBrandResponse.getBody().getId())
+                        .fetch();
+
+                assertAll("Проверяем сообщение в Kafka",
+                        () -> assertNotNull(ctx.gameBrandEvent, "Должно быть сообщение в топике"),
+                        () -> assertEquals(GameEventType.BRAND, ctx.gameBrandEvent.getMessage().getEventType(),
+                                "Тип события в Kafka должен быть gambling.gameBrandCreated"),
+                        () -> assertEquals(ctx.createBrandResponse.getBody().getId(),
+                                ctx.gameBrandEvent.getBrand().getUuid(),
+                                "UUID бренда в Kafka должен совпадать с UUID из ответа"),
+                        () -> assertEquals(ctx.createBrandRequest.getAlias(),
+                                ctx.gameBrandEvent.getBrand().getAlias(),
+                                "Алиас в Kafka должен совпадать с алиасом из запроса"),
+                        () -> assertEquals(ctx.createBrandRequest.getNames(),
+                                ctx.gameBrandEvent.getBrand().getLocalizedNames(),
+                                "Localized names в Kafka должны совпадать с запросом"),
+                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
+                                ctx.gameBrandEvent.getBrand().getProjectId(),
+                                "project_id должен соответствовать с platform-nodeid из хедера запроса"),
+                        () -> assertEquals("disabled", ctx.gameBrandEvent.getBrand().getStatus(),
+                                "статус созданного бренда по умолчанию должен быть disabled")
+                );
+
+            });
+
         });
-    }
+
+    };
 }

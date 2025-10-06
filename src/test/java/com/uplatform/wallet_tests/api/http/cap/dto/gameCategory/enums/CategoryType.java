@@ -1,4 +1,4 @@
-package com.uplatform.wallet_tests.api.http.cap.dto.category.enums;
+package com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;

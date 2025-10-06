@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.api.http.cap.dto.brand;
 
-import com.uplatform.wallet_tests.api.http.cap.dto.category.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
 import lombok.Builder;
 import lombok.Data;
 import java.util.Map;

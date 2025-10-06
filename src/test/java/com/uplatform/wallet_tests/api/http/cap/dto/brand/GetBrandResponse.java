@@ -12,6 +12,7 @@ public class GetBrandResponse {
     private String id;
     private Map<String, String> names;
     private String alias;
+    private String description;
     private List<String> gameIds;
     private Integer status;
     private Integer sort;

@@ -11,19 +11,18 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class BrandV3Payload {
-
+public class CategoryV3Payload {
     @JsonProperty("uuid")
     private String uuid;
 
-    @JsonProperty("alias")
-    private  String alias;
+    @JsonProperty("name")
+    private  String name;
 
     @JsonProperty("localized_names")
     private Map<LangEnum, String> localizedNames;
 
-    @JsonProperty("project_id")
-    private String projectId;
+    @JsonProperty("type")
+    private String type;
 
     @JsonProperty("status")
     private String status;
