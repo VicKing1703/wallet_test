@@ -90,6 +90,7 @@ class PlayerManualBlockTest extends BaseTest {
                     .with("message.eventType", EXPECTED_EVENT_TYPE)
                     .with("player.externalId", ctx.registeredPlayer.walletData().playerUUID())
                     .with("player.status", EXPECTED_PLAYER_STATUS.getCode())
+                    .unique()
                     .fetch();
 
             assertAll(
@@ -116,6 +117,7 @@ class PlayerManualBlockTest extends BaseTest {
             ctx.walletBlockedEvent = natsClient.expect(NatsWalletBlockedPayload.class)
                     .from(subject)
                     .withType(NatsEventType.WALLET_BLOCKED.getHeaderValue())
+                    .unique()
                     .fetch();
 
             assertTrue(ctx.walletBlockedEvent.getPayload().date() >= 0, "nats.wallet_blocked.date.non_negative");
@@ -125,6 +127,7 @@ class PlayerManualBlockTest extends BaseTest {
             ctx.walletProjectionMessage = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("type", ctx.walletBlockedEvent.getType())
                     .with("seq_number", ctx.walletBlockedEvent.getSequence())
+                    .unique()
                     .fetch();
 
             var kafkaMessage = ctx.walletProjectionMessage;

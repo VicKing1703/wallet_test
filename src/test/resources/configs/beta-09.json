@@ -131,7 +131,7 @@
     "shutdownTimeout": "PT5S",
     "autoOffsetReset": "latest",
     "enableAutoCommit": true,
-    "uniqueDuplicateWindowMs": 400
+    "uniqueDuplicateWindowMs": 500
   },
   "nats": {
     "hosts": [
@@ -148,7 +148,7 @@
     "subscriptionAckWaitSeconds": 60,
     "subscriptionInactiveThresholdSeconds": 90,
     "subscriptionBufferSize": 1000,
-    "uniqueDuplicateWindowMs": 400,
+    "uniqueDuplicateWindowMs": 500,
     "failOnDeserialization": false
   }
 }
