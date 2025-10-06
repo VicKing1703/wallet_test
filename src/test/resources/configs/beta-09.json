@@ -130,7 +130,8 @@
     "pollDuration": "PT1S",
     "shutdownTimeout": "PT5S",
     "autoOffsetReset": "latest",
-    "enableAutoCommit": true
+    "enableAutoCommit": true,
+    "uniqueDuplicateWindowMs": 400
   },
   "nats": {
     "hosts": [
