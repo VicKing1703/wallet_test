@@ -1,23 +1,29 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
 
 import com.testing.multisource.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.redis.GenericRedisClient;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_player_properties.UpdatePlayerPropertiesRequest;
 import com.uplatform.wallet_tests.api.kafka.dto.player_status.PlayerStatusUpdateMessage;
 import com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccountEventType;
 import com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccountStatus;
 import com.uplatform.wallet_tests.api.nats.dto.NatsWalletBlockedPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
+import com.uplatform.wallet_tests.api.redis.model.WalletData;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,6 +35,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Wallet")
 @Tag("CAP")
 class PlayerManualBlockTest extends BaseTest {
+
+    @Autowired
+    @Qualifier("redisPlayerClient")
+    private GenericRedisClient<Map<String, WalletData>> redisPlayerClient;
 
     @Test
     @DisplayName("CAP: Блокировка игрока обновляет статус и отправляет события")
@@ -44,6 +54,7 @@ class PlayerManualBlockTest extends BaseTest {
             UpdatePlayerPropertiesRequest updateRequest;
             PlayerStatusUpdateMessage statusUpdateMessage;
             NatsMessage<NatsWalletBlockedPayload> walletBlockedEvent;
+            WalletProjectionMessage walletProjectionMessage;
         }
         final TestContext ctx = new TestContext();
 
@@ -114,7 +125,98 @@ class PlayerManualBlockTest extends BaseTest {
                     .withType(NatsEventType.WALLET_BLOCKED.getHeaderValue())
                     .fetch();
 
-            assertTrue(ctx.walletBlockedEvent.getPayload().date() >= 0, "nats.wallet_blocked.date.non_negative");
+            assertAll(
+                    () -> assertEquals(NatsEventType.WALLET_BLOCKED.getHeaderValue(),
+                            ctx.walletBlockedEvent.getType(), "nats.wallet_blocked.type"),
+                    () -> assertNotNull(ctx.walletBlockedEvent.getTimestamp(), "nats.wallet_blocked.timestamp"),
+                    () -> assertTrue(ctx.walletBlockedEvent.getSequence() > 0, "nats.wallet_blocked.sequence_positive"),
+                    () -> assertTrue(ctx.walletBlockedEvent.getPayload().date() >= 0,
+                            "nats.wallet_blocked.date.non_negative")
+            );
+        });
+
+        step("Kafka: Проверка события wallet_blocked в топике wallet.v8.projectionSource", () -> {
+            assertNotNull(ctx.walletBlockedEvent, "context.wallet_blocked_event");
+
+            ctx.walletProjectionMessage = kafkaClient.expect(WalletProjectionMessage.class)
+                    .with("type", ctx.walletBlockedEvent.getType())
+                    .with("seq_number", ctx.walletBlockedEvent.getSequence())
+                    .fetch();
+
+            var kafkaMessage = ctx.walletProjectionMessage;
+            var expectedPayload = assertDoesNotThrow(() ->
+                            objectMapper.writeValueAsString(ctx.walletBlockedEvent.getPayload()),
+                    "kafka.wallet_blocked.payload.serialization");
+            var expectedTimestamp = ctx.walletBlockedEvent.getTimestamp().toEpochSecond();
+
+            assertAll(
+                    () -> assertEquals(ctx.walletBlockedEvent.getType(), kafkaMessage.type(),
+                            "kafka.wallet_blocked.type"),
+                    () -> assertEquals(ctx.walletBlockedEvent.getSequence(), kafkaMessage.seqNumber(),
+                            "kafka.wallet_blocked.seq_number"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().walletUUID(), kafkaMessage.walletUuid(),
+                            "kafka.wallet_blocked.wallet_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), kafkaMessage.playerUuid(),
+                            "kafka.wallet_blocked.player_uuid"),
+                    () -> assertEquals(PLATFORM_NODE_ID, kafkaMessage.nodeUuid(),
+                            "kafka.wallet_blocked.node_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), kafkaMessage.currency(),
+                            "kafka.wallet_blocked.currency"),
+                    () -> assertEquals(expectedPayload, kafkaMessage.payload(),
+                            "kafka.wallet_blocked.payload"),
+                    () -> assertEquals(expectedTimestamp, kafkaMessage.timestamp(),
+                            "kafka.wallet_blocked.timestamp"),
+                    () -> assertNotNull(kafkaMessage.seqNumberNodeUuid(),
+                            "kafka.wallet_blocked.seq_number_node_uuid")
+            );
+        });
+
+        step("Redis (Wallet): Проверка статуса кошелька", () -> {
+            assertNotNull(ctx.walletBlockedEvent, "context.wallet_blocked_event");
+
+            var walletUuid = ctx.registeredPlayer.walletData().walletUUID();
+            var walletAggregate = redisWalletClient
+                    .key(walletUuid)
+                    .with("Status", EXPECTED_PLAYER_STATUS.getCode())
+                    .with("IsBlocked", true)
+                    .withAtLeast("LastSeqNumber", ctx.walletBlockedEvent.getSequence())
+                    .fetch();
+
+            assertAll(
+                    () -> assertEquals(walletUuid, walletAggregate.walletUUID(), "redis.wallet.wallet_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), walletAggregate.playerUUID(),
+                            "redis.wallet.player_uuid"),
+                    () -> assertEquals(PLATFORM_NODE_ID, walletAggregate.nodeUUID(), "redis.wallet.node_uuid"),
+                    () -> assertEquals(EXPECTED_PLAYER_STATUS.getCode(), walletAggregate.status(),
+                            "redis.wallet.status"),
+                    () -> assertTrue(walletAggregate.isBlocked(), "redis.wallet.is_blocked"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), walletAggregate.currency(),
+                            "redis.wallet.currency")
+            );
+        });
+
+        step("Redis (Player): Проверка статуса кошелька игрока", () -> {
+            var playerUuid = ctx.registeredPlayer.walletData().playerUUID();
+            var walletUuid = ctx.registeredPlayer.walletData().walletUUID();
+            var statusPath = String.format("$['%s'].status", walletUuid);
+
+            Map<String, WalletData> playerWallets = redisPlayerClient
+                    .key(playerUuid)
+                    .with(statusPath, EXPECTED_PLAYER_STATUS.getCode())
+                    .fetch();
+
+            var walletEntry = playerWallets.get(walletUuid);
+
+            assertNotNull(walletEntry, "redis.player.wallet.exists");
+            assertAll(
+                    () -> assertEquals(walletUuid, walletEntry.walletUUID(), "redis.player.wallet.uuid"),
+                    () -> assertEquals(EXPECTED_PLAYER_STATUS.getCode(), walletEntry.status(),
+                            "redis.player.wallet.status"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), walletEntry.currency(),
+                            "redis.player.wallet.currency"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().type(), walletEntry.type(),
+                            "redis.player.wallet.type")
+            );
         });
     }
 }
