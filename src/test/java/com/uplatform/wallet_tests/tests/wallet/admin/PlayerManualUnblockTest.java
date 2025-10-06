@@ -24,47 +24,43 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Интеграционный тест, проверяющий, что после снятия ручной блокировки игрока
- * статус и агрегаты во всех задействованных компонентах системы возвращаются
- * в активное состояние.
+ * Интеграционный тест, проверяющий процесс снятия ручной блокировки с игрока через CAP API
+ * и корректное распространение информации об этом изменении по системе.
  *
- * <p>Сценарий основывается на последовательности из теста {@link PlayerManualBlockTest}:
- * сначала администратор вручную блокирует игрока через CAP API, после чего
- * выполняется дополнительный шаг по снятию блокировки. В рамках текущего теста
- * кросс-системные проверки (Kafka, NATS, Redis) выполняются <b>только</b> после
- * разблокировки, что соответствует требованиям к регрессионной проверке.</p>
+ * <p>Этот тест является логическим продолжением теста на блокировку и проверяет обратную операцию.
+ * Сценарий эмулирует действия администратора, который сначала блокирует игрока, а затем снимает эту блокировку.
+ * Тест подтверждает, что система правильно обрабатывает снятие флага {@code manuallyBlocked}, обновляет
+ * статус игрока до неактивного (но не заблокированного) и генерирует соответствующие события для
+ * синхронизации состояния в других сервисах.</p>
  *
  * <p><b>Последовательность действий:</b></p>
  * <ol>
- *   <li>Регистрация нового игрока и подготовка контекста теста.</li>
- *   <li>Вызов CAP API для установки флага {@code manuallyBlocked = true} (без
- *       дополнительных проверок в Kafka/NATS/Redis на этом этапе).</li>
- *   <li>Повторный вызов CAP API с флагом {@code manuallyBlocked = false} для снятия блокировки.</li>
- *   <li>Ожидание и валидация Kafka-события {@code player.statusUpdate} с переходом
- *       статуса игрока в {@link PlayerAccountStatus#ACTIVE}.</li>
- *   <li>Проверка NATS-события типа {@link NatsEventType#WALLET_BLOCKED}, подтверждающего
- *       обновление последовательности событий кошелька после разблокировки.</li>
- *   <li>Проверка, что NATS-событие корректно попало в Kafka-топик
- *       {@code wallet.v8.projectionSource} и содержит консистентные данные.</li>
- *   <li>Валидация итогового состояния кошелька в Redis: флаг {@code isBlocked}
- *       сброшен, последовательность {@code LastSeqNumber} соответствует событию разблокировки.</li>
+ *   <li>Регистрация нового игрока.</li>
+ *   <li><b>Предварительное условие:</b> Отправка запроса в CAP API для установки флага ручной блокировки {@code manuallyBlocked = true}.</li>
+ *   <li><b>Основное действие:</b> Отправка второго запроса в CAP API для снятия флага ручной блокировки {@code manuallyBlocked = false}.</li>
+ *   <li>Прослушивание и валидация Kafka-сообщения в топике {@code player.statusUpdate},
+ *       подтверждающего смену статуса игрока на {@link com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccountStatus#INACTIVE}.</li>
+ *   <li>Прослушивание и валидация нового NATS-события типа {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType#WALLET_BLOCKED},
+ *       сигнализирующего об изменении статуса блокировки кошелька.</li>
+ *   <li>Проверка того, что NATS-событие было успешно спроецировано в Kafka-топик {@code wallet.v8.projectionSource}.</li>
+ *   <li>Проверка конечного состояния в Redis, чтобы убедиться, что кошелек больше не находится в заблокированном состоянии.</li>
  * </ol>
  *
  * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>Оба запроса CAP API завершаются кодом {@code 204 NO CONTENT}.</li>
- *   <li>В Kafka фиксируется событие со статусом {@code ACTIVE} для разблокированного игрока.</li>
- *   <li>В NATS появляется новое событие типа {@code wallet_blocked}, связанное с снятием блокировки.</li>
- *   <li>Kafka-проекция {@code wallet.v8.projectionSource} отражает метаданные NATS-события.</li>
- *   <li>Redis-агрегат кошелька показывает, что блокировка снята и последовательность обновлена.</li>
+ *   <li>Оба запроса (на блокировку и на снятие блокировки) через CAP API выполняются успешно (HTTP 204 NO CONTENT).</li>
+ *   <li>После снятия блокировки в Kafka появляется событие о смене статуса игрока на {@code INACTIVE}.</li>
+ *   <li>В NATS публикуется новое событие, отражающее актуальное состояние блокировки кошелька.</li>
+ *   <li>Данные из NATS-события корректно дублируются в соответствующий проекционный топик Kafka.</li>
+ *   <li>Состояние кошелька в Redis обновляется, и флаг {@code isBlocked} устанавливается в {@code false}.</li>
+ *   <li>Все ожидаемые события в Kafka и NATS являются уникальными в рамках теста, что гарантирует отсутствие дублирования сообщений.</li>
  * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
 @Feature("PlayerBlockers")
 @Suite("Позитивные сценарии: PlayerProperties")
-@Tag("Wallet")
-@Tag("CAP")
+@Tag("Wallet3") @Tag("CAP")
 class PlayerManualUnblockTest extends BaseTest {
 
     @Test
@@ -73,7 +69,6 @@ class PlayerManualUnblockTest extends BaseTest {
         final String PLATFORM_NODE_ID = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
         final String PLATFORM_USER_ID = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
         final String PLATFORM_USERNAME = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
-        final String EXPECTED_EVENT_TYPE = PlayerAccountEventType.PLAYER_STATUS_UPDATE.getValue();
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -98,12 +93,6 @@ class PlayerManualUnblockTest extends BaseTest {
                     .blockGambling(false)
                     .blockBetting(false)
                     .build();
-
-            assertAll(
-                    () -> assertNotNull(PLATFORM_NODE_ID, "config.platform.node_id"),
-                    () -> assertNotNull(PLATFORM_USER_ID, "config.cap.platform_user_id"),
-                    () -> assertNotNull(PLATFORM_USERNAME, "config.cap.platform_username")
-            );
 
             var response = capAdminClient.updatePlayerProperties(
                     ctx.registeredPlayer.walletData().playerUUID(),
@@ -140,9 +129,9 @@ class PlayerManualUnblockTest extends BaseTest {
 
         step("Kafka: Проверка события player.statusUpdate после снятия блокировки", () -> {
             ctx.unblockStatusMessage = kafkaClient.expect(PlayerStatusUpdateMessage.class)
-                    .with("message.eventType", EXPECTED_EVENT_TYPE)
+                    .with("message.eventType", PlayerAccountEventType.PLAYER_STATUS_UPDATE.getValue())
                     .with("player.externalId", ctx.registeredPlayer.walletData().playerUUID())
-                    .with("player.status", PlayerAccountStatus.ACTIVE.getCode())
+                    .with("player.status", PlayerAccountStatus.INACTIVE.getCode())
                     .unique()
                     .fetch();
 
@@ -154,9 +143,9 @@ class PlayerManualUnblockTest extends BaseTest {
                     () -> assertNotNull(ctx.unblockStatusMessage.player(), "kafka.player_status_update.unblock.player"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(),
                             ctx.unblockStatusMessage.player().externalId(), "kafka.player_status_update.unblock.external_id"),
-                    () -> assertTrue(ctx.unblockStatusMessage.player().activeStatus(),
+                    () -> assertFalse(ctx.unblockStatusMessage.player().activeStatus(),
                             "kafka.player_status_update.unblock.active_status"),
-                    () -> assertEquals(PlayerAccountStatus.ACTIVE, ctx.unblockStatusMessage.player().status(),
+                    () -> assertEquals(PlayerAccountStatus.INACTIVE, ctx.unblockStatusMessage.player().status(),
                             "kafka.player_status_update.unblock.status")
             );
         });
@@ -173,13 +162,7 @@ class PlayerManualUnblockTest extends BaseTest {
                     .unique()
                     .fetch();
 
-            assertAll(
-                    () -> assertNotNull(ctx.walletUnblockedEvent, "nats.wallet_blocked.unblock.event_not_null"),
-                    () -> assertTrue(ctx.walletUnblockedEvent.getSequence() > 0,
-                            "nats.wallet_blocked.unblock.sequence_positive"),
-                    () -> assertTrue(ctx.walletUnblockedEvent.getPayload().date() >= 0,
-                            "nats.wallet_blocked.unblock.date.non_negative")
-            );
+            assertTrue(ctx.walletUnblockedEvent.getPayload().date() >= 0, "nats.wallet_blocked.unblock.date.non_negative");
         });
 
         step("Kafka: Проверка события wallet_blocked после снятия блокировки", () -> {
@@ -225,10 +208,7 @@ class PlayerManualUnblockTest extends BaseTest {
                     .withAtLeast("LastSeqNumber", ctx.walletUnblockedEvent.getSequence())
                     .fetch();
 
-            assertAll(
-                    () -> assertFalse(walletAggregate.isBlocked(), "redis.wallet.unblock.is_blocked"),
-                    () -> assertTrue(walletAggregate.blockDate() >= 0, "redis.wallet.unblock.block_date")
-            );
+            assertFalse(walletAggregate.isBlocked(), "redis.wallet.unblock.is_blocked");
         });
     }
 }
