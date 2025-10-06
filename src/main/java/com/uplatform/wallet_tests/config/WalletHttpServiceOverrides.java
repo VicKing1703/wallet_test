@@ -9,4 +9,6 @@ public class WalletHttpServiceOverrides {
     private String secret;
     private String casinoId;
     private Credentials credentials;
+    private String platformUserId;
+    private String platformUsername;
 }

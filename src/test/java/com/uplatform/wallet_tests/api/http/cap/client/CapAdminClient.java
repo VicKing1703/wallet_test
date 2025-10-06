@@ -10,6 +10,7 @@ import com.uplatform.wallet_tests.api.http.cap.dto.get_block_amount_list.BlockAm
 import com.uplatform.wallet_tests.api.http.cap.dto.get_blockers.GetBlockersResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.get_player_limits.GetPlayerLimitsResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.update_player_properties.UpdatePlayerPropertiesRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_verification_status.UpdateVerificationStatusRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,16 @@ public interface CapAdminClient {
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
             @RequestBody CancelKycCheckRequest request
+    );
+
+    @PatchMapping("/_cap/player/api/v1/admin/players/{playerId}/properties")
+    ResponseEntity<Void> updatePlayerProperties(
+            @PathVariable("playerId") String playerId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestHeader("Platform-Userid") String platformUserId,
+            @RequestHeader("Platform-Username") String platformUsername,
+            @RequestBody UpdatePlayerPropertiesRequest request
     );
 
     @PostMapping("/_cap/api/token/check")
