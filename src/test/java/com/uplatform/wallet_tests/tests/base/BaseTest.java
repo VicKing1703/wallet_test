@@ -3,6 +3,7 @@ package com.uplatform.wallet_tests.tests.base;
 import com.uplatform.wallet_tests.allure.CustomSuiteExtension;
 import com.testing.multisource.config.DynamicPropertiesConfigurator;
 import com.testing.multisource.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.api.redis.model.WalletData;
 import com.uplatform.wallet_tests.config.WalletTestsPropertiesConfigurator;
 import com.uplatform.wallet_tests.tests.default_steps.facade.DefaultTestSteps;
 import com.uplatform.wallet_tests.tests.util.facade.TestUtils;
@@ -23,6 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ContextConfiguration;
+
+import java.util.Map;
 
 @ExtendWith(CustomSuiteExtension.class)
 @SpringBootTest
@@ -48,6 +51,10 @@ public abstract class BaseTest {
     @Autowired
     @Qualifier("redisWalletClient")
     protected GenericRedisClient<WalletFullData> redisWalletClient;
+
+    @Autowired
+    @Qualifier("redisPlayerClient")
+    protected GenericRedisClient<Map<String, WalletData>> redisPlayerClient;
 
     @Autowired
     protected NatsClient natsClient;

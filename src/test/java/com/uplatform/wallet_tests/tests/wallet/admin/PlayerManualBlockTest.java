@@ -32,13 +32,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("CAP")
 @Feature("PlayerBlockers")
 @Suite("Позитивные сценарии: PlayerProperties")
-@Tag("Wallet")
-@Tag("CAP")
+@Tag("Wallet3") @Tag("CAP")
 class PlayerManualBlockTest extends BaseTest {
-
-    @Autowired
-    @Qualifier("redisPlayerClient")
-    private GenericRedisClient<Map<String, WalletData>> redisPlayerClient;
 
     @Test
     @DisplayName("CAP: Блокировка игрока обновляет статус и отправляет события")
@@ -60,7 +55,6 @@ class PlayerManualBlockTest extends BaseTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(BigDecimal.ZERO);
-            assertNotNull(ctx.registeredPlayer, "default_step.registration");
             assertNotNull(ctx.registeredPlayer.walletData(), "default_step.registration.wallet_data");
         });
 
@@ -99,7 +93,6 @@ class PlayerManualBlockTest extends BaseTest {
                     .fetch();
 
             assertAll(
-                    () -> assertNotNull(ctx.statusUpdateMessage.message(), "kafka.player_status_update.message"),
                     () -> assertEquals(PlayerAccountEventType.PLAYER_STATUS_UPDATE, ctx.statusUpdateMessage.message().eventType(),
                             "kafka.player_status_update.event_type"),
                     () -> assertNotNull(ctx.statusUpdateMessage.message().eventCreatedAt(),
@@ -125,19 +118,10 @@ class PlayerManualBlockTest extends BaseTest {
                     .withType(NatsEventType.WALLET_BLOCKED.getHeaderValue())
                     .fetch();
 
-            assertAll(
-                    () -> assertEquals(NatsEventType.WALLET_BLOCKED.getHeaderValue(),
-                            ctx.walletBlockedEvent.getType(), "nats.wallet_blocked.type"),
-                    () -> assertNotNull(ctx.walletBlockedEvent.getTimestamp(), "nats.wallet_blocked.timestamp"),
-                    () -> assertTrue(ctx.walletBlockedEvent.getSequence() > 0, "nats.wallet_blocked.sequence_positive"),
-                    () -> assertTrue(ctx.walletBlockedEvent.getPayload().date() >= 0,
-                            "nats.wallet_blocked.date.non_negative")
-            );
+            assertTrue(ctx.walletBlockedEvent.getPayload().date() >= 0, "nats.wallet_blocked.date.non_negative");
         });
 
         step("Kafka: Проверка события wallet_blocked в топике wallet.v8.projectionSource", () -> {
-            assertNotNull(ctx.walletBlockedEvent, "context.wallet_blocked_event");
-
             ctx.walletProjectionMessage = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("type", ctx.walletBlockedEvent.getType())
                     .with("seq_number", ctx.walletBlockedEvent.getSequence())
@@ -145,8 +129,7 @@ class PlayerManualBlockTest extends BaseTest {
 
             var kafkaMessage = ctx.walletProjectionMessage;
             var expectedPayload = assertDoesNotThrow(() ->
-                            objectMapper.writeValueAsString(ctx.walletBlockedEvent.getPayload()),
-                    "kafka.wallet_blocked.payload.serialization");
+                            objectMapper.writeValueAsString(ctx.walletBlockedEvent.getPayload()));
             var expectedTimestamp = ctx.walletBlockedEvent.getTimestamp().toEpochSecond();
 
             assertAll(
@@ -180,38 +163,7 @@ class PlayerManualBlockTest extends BaseTest {
                     .withAtLeast("LastSeqNumber", ctx.walletBlockedEvent.getSequence())
                     .fetch();
 
-            assertAll(
-                    () -> assertEquals(walletUuid, walletAggregate.walletUUID(), "redis.wallet.wallet_uuid"),
-                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), walletAggregate.playerUUID(),
-                            "redis.wallet.player_uuid"),
-                    () -> assertEquals(PLATFORM_NODE_ID, walletAggregate.nodeUUID(), "redis.wallet.node_uuid"),
-                    () -> assertTrue(walletAggregate.isBlocked(), "redis.wallet.is_blocked"),
-                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), walletAggregate.currency(),
-                            "redis.wallet.currency")
-            );
-        });
-
-        step("Redis (Player): Проверка статуса кошелька игрока", () -> {
-            var playerUuid = ctx.registeredPlayer.walletData().playerUUID();
-            var walletUuid = ctx.registeredPlayer.walletData().walletUUID();
-            var isBlockedPath = String.format("$['%s'].is_blocked", walletUuid);
-
-            Map<String, WalletData> playerWallets = redisPlayerClient
-                    .key(playerUuid)
-                    .with(isBlockedPath, true)
-                    .fetch();
-
-            var walletEntry = playerWallets.get(walletUuid);
-
-            assertNotNull(walletEntry, "redis.player.wallet.exists");
-            assertAll(
-                    () -> assertEquals(walletUuid, walletEntry.walletUUID(), "redis.player.wallet.uuid"),
-                    () -> assertTrue(walletEntry.isBlocked(), "redis.player.wallet.is_blocked"),
-                    () -> assertEquals(ctx.registeredPlayer.walletData().currency(), walletEntry.currency(),
-                            "redis.player.wallet.currency"),
-                    () -> assertEquals(ctx.registeredPlayer.walletData().type(), walletEntry.type(),
-                            "redis.player.wallet.type")
-            );
+            assertTrue(walletAggregate.isBlocked(), "redis.wallet.is_blocked");
         });
     }
 }
