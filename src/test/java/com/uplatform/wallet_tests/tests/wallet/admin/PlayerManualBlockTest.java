@@ -33,11 +33,11 @@ class PlayerManualBlockTest extends BaseTest {
     @Test
     @DisplayName("CAP: Блокировка игрока обновляет статус и отправляет события")
     void shouldBlockPlayerAndPublishEvents() {
-        final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String platformUserId = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
-        final String platformUsername = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
-        final String expectedEventType = PlayerAccountEventType.PLAYER_STATUS_UPDATE.getValue();
-        final PlayerAccountStatus expectedPlayerStatus = PlayerAccountStatus.BLOCKED;
+        final String PLATFORM_NODE_ID = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+        final String PLATFORM_USER_ID = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
+        final String PLATFORM_USERNAME = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
+        final String EXPECTED_EVENT_TYPE = PlayerAccountEventType.PLAYER_STATUS_UPDATE.getValue();
+        final PlayerAccountStatus EXPECTED_PLAYER_STATUS = PlayerAccountStatus.BLOCKED;
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -63,17 +63,17 @@ class PlayerManualBlockTest extends BaseTest {
                     .build();
 
             assertAll(
-                    () -> assertNotNull(platformNodeId, "config.platform.node_id"),
-                    () -> assertNotNull(platformUserId, "config.cap.platform_user_id"),
-                    () -> assertNotNull(platformUsername, "config.cap.platform_username")
+                    () -> assertNotNull(PLATFORM_NODE_ID, "config.platform.node_id"),
+                    () -> assertNotNull(PLATFORM_USER_ID, "config.cap.platform_user_id"),
+                    () -> assertNotNull(PLATFORM_USERNAME, "config.cap.platform_username")
             );
 
             var response = capAdminClient.updatePlayerProperties(
                     ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
-                    platformNodeId,
-                    platformUserId,
-                    platformUsername,
+                    PLATFORM_NODE_ID,
+                    PLATFORM_USER_ID,
+                    PLATFORM_USERNAME,
                     ctx.updateRequest
             );
 
@@ -82,9 +82,9 @@ class PlayerManualBlockTest extends BaseTest {
 
         step("Kafka: Проверка события player.statusUpdate", () -> {
             ctx.statusUpdateMessage = kafkaClient.expect(PlayerStatusUpdateMessage.class)
-                    .with("message.eventType", expectedEventType)
+                    .with("message.eventType", EXPECTED_EVENT_TYPE)
                     .with("player.externalId", ctx.registeredPlayer.walletData().playerUUID())
-                    .with("player.status", expectedPlayerStatus.getCode())
+                    .with("player.status", EXPECTED_PLAYER_STATUS.getCode())
                     .fetch();
 
             assertAll(
@@ -98,7 +98,7 @@ class PlayerManualBlockTest extends BaseTest {
                             ctx.statusUpdateMessage.player().externalId(), "kafka.player_status_update.external_id"),
                     () -> assertFalse(ctx.statusUpdateMessage.player().activeStatus(),
                             "kafka.player_status_update.active_status"),
-                    () -> assertEquals(expectedPlayerStatus, ctx.statusUpdateMessage.player().status(),
+                    () -> assertEquals(EXPECTED_PLAYER_STATUS, ctx.statusUpdateMessage.player().status(),
                             "kafka.player_status_update.status")
             );
         });
