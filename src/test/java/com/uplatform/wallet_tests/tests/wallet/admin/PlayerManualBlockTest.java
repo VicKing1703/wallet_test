@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("CAP")
 @Feature("PlayerBlockers")
 @Suite("Позитивные сценарии: PlayerProperties")
-@Tag("Wallet3") @Tag("CAP")
+@Tag("Wallet") @Tag("CAP")
 class PlayerManualBlockTest extends BaseTest {
 
     @Test
