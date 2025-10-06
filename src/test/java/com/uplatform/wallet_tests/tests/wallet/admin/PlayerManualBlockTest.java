@@ -33,6 +33,12 @@ class PlayerManualBlockTest extends BaseTest {
     @Test
     @DisplayName("CAP: Блокировка игрока обновляет статус и отправляет события")
     void shouldBlockPlayerAndPublishEvents() {
+        final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+        final String platformUserId = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
+        final String platformUsername = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
+        final String expectedEventType = PlayerAccountEventType.PLAYER_STATUS_UPDATE.getValue();
+        final PlayerAccountStatus expectedPlayerStatus = PlayerAccountStatus.BLOCKED;
+
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             UpdatePlayerPropertiesRequest updateRequest;
@@ -56,10 +62,6 @@ class PlayerManualBlockTest extends BaseTest {
                     .blockBetting(false)
                     .build();
 
-            String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-            String platformUserId = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
-            String platformUsername = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
-
             assertAll(
                     () -> assertNotNull(platformNodeId, "config.platform.node_id"),
                     () -> assertNotNull(platformUserId, "config.cap.platform_user_id"),
@@ -80,9 +82,9 @@ class PlayerManualBlockTest extends BaseTest {
 
         step("Kafka: Проверка события player.statusUpdate", () -> {
             ctx.statusUpdateMessage = kafkaClient.expect(PlayerStatusUpdateMessage.class)
-                    .with("message.eventType", PlayerAccountEventType.PLAYER_STATUS_UPDATE.getValue())
+                    .with("message.eventType", expectedEventType)
                     .with("player.externalId", ctx.registeredPlayer.walletData().playerUUID())
-                    .with("player.status", PlayerAccountStatus.BLOCKED.getCode())
+                    .with("player.status", expectedPlayerStatus.getCode())
                     .fetch();
 
             assertAll(
@@ -96,7 +98,7 @@ class PlayerManualBlockTest extends BaseTest {
                             ctx.statusUpdateMessage.player().externalId(), "kafka.player_status_update.external_id"),
                     () -> assertFalse(ctx.statusUpdateMessage.player().activeStatus(),
                             "kafka.player_status_update.active_status"),
-                    () -> assertEquals(PlayerAccountStatus.BLOCKED, ctx.statusUpdateMessage.player().status(),
+                    () -> assertEquals(expectedPlayerStatus, ctx.statusUpdateMessage.player().status(),
                             "kafka.player_status_update.status")
             );
         });
