@@ -38,20 +38,20 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>Регистрация нового игрока.</li>
  *   <li><b>Предварительное условие:</b> Отправка запроса в CAP API для установки флага ручной блокировки {@code manuallyBlocked = true}.</li>
  *   <li><b>Основное действие:</b> Отправка второго запроса в CAP API для снятия флага ручной блокировки {@code manuallyBlocked = false}.</li>
- *   <li>Прослушивание и валидация Kafka-сообщения в топике {@code player.statusUpdate},
+ *   <li>Прослушивание и валидация Kafka-сообщения в топике {@code player.v1.account}, событие типа {@link com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccountEventType#PLAYER_STATUS_UPDATE},
  *       подтверждающего смену статуса игрока на {@link com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccountStatus#INACTIVE}.</li>
  *   <li>Прослушивание и валидация нового NATS-события типа {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType#WALLET_BLOCKED},
  *       сигнализирующего об изменении статуса блокировки кошелька.</li>
- *   <li>Проверка того, что NATS-событие было успешно спроецировано в Kafka-топик {@code wallet.v8.projectionSource}.</li>
+ *   <li>Проверка того, что NATS-событие было успешно спроецировано в Kafka-топик {@code wallet.v8.projectionSource} с тем же типом {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType#WALLET_BLOCKED}.</li>
  *   <li>Проверка конечного состояния в Redis, чтобы убедиться, что кошелек больше не находится в заблокированном состоянии.</li>
  * </ol>
  *
  * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
  *   <li>Оба запроса (на блокировку и на снятие блокировки) через CAP API выполняются успешно (HTTP 204 NO CONTENT).</li>
- *   <li>После снятия блокировки в Kafka появляется событие о смене статуса игрока на {@code INACTIVE}.</li>
- *   <li>В NATS публикуется новое событие, отражающее актуальное состояние блокировки кошелька.</li>
- *   <li>Данные из NATS-события корректно дублируются в соответствующий проекционный топик Kafka.</li>
+ *   <li>После снятия блокировки в Kafka топике {@code player.v1.account} появляется событие типа {@link com.uplatform.wallet_tests.api.kafka.dto.player_status.enums.PlayerAccountEventType#PLAYER_STATUS_UPDATE} о смене статуса игрока на {@code INACTIVE}.</li>
+ *   <li>В NATS публикуется новое событие типа {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType#WALLET_BLOCKED}, отражающее актуальное состояние блокировки кошелька.</li>
+ *   <li>Данные из NATS-события корректно дублируются в проекционный топик Kafka {@code wallet.v8.projectionSource} с тем же типом события.</li>
  *   <li>Состояние кошелька в Redis обновляется, и флаг {@code isBlocked} устанавливается в {@code false}.</li>
  *   <li>Все ожидаемые события в Kafka и NATS являются уникальными в рамках теста, что гарантирует отсутствие дублирования сообщений.</li>
  * </ul>
