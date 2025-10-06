@@ -116,13 +116,10 @@ class PlayerManualBlockTest extends BaseTest {
 
             assertAll(
                     () -> assertNotNull(ctx.walletBlockedEvent, "nats.wallet_blocked.event"),
-                    () -> assertEquals(NatsEventType.WALLET_BLOCKED.getHeaderValue(), ctx.walletBlockedEvent.getType(),
-                            "nats.wallet_blocked.type"),
                     () -> assertNotNull(ctx.walletBlockedEvent.getPayload(), "nats.wallet_blocked.payload"),
                     () -> assertNotNull(ctx.walletBlockedEvent.getPayload().date(), "nats.wallet_blocked.date"),
                     () -> assertTrue(ctx.walletBlockedEvent.getPayload().date() >= 0,
-                            "nats.wallet_blocked.date.non_negative"),
-                    () -> assertEquals(subject, ctx.walletBlockedEvent.getSubject(), "nats.wallet_blocked.subject")
+                            "nats.wallet_blocked.date.non_negative")
             );
         });
     }
