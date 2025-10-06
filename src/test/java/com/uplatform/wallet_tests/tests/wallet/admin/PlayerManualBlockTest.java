@@ -177,8 +177,6 @@ class PlayerManualBlockTest extends BaseTest {
             var walletUuid = ctx.registeredPlayer.walletData().walletUUID();
             var walletAggregate = redisWalletClient
                     .key(walletUuid)
-                    .with("Status", EXPECTED_PLAYER_STATUS.getCode())
-                    .with("IsBlocked", true)
                     .withAtLeast("LastSeqNumber", ctx.walletBlockedEvent.getSequence())
                     .fetch();
 
@@ -187,8 +185,6 @@ class PlayerManualBlockTest extends BaseTest {
                     () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), walletAggregate.playerUUID(),
                             "redis.wallet.player_uuid"),
                     () -> assertEquals(PLATFORM_NODE_ID, walletAggregate.nodeUUID(), "redis.wallet.node_uuid"),
-                    () -> assertEquals(EXPECTED_PLAYER_STATUS.getCode(), walletAggregate.status(),
-                            "redis.wallet.status"),
                     () -> assertTrue(walletAggregate.isBlocked(), "redis.wallet.is_blocked"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().currency(), walletAggregate.currency(),
                             "redis.wallet.currency")
@@ -198,11 +194,11 @@ class PlayerManualBlockTest extends BaseTest {
         step("Redis (Player): Проверка статуса кошелька игрока", () -> {
             var playerUuid = ctx.registeredPlayer.walletData().playerUUID();
             var walletUuid = ctx.registeredPlayer.walletData().walletUUID();
-            var statusPath = String.format("$['%s'].status", walletUuid);
+            var isBlockedPath = String.format("$['%s'].is_blocked", walletUuid);
 
             Map<String, WalletData> playerWallets = redisPlayerClient
                     .key(playerUuid)
-                    .with(statusPath, EXPECTED_PLAYER_STATUS.getCode())
+                    .with(isBlockedPath, true)
                     .fetch();
 
             var walletEntry = playerWallets.get(walletUuid);
@@ -210,8 +206,7 @@ class PlayerManualBlockTest extends BaseTest {
             assertNotNull(walletEntry, "redis.player.wallet.exists");
             assertAll(
                     () -> assertEquals(walletUuid, walletEntry.walletUUID(), "redis.player.wallet.uuid"),
-                    () -> assertEquals(EXPECTED_PLAYER_STATUS.getCode(), walletEntry.status(),
-                            "redis.player.wallet.status"),
+                    () -> assertTrue(walletEntry.isBlocked(), "redis.player.wallet.is_blocked"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().currency(), walletEntry.currency(),
                             "redis.player.wallet.currency"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().type(), walletEntry.type(),
