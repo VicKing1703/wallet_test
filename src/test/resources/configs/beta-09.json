@@ -20,6 +20,8 @@
       },
       "cap": {
         "baseUrl": "https://cap.beta-09.b2bdev.pro",
+        "platformUserId": "6dfe249e-e967-477b-8a42-83efe85c7c3a",
+        "platformUsername": "admin",
         "credentials": {
           "username": "admin",
           "password": "admin"
@@ -36,6 +38,8 @@
     "http": {
       "services": {
         "cap": {
+          "platformUserId": "6dfe249e-e967-477b-8a42-83efe85c7c3a",
+          "platformUsername": "admin",
           "credentials": {
             "username": "admin",
             "password": "admin"
@@ -126,7 +130,8 @@
     "pollDuration": "PT1S",
     "shutdownTimeout": "PT5S",
     "autoOffsetReset": "latest",
-    "enableAutoCommit": true
+    "enableAutoCommit": true,
+    "uniqueDuplicateWindowMs": 500
   },
   "nats": {
     "hosts": [
@@ -143,7 +148,7 @@
     "subscriptionAckWaitSeconds": 60,
     "subscriptionInactiveThresholdSeconds": 90,
     "subscriptionBufferSize": 1000,
-    "uniqueDuplicateWindowMs": 400,
+    "uniqueDuplicateWindowMs": 500,
     "failOnDeserialization": false
   }
 }

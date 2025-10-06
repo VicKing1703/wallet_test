@@ -68,6 +68,14 @@ public class WalletTestsPropertiesConfigurator implements ApplicationContextInit
                     if (serviceOverride.getCasinoId() != null) {
                         properties.add("app.api." + serviceId + ".casino-id=" + serviceOverride.getCasinoId());
                     }
+
+                    if (serviceOverride.getPlatformUserId() != null) {
+                        properties.add("app.api." + serviceId + ".platform-userid=" + serviceOverride.getPlatformUserId());
+                    }
+
+                    if (serviceOverride.getPlatformUsername() != null) {
+                        properties.add("app.api." + serviceId + ".platform-username=" + serviceOverride.getPlatformUsername());
+                    }
                 });
             }
 

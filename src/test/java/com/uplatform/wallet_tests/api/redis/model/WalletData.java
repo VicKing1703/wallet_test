@@ -9,8 +9,4 @@ public record WalletData(
         @JsonProperty("currency") String currency,
         @JsonProperty("type") int type,
         @JsonProperty("status") int status
-) {
-    public WalletData() {
-        this(null, null, 0, 0);
-    }
-}
+) {}
