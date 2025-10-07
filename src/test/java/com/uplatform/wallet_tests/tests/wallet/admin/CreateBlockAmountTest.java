@@ -26,13 +26,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
-@Feature("BlockAmount")
-@Suite("Позитивные сценарии: BlockAmount")
+@Feature("Управление игроком")
+@Suite("Ручная блокировка баланса игрока: Позитивные сценарии")
 @Tag("Wallet") @Tag("CAP")
-class BlockAmountTest extends BaseTest {
+class CreateBlockAmountTest extends BaseTest {
 
     @Test
-    @DisplayName("Проверка создания блокировки средств на кошельке игрока")
+    @DisplayName("CAP: Ручная блокировка баланса игрока - Создание.")
     void shouldCreateBlockAmountAndVerifyResponse() {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
         final BigDecimal adjustmentAmount = new BigDecimal("150.00");
