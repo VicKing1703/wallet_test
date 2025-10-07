@@ -127,7 +127,7 @@ class PlayerManualUnblockTest extends BaseTest {
             assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.update_player_properties.unblock.status_code");
         });
 
-        step("Kafka: Проверка события player.statusUpdate после снятия блокировки", () -> {
+        step("Kafka: Проверка события player.statusUpdate в топике player.v1.account", () -> {
             ctx.unblockStatusMessage = kafkaClient.expect(PlayerStatusUpdateMessage.class)
                     .with("message.eventType", PlayerAccountEventType.PLAYER_STATUS_UPDATE.getValue())
                     .with("player.externalId", ctx.registeredPlayer.walletData().playerUUID())
@@ -150,7 +150,7 @@ class PlayerManualUnblockTest extends BaseTest {
             );
         });
 
-        step("NATS: Проверка события wallet_blocked после снятия блокировки", () -> {
+        step("NATS: Проверка события wallet_blocked", () -> {
             var subject = natsClient.buildWalletSubject(
                     ctx.registeredPlayer.walletData().playerUUID(),
                     ctx.registeredPlayer.walletData().walletUUID()
@@ -165,7 +165,7 @@ class PlayerManualUnblockTest extends BaseTest {
             assertTrue(ctx.walletUnblockedEvent.getPayload().date() >= 0, "nats.wallet_blocked.unblock.date.non_negative");
         });
 
-        step("Kafka: Проверка события wallet_blocked после снятия блокировки", () -> {
+        step("Kafka: Проверка события wallet_blocked в топике wallet.v8.projectionSource", () -> {
             ctx.walletProjectionMessage = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("type", ctx.walletUnblockedEvent.getType())
                     .with("seq_number", ctx.walletUnblockedEvent.getSequence())

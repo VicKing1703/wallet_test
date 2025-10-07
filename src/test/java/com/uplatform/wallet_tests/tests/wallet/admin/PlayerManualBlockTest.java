@@ -103,7 +103,7 @@ class PlayerManualBlockTest extends BaseTest {
             assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.update_player_properties.status_code");
         });
 
-        step("Kafka: Проверка события player.statusUpdate", () -> {
+        step("Kafka: Проверка события player.statusUpdate в топике player.v1.account", () -> {
             ctx.statusUpdateMessage = kafkaClient.expect(PlayerStatusUpdateMessage.class)
                     .with("message.eventType", PlayerAccountEventType.PLAYER_STATUS_UPDATE.getValue())
                     .with("player.externalId", ctx.registeredPlayer.walletData().playerUUID())
