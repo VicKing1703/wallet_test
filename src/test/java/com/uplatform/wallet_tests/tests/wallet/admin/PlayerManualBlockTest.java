@@ -56,13 +56,13 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
-@Feature("PlayerBlockers")
-@Suite("Позитивные сценарии: PlayerProperties")
+@Feature("Управление игроком")
+@Suite("Ручная блокировка игрока: Позитивные сценарии")
 @Tag("Wallet") @Tag("CAP")
 class PlayerManualBlockTest extends BaseTest {
 
     @Test
-    @DisplayName("CAP: Блокировка игрока обновляет статус и отправляет события")
+    @DisplayName("CAP: Ручная блокировка игрока - Создание.")
     void shouldBlockPlayerAndPublishEvents() {
         final String PLATFORM_NODE_ID = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
         final String PLATFORM_USER_ID = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
