@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
 
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.testing.multisource.api.nats.dto.NatsMessage;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.DirectionType;
@@ -8,8 +9,8 @@ import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enu
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.ReasonType;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBalanceAdjustedPayload;
-import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.BeforeAll;
@@ -19,6 +20,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
+
 import java.math.BigDecimal;
 import java.util.stream.Stream;
 
@@ -29,72 +31,103 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+/**
+ * Интеграционный параметризованный тест, проверяющий создание ручных корректировок баланса через CAP API.
+ *
+ * <p>Тест охватывает различные комбинации направления, типа операции и причины корректировки,
+ * чтобы убедиться в корректной обработке всех позитивных сценариев. Эмулируется действие администратора,
+ * который вручную увеличивает или уменьшает баланс игрока. Проверяется вся цепочка событий: от API-запроса
+ * до обновления состояния кошелька в Redis.</p>
+ *
+ * <p><b>Последовательность действий для каждого набора параметров:</b></p>
+ * <ol>
+ *   <li>Регистрация нового игрока с начальным балансом.</li>
+ *   <li>Отправка запроса в CAP API для создания ручной корректировки баланса с заданными параметрами.</li>
+ *   <li>Проверка успешного ответа от CAP API (HTTP 200 OK).</li>
+ *   <li>Прослушивание и валидация NATS-события типа {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType#BALANCE_ADJUSTED},
+ *       подтверждающего выполнение корректировки.</li>
+ *   <li>Проверка того, что NATS-событие было успешно спроецировано в Kafka-топик {@code wallet.v8.projectionSource}.</li>
+ *   <li>Проверка конечного состояния кошелька в Redis, включая итоговый баланс, предыдущий баланс и номер последовательности.</li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Запрос на корректировку баланса выполняется успешно для всех комбинаций параметров.</li>
+ *   <li>В NATS публикуется событие {@code balance_adjusted} с корректными данными, соответствующими запросу.</li>
+ *   <li>Событие из NATS корректно дублируется в проекционный топик Kafka {@code wallet.v8.projectionSource}.</li>
+ *   <li>Состояние кошелька в Redis обновляется в соответствии с направлением и суммой корректировки.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
-@Feature("BalanceAdjustment")
-@Suite("Позитивные сценарии: BalanceAdjustment")
+@Feature("Управление игроком")
+@Suite("Ручная корректировка баланса: Позитивные сценарии")
 @Tag("Wallet") @Tag("CAP")
 class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
+    private static final BigDecimal INITIAL_BALANCE = new BigDecimal("150.00");
+    private static final BigDecimal ADJUSTMENT_AMOUNT = new BigDecimal("100.00");
 
-    private final BigDecimal initialBalance = new BigDecimal("150.00");
-    private final BigDecimal adjustmentAmount = new BigDecimal("100.00");
-    private String defaultCurrency;
     private String platformNodeId;
+    private String currency;
+    private String platformUserId;
+    private String platformUsername;
 
     @BeforeAll
     void setupGlobalTestContext() {
-        this.defaultCurrency = configProvider.getEnvironmentConfig().getPlatform().getCurrency();
-        this.platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+        var envConfig = configProvider.getEnvironmentConfig();
+        this.platformNodeId = envConfig.getPlatform().getNodeId();
+        this.currency = envConfig.getPlatform().getCurrency();
+        this.platformUserId = HttpServiceHelper.getCapPlatformUserId(envConfig.getHttp());
+        this.platformUsername = HttpServiceHelper.getCapPlatformUsername(envConfig.getHttp());
     }
 
     static Stream<Arguments> balanceAdjustmentScenariosProvider() {
         return Stream.of(
-                arguments(DirectionType.INCREASE, OperationType.CORRECTION, ReasonType.MALFUNCTION, "Корректировка из-за технического сбоя"),
-                arguments(DirectionType.INCREASE, OperationType.DEPOSIT, ReasonType.OPERATIONAL_MISTAKE, "Депозит из-за операционной ошибки"),
-                arguments(DirectionType.INCREASE, OperationType.GIFT, ReasonType.BALANCE_CORRECTION, "Подарок для корректировки баланса"),
-                arguments(DirectionType.INCREASE, OperationType.CASHBACK, ReasonType.OPERATIONAL_MISTAKE, "Кэшбэк из-за операционной ошибки"),
-                arguments(DirectionType.INCREASE, OperationType.TOURNAMENT_PRIZE, ReasonType.MALFUNCTION, "Приз турнира из-за технического сбоя"),
-                arguments(DirectionType.INCREASE, OperationType.JACKPOT, ReasonType.BALANCE_CORRECTION, "Джекпот для корректировки баланса"),
-                arguments(DirectionType.DECREASE, OperationType.CORRECTION, ReasonType.BALANCE_CORRECTION, "Уменьшение для корректировки баланса"),
-                arguments(DirectionType.DECREASE, OperationType.WITHDRAWAL, ReasonType.OPERATIONAL_MISTAKE, "Вывод из-за операционной ошибки"),
-                arguments(DirectionType.DECREASE, OperationType.GIFT, ReasonType.MALFUNCTION, "Отмена подарка из-за технического сбоя"),
-                arguments(DirectionType.DECREASE, OperationType.REFERRAL_COMMISSION, ReasonType.OPERATIONAL_MISTAKE, "Отмена реферальной комиссии из-за ошибки"),
-                arguments(DirectionType.DECREASE, OperationType.TOURNAMENT_PRIZE, ReasonType.BALANCE_CORRECTION, "Корректировка выигрыша в турнире"),
-                arguments(DirectionType.DECREASE, OperationType.JACKPOT, ReasonType.MALFUNCTION, "Отмена джекпота из-за технического сбоя")
+                arguments(DirectionType.INCREASE, OperationType.CORRECTION, ReasonType.MALFUNCTION),
+                arguments(DirectionType.INCREASE, OperationType.DEPOSIT, ReasonType.OPERATIONAL_MISTAKE),
+                arguments(DirectionType.INCREASE, OperationType.GIFT, ReasonType.BALANCE_CORRECTION),
+                arguments(DirectionType.INCREASE, OperationType.CASHBACK, ReasonType.OPERATIONAL_MISTAKE),
+                arguments(DirectionType.INCREASE, OperationType.TOURNAMENT_PRIZE, ReasonType.MALFUNCTION),
+                arguments(DirectionType.INCREASE, OperationType.JACKPOT, ReasonType.BALANCE_CORRECTION),
+                arguments(DirectionType.DECREASE, OperationType.CORRECTION, ReasonType.BALANCE_CORRECTION),
+                arguments(DirectionType.DECREASE, OperationType.WITHDRAWAL, ReasonType.OPERATIONAL_MISTAKE),
+                arguments(DirectionType.DECREASE, OperationType.GIFT, ReasonType.MALFUNCTION),
+                arguments(DirectionType.DECREASE, OperationType.REFERRAL_COMMISSION, ReasonType.OPERATIONAL_MISTAKE),
+                arguments(DirectionType.DECREASE, OperationType.TOURNAMENT_PRIZE, ReasonType.BALANCE_CORRECTION),
+                arguments(DirectionType.DECREASE, OperationType.JACKPOT, ReasonType.MALFUNCTION)
         );
     }
 
-    @ParameterizedTest(name = "{3}")
+    @ParameterizedTest(name = "{0}, {1}, {2}")
     @MethodSource("balanceAdjustmentScenariosProvider")
-    @DisplayName("Позитивный сценарий создания корректировки средств:")
+    @DisplayName("Создание ручной корректировки баланса:")
     void balanceAdjustmentTest(
             DirectionType direction,
             OperationType operationType,
-            ReasonType reasonType,
-            String description
+            ReasonType reasonType
     ) {
-        final class TestContext extends BaseParameterizedTest {
+        final class TestContext {
             RegisteredPlayerData registeredPlayer;
             CreateBalanceAdjustmentRequest adjustmentRequest;
             NatsMessage<NatsBalanceAdjustedPayload> balanceAdjustedEvent;
-            WalletProjectionMessage projectionAdjustEvent;
+            WalletProjectionMessage walletProjectionMessage;
             BigDecimal expectedBalanceAfterAdjustment;
         }
         final TestContext ctx = new TestContext();
 
         ctx.expectedBalanceAfterAdjustment = (direction == DirectionType.DECREASE)
-                ? initialBalance.subtract(adjustmentAmount)
-                : initialBalance.add(adjustmentAmount);
+                ? INITIAL_BALANCE.subtract(ADJUSTMENT_AMOUNT)
+                : INITIAL_BALANCE.add(ADJUSTMENT_AMOUNT);
 
-        step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialBalance);
-            assertNotNull(ctx.registeredPlayer, "default_step.registration");
+        step("Default Step: Регистрация нового пользователя с начальным балансом", () -> {
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_BALANCE);
+            assertNotNull(ctx.registeredPlayer.walletData(), "default_step.registration.wallet_data");
         });
 
-        step("CAP API: Выполнение тестовой корректировки баланса - " + description, () -> {
+        step("CAP API: Создание ручной корректировки баланса", () -> {
             ctx.adjustmentRequest = CreateBalanceAdjustmentRequest.builder()
-                    .currency(defaultCurrency)
-                    .amount(adjustmentAmount)
+                    .currency(currency)
+                    .amount(ADJUSTMENT_AMOUNT)
                     .reason(reasonType)
                     .operationType(operationType)
                     .direction(direction)
@@ -105,12 +138,12 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
                     ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
-                    "6dfe249e-e967-477b-8a42-83efe85c7c3a",
+                    platformUserId,
                     ctx.adjustmentRequest);
             assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.create_balance_adjustment.status_code");
         });
 
-        step("NATS: Проверка поступления события balance_adjusted", () -> {
+        step("NATS: Проверка события balance_adjusted", () -> {
             var subject = natsClient.buildWalletSubject(
                     ctx.registeredPlayer.walletData().playerUUID(),
                     ctx.registeredPlayer.walletData().walletUUID());
@@ -118,40 +151,55 @@ class BalanceAdjustmentParametrizedTest extends BaseParameterizedTest {
             ctx.balanceAdjustedEvent = natsClient.expect(NatsBalanceAdjustedPayload.class)
                     .from(subject)
                     .withType(NatsEventType.BALANCE_ADJUSTED.getHeaderValue())
-                    .with("$.comment", ctx.adjustmentRequest.getComment())
+                    .with("comment", ctx.adjustmentRequest.getComment())
+                    .unique()
                     .fetch();
 
+            var payload = ctx.balanceAdjustedEvent.getPayload();
             var expectedAdjustment = (direction == DirectionType.DECREASE)
-                    ? adjustmentAmount.negate() : adjustmentAmount;
+                    ? ADJUSTMENT_AMOUNT.negate() : ADJUSTMENT_AMOUNT;
 
-            assertAll(
-                    () -> assertEquals(ctx.adjustmentRequest.getCurrency(), ctx.balanceAdjustedEvent.getPayload().currency(), "nats.balance_adjusted.currency"),
-                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().uuid(), "nats.balance_adjusted.uuid"),
-                    () -> assertEquals(0, expectedAdjustment.compareTo(ctx.balanceAdjustedEvent.getPayload().amount()), "nats.balance_adjusted.amount"),
-                    () -> assertEquals(mapOperationTypeToNatsInt(ctx.adjustmentRequest.getOperationType()), ctx.balanceAdjustedEvent.getPayload().operationType(), "nats.balance_adjusted.operation_type"),
-                    () -> assertEquals(mapDirectionToNatsInt(ctx.adjustmentRequest.getDirection()), ctx.balanceAdjustedEvent.getPayload().direction(), "nats.balance_adjusted.direction"),
-                    () -> assertEquals(mapReasonToNatsInt(ctx.adjustmentRequest.getReason()), ctx.balanceAdjustedEvent.getPayload().reason(), "nats.balance_adjusted.reason"),
-                    () -> assertEquals(ctx.adjustmentRequest.getComment(), ctx.balanceAdjustedEvent.getPayload().comment(), "nats.balance_adjusted.comment"),
-                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().userUuid(), "nats.balance_adjusted.user_uuid"),
-                    () -> assertNotNull(ctx.balanceAdjustedEvent.getPayload().userName(), "nats.balance_adjusted.user_name")
+            assertAll("Проверка полей NATS-события balance_adjusted",
+                    () -> assertNotNull(payload.uuid(), "nats.balance_adjusted.uuid"),
+                    () -> assertEquals(ctx.adjustmentRequest.getCurrency(), payload.currency(), "nats.balance_adjusted.currency"),
+                    () -> assertEquals(0, expectedAdjustment.compareTo(payload.amount()), "nats.balance_adjusted.amount"),
+                    () -> assertEquals(mapOperationTypeToNatsInt(operationType), payload.operationType(), "nats.balance_adjusted.operation_type"),
+                    () -> assertEquals(mapDirectionToNatsInt(direction), payload.direction(), "nats.balance_adjusted.direction"),
+                    () -> assertEquals(mapReasonToNatsInt(reasonType), payload.reason(), "nats.balance_adjusted.reason"),
+                    () -> assertEquals(ctx.adjustmentRequest.getComment(), payload.comment(), "nats.balance_adjusted.comment"),
+                    () -> assertEquals(platformUserId, payload.userUuid(), "nats.balance_adjusted.user_uuid"),
+                    () -> assertEquals(platformUsername, payload.userName(), "nats.balance_adjusted.user_name")
             );
         });
 
-        step("Redis: Проверка данных кошелька после корректировки", () -> {
+        step("Kafka: Проверка события balance_adjusted в топике wallet.v8.projectionSource", () -> {
+            ctx.walletProjectionMessage = kafkaClient.expect(WalletProjectionMessage.class)
+                    .with("type", ctx.balanceAdjustedEvent.getType())
+                    .with("seq_number", ctx.balanceAdjustedEvent.getSequence())
+                    .unique()
+                    .fetch();
+
+            assertAll("Проверка полей Kafka-сообщения, спроецированного из NATS",
+                    () -> assertEquals(ctx.balanceAdjustedEvent.getType(), ctx.walletProjectionMessage.type(), "kafka.balance_adjusted.type"),
+                    () -> assertEquals(ctx.balanceAdjustedEvent.getSequence(), ctx.walletProjectionMessage.seqNumber(), "kafka.balance_adjusted.seq_number"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().walletUUID(), ctx.walletProjectionMessage.walletUuid(), "kafka.balance_adjusted.wallet_uuid"),
+                    () -> assertEquals(ctx.balanceAdjustedEvent.getTimestamp().toEpochSecond(), ctx.walletProjectionMessage.timestamp(), "kafka.balance_adjusted.timestamp")
+            );
+        });
+
+        step("Redis (Wallet): Проверка состояния кошелька после корректировки", () -> {
+            assertNotNull(ctx.balanceAdjustedEvent, "context.balance_adjusted_event");
+
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.walletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.balanceAdjustedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", ctx.balanceAdjustedEvent.getSequence())
                     .fetch();
-            assertAll(
+
+            assertAll("Проверка агрегата кошелька в Redis после корректировки",
+                    () -> assertEquals(ctx.balanceAdjustedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals(0, INITIAL_BALANCE.compareTo(aggregate.balanceBefore()), "redis.wallet.balance_before"),
                     () -> assertEquals(0, ctx.expectedBalanceAfterAdjustment.compareTo(aggregate.balance()), "redis.wallet.balance")
             );
-        });
-
-        step("Kafka: Проверка поступления сообщения balance_adjusted в топик wallet.v8.projectionSource", () -> {
-            ctx.projectionAdjustEvent = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.balanceAdjustedEvent.getSequence())
-                    .fetch();
-            assertTrue(utils.areEquivalent(ctx.projectionAdjustEvent, ctx.balanceAdjustedEvent), "kafka.payload");
         });
     }
 }

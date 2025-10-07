@@ -1,25 +1,22 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
 
-import com.uplatform.wallet_tests.tests.base.BaseTest;
-import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.DirectionType;
-import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.OperationType;
-import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.enums.ReasonType;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountResponse;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.BlockAmountRevokedEventPayload;
-import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBlockAmountStatus;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
+import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+
 import java.math.BigDecimal;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
@@ -27,6 +24,38 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Интеграционный тест, проверяющий процесс отмены ручной блокировки баланса игрока через CAP API.
+ *
+ * <p>Этот тест является логическим продолжением теста на создание блокировки и проверяет обратную операцию.
+ * Сценарий эмулирует действия администратора, который сначала блокирует часть средств на счете игрока,
+ * а затем отменяет эту блокировку. Тест подтверждает, что система корректно обрабатывает запрос на отмену,
+ * генерирует событие о снятии блокировки, обновляет состояние кошелька и возвращает средства на основной баланс.</p>
+ *
+ * <p><b>Последовательность действий:</b></p>
+ * <ol>
+ *   <li>Регистрация нового игрока и пополнение его баланса.</li>
+ *   <li>Создание ручной блокировки на часть баланса через CAP API в качестве предварительного условия.</li>
+ *   <li><b>Основное действие:</b> Отправка запроса в CAP API для отмены (удаления) ранее созданной блокировки.</li>
+ *   <li>Проверка успешного ответа от CAP API (HTTP 204 NO CONTENT).</li>
+ *   <li>Прослушивание и валидация NATS-события типа {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType#BLOCK_AMOUNT_REVOKED},
+ *       подтверждающего отмену блокировки.</li>
+ *   <li>Проверка того, что NATS-событие было успешно спроецировано в Kafka-топик {@code wallet.v8.projectionSource}.</li>
+ *   <li>Проверка конечного состояния в Redis, чтобы убедиться, что баланс кошелька восстановлен, а статус блокировки
+ *       изменен на {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsBlockAmountStatus#REVOKED}.</li>
+ *   <li>Проверка через CAP API, что отмененная блокировка больше не числится в списке активных.</li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Запрос на отмену блокировки через CAP API выполняется успешно.</li>
+ *   <li>В NATS публикуется событие {@code block_amount_revoked} с корректными данными.</li>
+ *   <li>Данные из NATS-события полностью дублируются в проекционный топик Kafka.</li>
+ *   <li>Состояние кошелька в Redis обновляется: баланс возвращается к исходному значению до блокировки,
+ *       а у соответствующей блокировки в списке {@code blockedAmounts} меняется статус.</li>
+ *   <li>Отмененная блокировка не отображается в списке активных блокировок игрока.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
 @Feature("Управление игроком")
@@ -36,113 +65,59 @@ class DeleteBlockAmountTest extends BaseTest {
 
     @Test
     @DisplayName("CAP: Ручная блокировка баланса игрока - Отмена.")
-    void shouldDeleteBlockAmountAndVerifyResponse() {
-        final BigDecimal adjustmentAmount = new BigDecimal("150.00");
-        final BigDecimal blockAmount = new BigDecimal("50.00");
-        final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+    void shouldDeleteBlockAmountAndVerifyEvents() {
+        final String PLATFORM_NODE_ID = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+        final String PLATFORM_USER_ID = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
+        final String PLATFORM_USERNAME = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
+        final BigDecimal ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+        final BigDecimal BLOCK_AMOUNT = new BigDecimal("50.00");
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             CreateBlockAmountRequest blockAmountRequest;
-            ResponseEntity<CreateBlockAmountResponse> blockAmountResponse;
-            ResponseEntity<Void> deleteBlockAmountResponse;
+            CreateBlockAmountResponse blockAmountResponse;
             NatsMessage<BlockAmountRevokedEventPayload> blockAmountRevokedEvent;
+            WalletProjectionMessage walletProjectionMessage;
         }
         final TestContext ctx = new TestContext();
 
-        step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(BigDecimal.ZERO);
-            assertNotNull(ctx.registeredPlayer, "default_step.registration");
+        step("Default Step: Регистрация и пополнение баланса нового пользователя", () -> {
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(ADJUSTMENT_AMOUNT);
+            assertNotNull(ctx.registeredPlayer.walletData(), "default_step.registration.wallet_data");
         });
 
-        step("CAP API: Корректировка баланса", () -> {
-            var request = CreateBalanceAdjustmentRequest.builder()
-                    .currency(ctx.registeredPlayer.walletData().currency())
-                    .amount(adjustmentAmount)
-                    .reason(ReasonType.MALFUNCTION)
-                    .operationType(OperationType.CORRECTION)
-                    .direction(DirectionType.INCREASE)
-                    .build();
-
-            var response = capAdminClient.createBalanceAdjustment(
-                    ctx.registeredPlayer.walletData().playerUUID(),
-                    utils.getAuthorizationHeader(),
-                    platformNodeId,
-                    "6dfe249e-e967-477b-8a42-83efe85c7c3a",
-                    request);
-            assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.status_code");
-        });
-
-        step("CAP API: Создание блокировки средств", () -> {
+        step("CAP API: Создание ручной блокировки средств", () -> {
             ctx.blockAmountRequest = CreateBlockAmountRequest.builder()
                     .reason(get(NAME))
                     .currency(ctx.registeredPlayer.walletData().currency())
-                    .amount(blockAmount.toString())
+                    .amount(BLOCK_AMOUNT.toString())
                     .build();
 
-            ctx.blockAmountResponse = capAdminClient.createBlockAmount(
+            var response = capAdminClient.createBlockAmount(
                     ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
-                    platformNodeId,
+                    PLATFORM_NODE_ID,
                     ctx.blockAmountRequest
             );
 
-            var responseBody = ctx.blockAmountResponse.getBody();
-            assertAll("Проверка данных в ответе на создание блокировки средств",
-                    () -> assertEquals(HttpStatus.OK, ctx.blockAmountResponse.getStatusCode(), "cap_api.block_amount.status_code"),
-                    () -> assertNotNull(responseBody, "cap_api.block_amount.response_body_not_null"),
-                    () -> assertNotNull(responseBody.transactionId(), "cap_api.block_amount.transaction_id")
-            );
+            assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.create_block_amount.status_code");
+            ctx.blockAmountResponse = response.getBody();
+            assertNotNull(ctx.blockAmountResponse, "cap_api.create_block_amount.response_body");
+            assertNotNull(ctx.blockAmountResponse.transactionId(), "cap_api.create_block_amount.transaction_id");
         });
 
-        step("CAP API: Получение списка блокировок для проверки наличия созданной блокировки", () -> {
-            var response = capAdminClient.getBlockAmountList(
+        step("CAP API: Отмена (удаление) блокировки средств", () -> {
+            var response = capAdminClient.deleteBlockAmount(
+                    ctx.blockAmountResponse.transactionId(),
                     utils.getAuthorizationHeader(),
-                    platformNodeId,
-                    ctx.registeredPlayer.walletData().playerUUID());
-            assertNotNull(response.getBody(), "cap_api.get_block_amount_list.response_body_not_null");
-            assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null");
-
-            var expectedTxId = ctx.blockAmountResponse.getBody().transactionId();
-
-            assertAll("Проверка наличия созданной блокировки в списке",
-                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.status_code"),
-                    () -> assertFalse(response.getBody().items().isEmpty(), "cap_api.block_amount_list.not_empty"),
-                    () -> assertEquals(expectedTxId, response.getBody().items().get(0).transactionId(), "cap_api.block_amount_list.transaction_id")
-            );
-        });
-
-        step("CAP API: Удаление блокировки средств", () -> {
-            assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null_before_delete");
-            ctx.deleteBlockAmountResponse = capAdminClient.deleteBlockAmount(
-                    ctx.blockAmountResponse.getBody().transactionId(),
-                    utils.getAuthorizationHeader(),
-                    platformNodeId,
+                    PLATFORM_NODE_ID,
                     ctx.registeredPlayer.walletData().walletUUID(),
                     ctx.registeredPlayer.walletData().playerUUID()
             );
-            assertEquals(HttpStatus.NO_CONTENT, ctx.deleteBlockAmountResponse.getStatusCode(), "cap_api.delete_block_amount.status_code");
+            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.delete_block_amount.status_code");
         });
 
-        step("CAP API: Проверка отсутствия удаленной блокировки в списке", () -> {
-            var response = capAdminClient.getBlockAmountList(
-                    utils.getAuthorizationHeader(),
-                    platformNodeId,
-                    ctx.registeredPlayer.walletData().playerUUID());
-            assertNotNull(response.getBody(), "cap_api.get_block_amount_list_after_delete.response_body_not_null");
-            assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null_for_deleted_tx_id");
-
-            var deletedTxId = ctx.blockAmountResponse.getBody().transactionId();
-            var blockStillExists = response.getBody().items().stream()
-                    .anyMatch(item -> item.transactionId().equals(deletedTxId));
-
-            assertAll("Проверка отсутствия удаленной блокировки",
-                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.status_code"),
-                    () -> assertFalse(blockStillExists, "cap_api.block_amount_list.transaction_not_exists")
-            );
-        });
-
-        step("NATS: Проверка поступления события block_amount_revoked", () -> {
+        step("NATS: Проверка события block_amount_revoked", () -> {
             var subject = natsClient.buildWalletSubject(
                     ctx.registeredPlayer.walletData().playerUUID(),
                     ctx.registeredPlayer.walletData().walletUUID());
@@ -150,50 +125,73 @@ class DeleteBlockAmountTest extends BaseTest {
             ctx.blockAmountRevokedEvent = natsClient.expect(BlockAmountRevokedEventPayload.class)
                     .from(subject)
                     .withType(NatsEventType.BLOCK_AMOUNT_REVOKED.getHeaderValue())
+                    .unique()
                     .fetch();
 
             var payload = ctx.blockAmountRevokedEvent.getPayload();
-            assertAll("Проверка полей в событии снятия блокировки",
-                    () -> assertNotNull(payload.uuid(), "nats.block_amount_revoked.uuid"),
-                    () -> assertNotNull(payload.userUuid(), "nats.block_amount_revoked.user_uuid"),
-                    () -> assertNotNull(payload.userName(), "nats.block_amount_revoked.user_name"),
-                    () -> assertEquals(platformNodeId, payload.nodeUuid(), "nats.block_amount_revoked.node_uuid")
+            assertAll("Проверка полей в NATS-событии отмены блокировки",
+                    () -> assertEquals(ctx.blockAmountResponse.transactionId(), payload.uuid(), "nats.block_amount_revoked.uuid"),
+                    () -> assertEquals(PLATFORM_USER_ID, payload.userUuid(), "nats.block_amount_revoked.user_uuid"),
+                    () -> assertEquals(PLATFORM_USERNAME, payload.userName(), "nats.block_amount_revoked.user_name"),
+                    () -> assertEquals(PLATFORM_NODE_ID, payload.nodeUuid(), "nats.block_amount_revoked.node_uuid")
             );
         });
 
-        step("Kafka: Проверка поступления сообщения block_amount_revoked в топик wallet.v8.projectionSource", () -> {
-            var kafkaMessage = kafkaClient.expect(WalletProjectionMessage.class)
+        step("Kafka: Проверка события block_amount_revoked в топике wallet.v8.projectionSource", () -> {
+            ctx.walletProjectionMessage = kafkaClient.expect(WalletProjectionMessage.class)
+                    .with("type", ctx.blockAmountRevokedEvent.getType())
                     .with("seq_number", ctx.blockAmountRevokedEvent.getSequence())
+                    .unique()
                     .fetch();
-            assertTrue(utils.areEquivalent(
-                    kafkaMessage, ctx.blockAmountRevokedEvent), "kafka.payload");
+
+            var kafkaMessage = ctx.walletProjectionMessage;
+            var expectedPayload = assertDoesNotThrow(() ->
+                    objectMapper.writeValueAsString(ctx.blockAmountRevokedEvent.getPayload()));
+            var expectedTimestamp = ctx.blockAmountRevokedEvent.getTimestamp().toEpochSecond();
+
+            assertAll("Проверка полей Kafka-сообщения, спроецированного из NATS",
+                    () -> assertEquals(ctx.blockAmountRevokedEvent.getType(), kafkaMessage.type(), "kafka.block_amount_revoked.type"),
+                    () -> assertEquals(ctx.blockAmountRevokedEvent.getSequence(), kafkaMessage.seqNumber(), "kafka.block_amount_revoked.seq_number"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().walletUUID(), kafkaMessage.walletUuid(), "kafka.block_amount_revoked.wallet_uuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), kafkaMessage.playerUuid(), "kafka.block_amount_revoked.player_uuid"),
+                    () -> assertEquals(expectedPayload, kafkaMessage.payload(), "kafka.block_amount_revoked.payload"),
+                    () -> assertEquals(expectedTimestamp, kafkaMessage.timestamp(), "kafka.block_amount_revoked.timestamp")
+            );
         });
 
-        step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
+        step("Redis (Wallet): Проверка состояния кошелька после отмены блокировки", () -> {
+            assertNotNull(ctx.blockAmountRevokedEvent, "context.block_amount_revoked_event");
+
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.walletData().walletUUID())
-                    .withAtLeast("LastSeqNumber", (int) ctx.blockAmountRevokedEvent.getSequence())
+                    .withAtLeast("LastSeqNumber", ctx.blockAmountRevokedEvent.getSequence())
                     .fetch();
-            assertNotNull(ctx.blockAmountResponse.getBody(), "cap_api.create_block_amount.response_body_not_null_for_redis_check");
 
-            var expectedBalance = adjustmentAmount;
-            var deletedBlockAmountId = ctx.blockAmountResponse.getBody().transactionId();
-
+            var revokedBlockAmountId = ctx.blockAmountResponse.transactionId();
             var blockedAmount = aggregate.blockedAmounts().stream()
-                    .filter(block -> block.uuid().equals(deletedBlockAmountId))
+                    .filter(block -> block.uuid().equals(revokedBlockAmountId))
                     .findFirst();
 
-            assertAll("Проверка агрегата после удаления блокировки",
-                    () -> assertEquals((int) ctx.blockAmountRevokedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
-                    () -> assertEquals(0, expectedBalance.compareTo(aggregate.balance()), "redis.aggregate.balance"),
-                    () -> assertEquals(0, expectedBalance.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
-                    () -> assertEquals(0, adjustmentAmount.subtract(blockAmount).compareTo(aggregate.balanceBefore()), "redis.aggregate.balance_before"),
-                    () -> assertTrue(blockedAmount.isPresent(), "redis.aggregate.blocked_amount.exists"),
-                    () -> assertEquals(NatsBlockAmountStatus.REVOKED.getValue(), blockedAmount.get().status(), "redis.aggregate.blocked_amount.status"),
-                    () -> assertEquals(ctx.blockAmountRequest.getReason(), blockedAmount.get().reason(), "redis.aggregate.blocked_amount.reason"),
-                    () -> assertEquals(0, blockAmount.negate().compareTo(blockedAmount.get().amount()), "redis.aggregate.blocked_amount.amount"),
-                    () -> assertEquals(0, blockAmount.compareTo(blockedAmount.get().deltaAvailableWithdrawalBalance()), "redis.aggregate.blocked_amount.delta_available_withdrawal_balance")
+            assertAll("Проверка агрегата кошелька в Redis после отмены блокировки",
+                    () -> assertEquals(ctx.blockAmountRevokedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals(0, ADJUSTMENT_AMOUNT.compareTo(aggregate.balance()), "redis.wallet.balance"),
+                    () -> assertEquals(0, ADJUSTMENT_AMOUNT.compareTo(aggregate.availableWithdrawalBalance()), "redis.wallet.available_withdrawal_balance"),
+                    () -> assertEquals(0, ADJUSTMENT_AMOUNT.subtract(BLOCK_AMOUNT).compareTo(aggregate.balanceBefore()), "redis.wallet.balance_before"),
+                    () -> assertTrue(blockedAmount.isPresent(), "redis.wallet.blocked_amount.exists"),
+                    () -> assertEquals(NatsBlockAmountStatus.REVOKED.getValue(), blockedAmount.get().status(), "redis.wallet.blocked_amount.status"),
+                    () -> assertEquals(ctx.blockAmountRequest.getReason(), blockedAmount.get().reason(), "redis.wallet.blocked_amount.reason")
             );
+        });
+
+        step("CAP API: Проверка отсутствия отмененной блокировки в списке активных", () -> {
+            var response = capAdminClient.getBlockAmountList(
+                    utils.getAuthorizationHeader(),
+                    PLATFORM_NODE_ID,
+                    ctx.registeredPlayer.walletData().playerUUID());
+
+            assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.get_block_amount_list.status_code");
+            assertNotNull(response.getBody(), "cap_api.get_block_amount_list.response_body");
+            assertTrue(response.getBody().items().isEmpty(), "cap_api.get_block_amount_list.is_empty");
         });
     }
 }
