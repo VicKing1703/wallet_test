@@ -145,16 +145,17 @@ class DeleteBlockAmountTest extends BaseTest {
                     .fetch();
 
             var kafkaMessage = ctx.walletProjectionMessage;
-            var expectedPayload = assertDoesNotThrow(() ->
-                    objectMapper.writeValueAsString(ctx.blockAmountRevokedEvent.getPayload()));
             var expectedTimestamp = ctx.blockAmountRevokedEvent.getTimestamp().toEpochSecond();
+            var kafkaPayload = assertDoesNotThrow(() ->
+                    objectMapper.readTree(kafkaMessage.payload()));
 
             assertAll("Проверка полей Kafka-сообщения, спроецированного из NATS",
                     () -> assertEquals(ctx.blockAmountRevokedEvent.getType(), kafkaMessage.type(), "kafka.block_amount_revoked.type"),
                     () -> assertEquals(ctx.blockAmountRevokedEvent.getSequence(), kafkaMessage.seqNumber(), "kafka.block_amount_revoked.seq_number"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().walletUUID(), kafkaMessage.walletUuid(), "kafka.block_amount_revoked.wallet_uuid"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), kafkaMessage.playerUuid(), "kafka.block_amount_revoked.player_uuid"),
-                    () -> assertEquals(expectedPayload, kafkaMessage.payload(), "kafka.block_amount_revoked.payload"),
+                    () -> assertEquals(ctx.blockAmountResponse.transactionId(), kafkaPayload.get("uuid").asText(), "kafka.block_amount_revoked.payload.uuid"),
+                    () -> assertEquals(PLATFORM_NODE_ID, kafkaPayload.get("node_uuid").asText(), "kafka.block_amount_revoked.payload.node_uuid"),
                     () -> assertEquals(expectedTimestamp, kafkaMessage.timestamp(), "kafka.block_amount_revoked.timestamp")
             );
         });

@@ -151,9 +151,10 @@ class CreateBlockAmountTest extends BaseTest {
                     .fetch();
 
             var kafkaMessage = ctx.walletProjectionMessage;
-            var expectedPayload = assertDoesNotThrow(() ->
-                    objectMapper.writeValueAsString(ctx.blockAmountEvent.getPayload()));
             var expectedTimestamp = ctx.blockAmountEvent.getTimestamp().toEpochSecond();
+            var kafkaPayload = assertDoesNotThrow(() ->
+                    objectMapper.readTree(kafkaMessage.payload()));
+            var natsPayload = ctx.blockAmountEvent.getPayload();
 
             assertAll("Проверка полей Kafka-сообщения, спроецированного из NATS",
                     () -> assertEquals(ctx.blockAmountEvent.getType(), kafkaMessage.type(), "kafka.block_amount_started.type"),
@@ -162,7 +163,14 @@ class CreateBlockAmountTest extends BaseTest {
                     () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), kafkaMessage.playerUuid(), "kafka.block_amount_started.player_uuid"),
                     () -> assertEquals(PLATFORM_NODE_ID, kafkaMessage.nodeUuid(), "kafka.block_amount_started.node_uuid"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().currency(), kafkaMessage.currency(), "kafka.block_amount_started.currency"),
-                    () -> assertEquals(expectedPayload, kafkaMessage.payload(), "kafka.block_amount_started.payload"),
+                    () -> assertEquals(natsPayload.uuid(), kafkaPayload.get("uuid").asText(), "kafka.block_amount_started.payload.uuid"),
+                    () -> assertEquals(natsPayload.status().getValue(), kafkaPayload.get("status").asInt(), "kafka.block_amount_started.payload.status"),
+                    () -> assertEquals(0, BLOCK_AMOUNT.negate().compareTo(new BigDecimal(kafkaPayload.get("amount").asText())), "kafka.block_amount_started.payload.amount"),
+                    () -> assertEquals(natsPayload.reason(), kafkaPayload.get("reason").asText(), "kafka.block_amount_started.payload.reason"),
+                    () -> assertEquals(natsPayload.type().getValue(), kafkaPayload.get("type").asInt(), "kafka.block_amount_started.payload.type"),
+                    () -> assertEquals(natsPayload.userUuid(), kafkaPayload.get("user_uuid").asText(), "kafka.block_amount_started.payload.user_uuid"),
+                    () -> assertEquals(natsPayload.userName(), kafkaPayload.get("user_name").asText(), "kafka.block_amount_started.payload.user_name"),
+                    () -> assertEquals(natsPayload.createdAt(), kafkaPayload.get("created_at").asLong(), "kafka.block_amount_started.payload.created_at"),
                     () -> assertEquals(expectedTimestamp, kafkaMessage.timestamp(), "kafka.block_amount_started.timestamp"),
                     () -> assertNotNull(kafkaMessage.seqNumberNodeUuid(), "kafka.block_amount_started.seq_number_node_uuid")
             );

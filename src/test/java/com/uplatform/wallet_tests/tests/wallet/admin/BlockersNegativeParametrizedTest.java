@@ -1,11 +1,9 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.uplatform.wallet_tests.tests.base.BaseNegativeParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.cap.dto.errors.ValidationErrorResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import feign.FeignException;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,13 +24,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
- * Интеграционный параметризованный тест, проверяющий негативные сценарии обновления блокировок игрока через CAP API.
+ * Интеграционный тест, проверяющий негативные сценарии для эндпоинта обновления блокировок игрока:
+ * {@code PATCH /_cap/api/v1/players/{playerUUID}/blockers}.
  *
- * <p>Тест разделён на несколько сфокусированных групп для проверки различных типов некорректных запросов.
- * Такой подход обеспечивает изоляцию, улучшает читаемость и упрощает поддержку тестов, так как каждая группа
- * отвечает за свой класс ошибок.</p>
+ * <p><b>Идея теста:</b> Убедиться, что API надежно защищено от некорректных данных и несанкционированного доступа.
+ * Система должна отклонять любые запросы, которые не соответствуют контракту, и возвращать клиенту понятные,
+ * структурированные ошибки. Ключевая проверка заключается в том, что ни один из невалидных запросов
+ * не должен приводить к изменению состояния блокировок игрока.</p>
  *
- * <p><b>Сценарии тестирования:</b></p>
+ * <p><b>Сценарии тестирования сгруппированы по типу ошибки:</b></p>
  * <ol>
  *   <li><b>Ошибки валидации тела запроса (HTTP 400):</b>
  *     <ul>
@@ -54,17 +54,17 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
  *
  * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>Система корректно возвращает ожидаемый HTTP-статус ошибки (400, 401, 404) для каждого сценария.</li>
- *   <li>Тело ответа с ошибкой содержит корректное сообщение и, в случае ошибок валидации, детали по конкретным полям.</li>
- *   <li>Некорректные запросы не приводят к изменению состояния системы (данные игрока не меняются).</li>
+ *   <li>Система возвращает корректный HTTP-статус ошибки (400, 401, 404) для каждого сценария.</li>
+ *   <li>Тело ответа содержит правильное сообщение об ошибке и, при необходимости, детализированную информацию в поле {@code errors}.</li>
+ *   <li>Состояние игрока в базе данных и Redis остается неизменным.</li>
  * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
 @Feature("Управление игроком")
 @Suite("Ручные блокировки гемблинга и беттинга: Негативные сценарии")
-@Tag("Wallet3") @Tag("CAP")
-class BlockersNegativeParametrizedTest extends BaseParameterizedTest {
+@Tag("Wallet") @Tag("CAP")
+class BlockersNegativeParametrizedTest extends BaseNegativeParameterizedTest {
 
     private RegisteredPlayerData registeredPlayer;
     private String platformNodeId;
@@ -143,26 +143,20 @@ class BlockersNegativeParametrizedTest extends BaseParameterizedTest {
             UpdateBlockersRequest invalidRequest,
             Map<String, List<String>> expectedFieldErrors
     ) {
-        step("CAP API: Попытка обновления блокировок с некорректным телом - " + description, () -> {
-            var exception = assertThrows(
-                    FeignException.class,
-                    () -> capAdminClient.updateBlockers(
-                            registeredPlayer.walletData().playerUUID(),
-                            utils.getAuthorizationHeader(),
-                            platformNodeId,
-                            invalidRequest
-                    ),
-                    "cap_api.update_blockers.expected_exception"
-            );
+        var error = step(
+                "CAP API: Попытка обновления блокировок с некорректным телом - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.updateBlockers(
+                                registeredPlayer.walletData().playerUUID(),
+                                utils.getAuthorizationHeader(),
+                                platformNodeId,
+                                invalidRequest
+                        ),
+                        "cap_api.update_blockers.expected_exception"
+                )
+        );
 
-            var error = utils.parseFeignExceptionContent(exception, ValidationErrorResponse.class);
-
-            assertAll("cap_api.error.validation_structure",
-                    () -> assertEquals(HttpStatus.BAD_REQUEST.value(), error.code(), "cap_api.error.code"),
-                    () -> assertEquals("Validation error", error.message(), "cap_api.error.message"),
-                    () -> assertEquals(expectedFieldErrors, error.errors(), "cap_api.error.errors")
-            );
-        });
+        assertValidationError(error, HttpStatus.BAD_REQUEST.value(), "Validation error", expectedFieldErrors);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -180,26 +174,20 @@ class BlockersNegativeParametrizedTest extends BaseParameterizedTest {
                 .bettingEnabled(true)
                 .build();
 
-        step("CAP API: Попытка обновления блокировок с некорректным playerUUID - " + description, () -> {
-            var exception = assertThrows(
-                    FeignException.class,
-                    () -> capAdminClient.updateBlockers(
-                            invalidPlayerUuid,
-                            utils.getAuthorizationHeader(),
-                            platformNodeId,
-                            request
-                    ),
-                    "cap_api.update_blockers.expected_exception"
-            );
+        var error = step(
+                "CAP API: Попытка обновления блокировок с некорректным playerUUID - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.updateBlockers(
+                                invalidPlayerUuid,
+                                utils.getAuthorizationHeader(),
+                                platformNodeId,
+                                request
+                        ),
+                        "cap_api.update_blockers.expected_exception"
+                )
+        );
 
-            var error = utils.parseFeignExceptionContent(exception, ValidationErrorResponse.class);
-
-            assertAll("cap_api.error.validation_structure",
-                    () -> assertEquals(expectedStatus.value(), error.code(), "cap_api.error.code"),
-                    () -> assertEquals(expectedMessage, error.message(), "cap_api.error.message"),
-                    () -> assertEquals(expectedFieldErrors, error.errors(), "cap_api.error.errors")
-            );
-        });
+        assertValidationError(error, expectedStatus.value(), expectedMessage, expectedFieldErrors);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -214,25 +202,19 @@ class BlockersNegativeParametrizedTest extends BaseParameterizedTest {
                 .bettingEnabled(true)
                 .build();
 
-        step("CAP API: Попытка обновления блокировок с некорректным заголовком авторизации - " + description, () -> {
-            var exception = assertThrows(
-                    FeignException.class,
-                    () -> capAdminClient.updateBlockers(
-                            registeredPlayer.walletData().playerUUID(),
-                            invalidAuthorizationHeader,
-                            platformNodeId,
-                            request
-                    ),
-                    "cap_api.update_blockers.expected_exception"
-            );
+        var error = step(
+                "CAP API: Попытка обновления блокировок с некорректным заголовком авторизации - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.updateBlockers(
+                                registeredPlayer.walletData().playerUUID(),
+                                invalidAuthorizationHeader,
+                                platformNodeId,
+                                request
+                        ),
+                        "cap_api.update_blockers.expected_exception"
+                )
+        );
 
-            var error = utils.parseFeignExceptionContent(exception, ValidationErrorResponse.class);
-
-            assertAll("cap_api.error.validation_structure",
-                    () -> assertEquals(HttpStatus.UNAUTHORIZED.value(), error.code(), "cap_api.error.code"),
-                    () -> assertEquals("Full authentication is required to access this resource.", error.message(), "cap_api.error.message"),
-                    () -> assertTrue(error.errors() == null || error.errors().isEmpty(), "cap_api.error.errors")
-            );
-        });
+        assertValidationError(error, HttpStatus.UNAUTHORIZED.value(), "Full authentication is required to access this resource.", Map.of());
     }
 }
