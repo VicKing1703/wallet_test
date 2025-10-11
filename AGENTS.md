@@ -1485,4 +1485,9 @@ ctx.gameProvider = coreDatabaseClient.findGameProviderByIdOrFail(ctx.coreGameSes
 - Create new HTTP/NATS/Database clients — only extend existing ones
 - Modify configuration files (`configs/*.json`) or `multi-source-test-client` module
 
+**Priority of instructions:**
+- When examples in this document differ from existing test code, **ALWAYS follow this document**
+- This document represents the current best practices and standards
+- Existing tests may contain outdated patterns — do not replicate them
+
 
