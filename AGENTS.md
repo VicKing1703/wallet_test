@@ -243,6 +243,16 @@ class MyNegativeTest extends BaseNegativeParameterizedTest {
 
 When writing negative tests, use these patterns to structure error validation scenarios effectively.
 
+**IMPORTANT: Negative tests MUST extend `BaseNegativeParameterizedTest`**, not `BaseParameterizedTest`.
+
+#### Key Rules for Negative Tests
+
+1. **Base class:** Always extend `BaseNegativeParameterizedTest`
+2. **Constants naming:** Use `UPPER_SNAKE_CASE` for class-level constants (e.g., `INITIAL_BALANCE`, `BET_AMOUNT`, `CASINO_ID`)
+3. **Error messages:** NEVER hardcode error messages in provider - use `expectedErrorCode.getMessage()` or remove message parameter entirely
+4. **Description parameter:** Avoid adding extra description parameters - use `@ParameterizedTest(name = "тип = {0}")` instead
+5. **Error validation:** For Manager API gambling errors, use `utils.parseFeignExceptionContent()` and dynamic message comparison
+
 #### Consumer Pattern for Request Modification
 
 Use `Consumer<RequestBody>` to modify valid requests into invalid ones. This pattern keeps test data DRY and makes scenarios readable.
@@ -331,28 +341,41 @@ void test(String description, Consumer<BetRequestBody> requestModifier,
 }
 ```
 
-#### Alternative: `utils.parseFeignExceptionContent()`
+#### Error Handling: `executeExpectingError()` vs `utils.parseFeignExceptionContent()`
 
-Instead of `executeExpectingError()` from `BaseNegativeParameterizedTest`, you can manually catch exceptions and parse them:
+**Choose the right method based on the API:**
 
+**For CAP API validation errors** (returns `ValidationErrorResponse`):
 ```java
-// Manual exception handling
+var error = executeExpectingError(
+    () -> capAdminClient.updateBlockers(playerUuid, authHeader, nodeId, request),
+    "expected_exception"
+);
+
+assertValidationError(error, 400, "Validation error", expectedFieldErrors);
+```
+
+**For Manager/FAPI gambling errors** (returns custom error DTOs like `GamblingError`):
+```java
 var exception = assertThrows(FeignException.class,
     () -> managerClient.bet(casinoId, signature, request),
-    "expected_exception");
+    "manager_api.bet.exception"
+);
 
 var error = utils.parseFeignExceptionContent(exception, GamblingError.class);
 
 assertAll("Проверка деталей ошибки",
-    () -> assertEquals(HttpStatus.BAD_REQUEST.value(), exception.status()),
-    () -> assertEquals(VALIDATION_ERROR.getCode(), error.code()),
-    () -> assertTrue(error.message().contains("expected message"))
+    () -> assertEquals(HttpStatus.BAD_REQUEST.value(), exception.status(), "manager_api.error.status_code"),
+    () -> assertEquals(expectedErrorCode.getCode(), error.code(), "manager_api.error.code"),
+    () -> assertTrue(error.message().toLowerCase()
+        .contains(expectedErrorCode.getMessage().toLowerCase()), "manager_api.error.message")
 );
 ```
 
-**When to use each:**
-- `executeExpectingError()` — for CAP API validation errors (returns `ValidationErrorResponse`)
-- `utils.parseFeignExceptionContent()` — for Manager/FAPI gambling errors (returns custom error DTOs like `GamblingError`)
+**IMPORTANT:** When comparing error messages from Manager API:
+- Use `expectedErrorCode.getMessage()` instead of hardcoded strings
+- Use `.toLowerCase().contains()` for flexible comparison
+- NEVER pass hardcoded message strings in provider parameters
 
 #### Grouping Error Scenarios
 
