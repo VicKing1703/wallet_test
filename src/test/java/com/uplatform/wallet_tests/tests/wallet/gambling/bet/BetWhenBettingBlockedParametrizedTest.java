@@ -66,9 +66,11 @@ class BetWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
 
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
+    private String casinoId;
 
     @BeforeAll
     void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
 
         step("Default Step: Регистрация нового пользователя", () -> {
@@ -115,8 +117,6 @@ class BetWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
     void test(
             NatsGamblingTransactionOperation type
     ) {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
-
         step("Manager API: Совершение ставки", () -> {
             var request = BetRequestBody.builder()
                     .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())

@@ -83,6 +83,8 @@ class BetParametrizedTest extends BaseParameterizedTest {
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
     private static final String EXPECTED_CURRENCY_RATES = "1";
 
+    private String casinoId;
+
     static Stream<Arguments> betAmountProvider() {
         return Stream.of(
                 Arguments.of(
@@ -140,8 +142,8 @@ class BetParametrizedTest extends BaseParameterizedTest {
             BigDecimal amountParam,
             NatsGamblingTransactionOperation operationParam,
             NatsGamblingTransactionType transactionTypeParam) {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

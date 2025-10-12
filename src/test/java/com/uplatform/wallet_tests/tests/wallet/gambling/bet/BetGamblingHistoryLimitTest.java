@@ -70,6 +70,8 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
 
     private static final BigDecimal OPERATION_AMOUNT = new BigDecimal("1.00");
 
+    private String casinoId;
+
     static Stream<Arguments> gamblingOperationProvider() {
         return Stream.of(
                 Arguments.of(NatsGamblingTransactionOperation.BET),
@@ -81,7 +83,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
     @ParameterizedTest(name = "операция = {0}")
     @MethodSource("gamblingOperationProvider")
     void testGamblingHistoryCountLimitInRedis(NatsGamblingTransactionOperation operationParam) {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int operationsToMake = maxGamblingCountInRedis + 1;

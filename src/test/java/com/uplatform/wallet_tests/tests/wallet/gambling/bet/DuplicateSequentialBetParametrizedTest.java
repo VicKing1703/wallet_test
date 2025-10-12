@@ -78,6 +78,8 @@ class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");
     private static final BigDecimal DEFAULT_BET_AMOUNT = new BigDecimal("10.00");
 
+    private String casinoId;
+
     static Stream<Arguments> betOperationAndAmountProvider() {
         return Stream.of(
                 Arguments.of(NatsGamblingTransactionOperation.BET, DEFAULT_BET_AMOUNT),
@@ -93,7 +95,7 @@ class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
     @MethodSource("betOperationAndAmountProvider")
     @DisplayName("Дублирование ставки при последовательной отправке")
     void testDuplicateBetReturnsIdempotentResponse(NatsGamblingTransactionOperation operationParam, BigDecimal betAmountParam)  {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;

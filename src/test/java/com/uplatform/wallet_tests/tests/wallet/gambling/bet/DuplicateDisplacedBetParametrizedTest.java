@@ -81,9 +81,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Gambling") @Tag("Wallet")
 class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
 
-
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");
     private static final BigDecimal DEFAULT_BET_AMOUNT = new BigDecimal("1.00");
+
+    private String casinoId;
 
     static Stream<Arguments> betOperationAndAmountProvider() {
         return Stream.of(
@@ -100,7 +101,7 @@ class DuplicateDisplacedBetParametrizedTest extends BaseParameterizedTest {
     @MethodSource("betOperationAndAmountProvider")
     @DisplayName("Дублирование ставки, вытесненной из кеша")
     void testDuplicateDisplacedBetReturnsIdempotentResponse(NatsGamblingTransactionOperation operationParam, BigDecimal betAmountParam) {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int betsToMakeToDisplace = maxGamblingCountInRedis + 1;

@@ -80,11 +80,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Gambling") @Tag("Wallet")
 class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
 
-    private RegisteredPlayerData registeredPlayer;
-    private GameLaunchData gameLaunchData;
-
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("1000.00");
     private static final BigDecimal DEFAULT_BET_AMOUNT = new BigDecimal("1.00");
+
+    private RegisteredPlayerData registeredPlayer;
+    private GameLaunchData gameLaunchData;
+    private String casinoId;
 
     static Stream<Arguments> betOperationAndAmountProvider() {
         return Stream.of(
@@ -101,6 +102,8 @@ class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
 
     @BeforeEach
     void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+
         step("Default Step: Регистрация нового пользователя для теста", () -> {
             this.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(this.registeredPlayer, "default_step.registration");
@@ -116,7 +119,6 @@ class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
     @MethodSource("betOperationAndAmountProvider")
     @DisplayName("Идемпотентная обработка дублей ставок при одновременной отправке")
     void testConcurrentDuplicateBetsHandledIdempotently(NatsGamblingTransactionOperation operationParam, BigDecimal betAmountParam) throws InterruptedException {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         BigDecimal expectedBalanceAfterSuccessfulBet = INITIAL_ADJUSTMENT_AMOUNT.subtract(betAmountParam);
 
         step(String.format("Manager API: Одновременная отправка дублирующихся ставок (тип: %s, сумма: %s)", operationParam, betAmountParam), () -> {
