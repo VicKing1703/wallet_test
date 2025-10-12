@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.tests.base;
 
 import com.uplatform.wallet_tests.api.http.cap.dto.errors.ValidationErrorResponse;
+import com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingError;
 import feign.FeignException;
 
 import java.util.List;
@@ -28,13 +29,33 @@ public abstract class BaseNegativeParameterizedTest extends BaseParameterizedTes
             Supplier<?> requestExecutor,
             String assertionMessage
     ) {
+        return executeExpectingError(
+                requestExecutor,
+                assertionMessage,
+                ValidationErrorResponse.class
+        );
+    }
+
+    /**
+     * Выполняет API-запрос, ожидая FeignException, и парсит ответ в указанный класс ошибки.
+     *
+     * @param requestExecutor supplier, выполняющий API-вызов через Feign-клиент
+     * @param assertionMessage сообщение для assertion в случае отсутствия исключения
+     * @param errorClass класс, в который необходимо распарсить тело ошибки
+     * @return объект ошибки указанного типа
+     */
+    protected <T> T executeExpectingError(
+            Supplier<?> requestExecutor,
+            String assertionMessage,
+            Class<T> errorClass
+    ) {
         var exception = assertThrows(
                 FeignException.class,
                 requestExecutor::get,
                 assertionMessage
         );
 
-        return utils.parseFeignExceptionContent(exception, ValidationErrorResponse.class);
+        return utils.parseFeignExceptionContent(exception, errorClass);
     }
 
     /**
@@ -55,6 +76,24 @@ public abstract class BaseNegativeParameterizedTest extends BaseParameterizedTes
                 () -> assertEquals(expectedCode, error.code(), "cap_api.error.code"),
                 () -> assertEquals(expectedMessage, error.message(), "cap_api.error.message"),
                 () -> assertEquals(expectedFieldErrors, error.errors(), "cap_api.error.errors")
+        );
+    }
+
+    /**
+     * Проверяет структуру ошибки Manager API, использующей DTO {@link GamblingError}.
+     *
+     * @param error объект ошибки для проверки
+     * @param expectedCode ожидаемый код ошибки
+     * @param expectedMessage ожидаемое сообщение об ошибке
+     */
+    protected void assertValidationError(
+            GamblingError error,
+            int expectedCode,
+            String expectedMessage
+    ) {
+        assertAll("manager_api.error.validation_structure",
+                () -> assertEquals(expectedCode, error.code(), "manager_api.error.code"),
+                () -> assertEquals(expectedMessage, error.message(), "manager_api.error.message")
         );
     }
 }

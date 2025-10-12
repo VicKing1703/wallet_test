@@ -71,7 +71,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Payment")
 @Feature("Deposit")
 @Suite("Позитивные сценарии: Отыгрыш депозита")
-@Tag("Wallet7") @Tag("Payment")
+@Tag("Wallet") @Tag("Payment")
 public class DepositWageringBetRollbackParametrizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal depositAmount = new BigDecimal("150.00");

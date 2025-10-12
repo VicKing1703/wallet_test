@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
+import com.uplatform.wallet_tests.tests.base.BaseNegativeParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
@@ -11,7 +12,6 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingEr
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import feign.FeignException;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -31,45 +31,60 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
- * Интеграционный тест, проверяющий функциональность совершения ставок игроком
- * с заблокированным гемблингом в системе Wallet.
+ * Интеграционный тест, проверяющий негативные сценарии совершения ставок полностью заблокированным игроком.
  *
- * <p>Данный параметризованный тест проверяет сценарий, когда игрок, у которого заблокирован
- * гемблинг (gamblingEnabled=false), пытается совершить ставку в казино различных типов
- * (BET, TIPS, FREESPIN). В данном сценарии ставки должны быть отклонены с соответствующей
- * ошибкой, указывающей на блокировку гемблинга для игрока.</p>
+ * <p><b>Идея теста:</b> Убедиться в абсолютной надежности механизма полной блокировки игрока. Этот тест является
+ * более строгой версией проверки блокировки гемблинга, так как эмулирует ситуацию, когда администратор полностью
+ * заблокировал аккаунт ({@code manuallyBlocked=true}). Система должна действовать как непробиваемая стена,
+ * категорически отклоняя любые попытки совершить ставку. Это подтверждает, что глобальная блокировка имеет
+ * наивысший приоритет и гарантирует полную изоляцию игрока от финансовых операций.</p>
  *
- * <p>Тест использует единую игровую сессию и регистрационные данные игрока для всех тестовых
- * сценариев, а также предварительно устанавливает блокировку гемблинга через CAP API.</p>
+ * <p><b>Сценарий тестирования:</b></p>
+ * <p>Тест эмулирует ситуацию, когда администратор установил игроку полную ручную блокировку аккаунта.
+ * После этого игрок пытается совершить различные типы ставок (BET, TIPS, FREESPIN). Проверяется, что каждая
+ * такая попытка будет немедленно отклонена системой.</p>
  *
- * <p><b>Проверяемые типы ставок:</b></p>
+ * <p><b>Последовательность действий:</b></p>
+ * <ol>
+ *   <li>Регистрация нового игрока, пополнение баланса и создание игровой сессии.</li>
+ *   <li>Установка полной ручной блокировки для этого игрока через CAP API ({@code manuallyBlocked = true}).</li>
+ *   <li>Для каждого типа ставки (BET, TIPS, FREESPIN):
+ *     <ul>
+ *       <li>Отправка запроса на совершение ставки через Manager API.</li>
+ *       <li>Проверка получения ожидаемой ошибки о блокировке игрока.</li>
+ *     </ul>
+ *   </li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>{@code BET} - обычная ставка.</li>
- *   <li>{@code TIPS} - чаевые.</li>
- *   <li>{@code FREESPIN} - бесплатные вращения.</li>
+ *   <li>Для всех типов ставок API возвращает ошибку с кодом {@link GamblingErrors#PLAYER_BLOCKED} и сообщением "player was blocked".</li>
+ *   <li>Баланс игрока остается абсолютно неизменным.</li>
+ *   <li>В системе не генерируются никакие события о финансовых транзакциях, связанные с этими попытками.</li>
  * </ul>
- *
- * <p><b>Ожидаемый результат:</b> API возвращает ошибку с кодом {@link GamblingErrors#PLAYER_BLOCKED}
- * и соответствующим сообщением о блокировке игрока.</p>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
 @Feature("/bet")
 @Suite("Негативные сценарии: /bet")
-@Tag("Gambling") @Tag("Wallet")
-class BetWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest {
+@Tag("Gambling") @Tag("Wallet7")
+class BetWhenGamblingBlockedParametrizedTest extends BaseNegativeParameterizedTest {
+
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");
 
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
-    private final BigDecimal initialAdjustmentAmount = new BigDecimal("100.00");
-    private final BigDecimal betAmount = generateBigDecimalAmount(initialAdjustmentAmount);
+    private BigDecimal betAmount;
+    private String casinoId;
 
     @BeforeAll
-    void setup() {
+    void setUp() {
+        betAmount = generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT);
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(registeredPlayer, "default_step.registration");
         });
 
@@ -99,44 +114,38 @@ class BetWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest {
         return Stream.of(
                 arguments(
                         NatsGamblingTransactionOperation.BET,
-                        HttpStatus.BAD_REQUEST,
                         GamblingErrors.PLAYER_BLOCKED,
-                        "player was blocked"
+                        GamblingErrors.PLAYER_BLOCKED.getMessage()
                 ),
                 arguments(
                         NatsGamblingTransactionOperation.TIPS,
-                        HttpStatus.BAD_REQUEST,
                         GamblingErrors.PLAYER_BLOCKED,
-                        "player was blocked"
+                        GamblingErrors.PLAYER_BLOCKED.getMessage()
                 ),
                 arguments(
                         NatsGamblingTransactionOperation.FREESPIN,
-                        HttpStatus.BAD_REQUEST,
                         GamblingErrors.PLAYER_BLOCKED,
-                        "player was blocked"
+                        GamblingErrors.PLAYER_BLOCKED.getMessage()
                 )
         );
     }
 
-    /**
-     * @param type Тип операции ставки для проверки
-     * @param expectedStatus Ожидаемый HTTP статус ответа
-     * @param expectedErrorCode Ожидаемый код ошибки
-     * @param expectedMessage Ожидаемое сообщение об ошибке
-     */
     @ParameterizedTest(name = "тип = {0}")
     @MethodSource("blockedBetProvider")
     @DisplayName("Совершение ставки игроком с заблокированным гемблингом:")
     void test(
             NatsGamblingTransactionOperation type,
-            HttpStatus expectedStatus,
             GamblingErrors expectedErrorCode,
             String expectedMessage
     ) {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+        final class TestContext {
+            BetRequestBody request;
+            GamblingError error;
+        }
+        final TestContext ctx = new TestContext();
 
         step("Manager API: Попытка совершения ставки с заблокированным гемблингом", () -> {
-            var request = BetRequestBody.builder()
+            ctx.request = BetRequestBody.builder()
                     .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
@@ -145,23 +154,21 @@ class BetWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest {
                     .roundClosed(false)
                     .build();
 
-            var thrownException = assertThrows(
-                    FeignException.class,
+            ctx.error = executeExpectingError(
                     () -> managerClient.bet(
                             casinoId,
-                            utils.createSignature(ApiEndpoints.BET, request),
-                            request
+                            utils.createSignature(ApiEndpoints.BET, ctx.request),
+                            ctx.request
                     ),
-                    "manager_api.bet.exception"
-            );
-
-            var error = utils.parseFeignExceptionContent(thrownException, GamblingError.class);
-
-            assertAll("Проверка деталей ошибки",
-                    () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.error.status_code"),
-                    () -> assertEquals(expectedErrorCode.getCode(), error.code(), "manager_api.error.code"),
-                    () -> assertEquals(expectedMessage, error.message(), "manager_api.error.message")
+                    "manager_api.bet.expected_exception",
+                    GamblingError.class
             );
         });
+
+        assertValidationError(
+                ctx.error,
+                expectedErrorCode.getCode(),
+                expectedMessage
+        );
     }
 }
