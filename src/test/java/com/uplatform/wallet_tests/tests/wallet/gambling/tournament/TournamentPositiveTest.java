@@ -7,6 +7,7 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.TournamentReques
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsMessageName;
