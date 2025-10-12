@@ -1,17 +1,20 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingError;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
+import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrorMessages;
+import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrors;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.tests.base.BaseNegativeParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import feign.FeignException;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -29,27 +32,32 @@ import static com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.Gam
 import static com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrors.VALIDATION_ERROR;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Интеграционный тест, проверяющий обработку невалидных запросов на рефанд в системе Wallet для казино.
+ * Проверяет валидацию запроса рефанда в негативных сценариях.
  *
- * <p>Данный параметризованный тест проверяет корректность обработки различных некорректных запросов
- * на рефанд ставки в казино. Тест проверяет валидацию полей тела запроса, граничные значения и некорректные
- * входные данные. Для каждого негативного сценария проверяется корректность кода ошибки и соответствие
- * текста сообщения об ошибке ожидаемому.</p>
+ * <p><b>Идея теста:</b>
+ * Убедиться, что API отклоняет запросы с отсутствующими или некорректными полями.</p>
  *
- * <p>Тест использует общую подготовку: регистрацию игрока с балансом, создание игровой сессии и
- * выполнение предварительной ставки, которую затем пытается рефандить с различными некорректными параметрами.</p>
- *
- * <p><b>Проверяемые негативные сценарии:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>Отсутствие или пустой sessionToken</li>
- *   <li>Отрицательная сумма рефанда</li>
- *   <li>Отсутствие, пустой или невалидный transactionId</li>
- *   <li>Отсутствие, пустой или невалидный betTransactionId</li>
- *   <li>Отсутствие, пустой или слишком длинный roundId</li>
+ *   <li><b>Схема запроса:</b>
+ *     <p><b>Что проверяем:</b> обязательность полей и корректность форматов.</p>
+ *     <p><b>Почему это важно:</b> предотвращает обработку некорректных транзакций.</p>
+ *   </li>
+ *   <li><b>Коды ошибок:</b>
+ *     <p><b>Что проверяем:</b> соответствие кодов и сообщений ожиданиям.</p>
+ *     <p><b>Почему это важно:</b> клиенты получают понятную причину отказа.</p>
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Каждый некорректный запрос возвращает статус {@code 400 BAD REQUEST}.</li>
+ *   <li>Код ошибки соответствует сценариям {@link com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrors}.</li>
+ *   <li>Сообщение об ошибке совпадает с ожидаемой строкой.</li>
  * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
@@ -57,20 +65,22 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 @Feature("/refund")
 @Suite("Негативные сценарии: /refund")
 @Tag("Gambling") @Tag("Wallet")
-class RefundNegativeParametrizedTest extends BaseParameterizedTest {
+class RefundNegativeParametrizedTest extends BaseNegativeParameterizedTest {
+
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("2000.00");
+    private static final BigDecimal BET_AMOUNT = generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT);
 
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
     private BetRequestBody precedingBetRequestBody;
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
-    private static final BigDecimal betAmount = generateBigDecimalAmount(initialAdjustmentAmount);
+    private String casinoId;
 
     @BeforeAll
-    void setup() {
-        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            this.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            this.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(this.registeredPlayer, "default_step.registration");
         });
 
@@ -82,7 +92,7 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки для последующего рефанда", () -> {
             var betRequest = BetRequestBody.builder()
                     .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
-                    .amount(betAmount)
+                    .amount(BET_AMOUNT)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
                     .roundId(UUID.randomUUID().toString())
@@ -90,7 +100,7 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = managerClient.bet(
-                    validCasinoId,
+                    casinoId,
                     utils.createSignature(ApiEndpoints.BET, betRequest),
                     betRequest);
 
@@ -101,75 +111,81 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
 
     static Stream<Arguments> negativeRefundScenariosProvider() {
         return Stream.of(
-                arguments("без sessionToken",
+                Arguments.of("без sessionToken",
                         (Consumer<RefundRequestBody>) req -> req.setSessionToken(null),
-                        HttpStatus.BAD_REQUEST,
-                        MISSING_TOKEN.getCode(),
-                        "missing session token"),
-                arguments("пустой sessionToken",
+                        MISSING_TOKEN,
+                        GamblingErrorMessages.MISSING_SESSION_TOKEN),
+                Arguments.of("пустой sessionToken",
                         (Consumer<RefundRequestBody>) req -> req.setSessionToken(""),
-                        HttpStatus.BAD_REQUEST,
-                        MISSING_TOKEN.getCode(),
-                        "missing session token"),
-                arguments("отрицательный amount",
-                        (Consumer<RefundRequestBody>) req -> req.setAmount(new BigDecimal("-1.0")),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "validate request: amount: must be no less than 0."),
-                arguments("без transactionId",
+                        MISSING_TOKEN,
+                        GamblingErrorMessages.MISSING_SESSION_TOKEN),
+                Arguments.of("отрицательный amount",
+                        (Consumer<RefundRequestBody>) req -> req.setAmount(new BigDecimal("-1")),
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.AMOUNT_NEGATIVE),
+                Arguments.of("без transactionId",
                         (Consumer<RefundRequestBody>) req -> req.setTransactionId(null),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "transactionId: cannot be blank"),
-                arguments("пустой transactionId",
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.TRANSACTION_ID_BLANK),
+                Arguments.of("пустой transactionId",
                         (Consumer<RefundRequestBody>) req -> req.setTransactionId(""),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "transactionId: cannot be blank"),
-                arguments("невалидный transactionId (не UUID)",
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.TRANSACTION_ID_BLANK),
+                Arguments.of("невалидный transactionId (не UUID)",
                         (Consumer<RefundRequestBody>) req -> req.setTransactionId("not-a-uuid"),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "transactionId: must be a valid UUID"),
-                arguments("без betTransactionId",
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.TRANSACTION_ID_INVALID_UUID),
+                Arguments.of("без betTransactionId",
                         (Consumer<RefundRequestBody>) req -> req.setBetTransactionId(null),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "betTransactionId: cannot be blank"),
-                arguments("пустой betTransactionId",
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.BET_TRANSACTION_ID_BLANK),
+                Arguments.of("пустой betTransactionId",
                         (Consumer<RefundRequestBody>) req -> req.setBetTransactionId(""),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "betTransactionId: cannot be blank"),
-                arguments("невалидный betTransactionId (не UUID)",
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.BET_TRANSACTION_ID_BLANK),
+                Arguments.of("невалидный betTransactionId (не UUID)",
                         (Consumer<RefundRequestBody>) req -> req.setBetTransactionId("not-a-uuid"),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "betTransactionId: must be a valid UUID"),
-                arguments("roundId превышает 255 символов",
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.BET_TRANSACTION_ID_INVALID_UUID),
+                Arguments.of("roundId превышает 255 символов",
                         (Consumer<RefundRequestBody>) req -> req.setRoundId("a".repeat(256)),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "roundId: the length must be no more than 255"),
-                arguments("без roundId",
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.ROUND_ID_TOO_LONG),
+                Arguments.of("без roundId",
                         (Consumer<RefundRequestBody>) req -> req.setRoundId(null),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "roundId: cannot be blank"),
-                arguments("пустой roundId",
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.ROUND_ID_BLANK),
+                Arguments.of("пустой roundId",
                         (Consumer<RefundRequestBody>) req -> req.setRoundId(""),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR.getCode(),
-                        "roundId: cannot be blank")
+                        VALIDATION_ERROR,
+                        GamblingErrorMessages.ROUND_ID_BLANK)
         );
     }
 
     /**
-     * @param description Описание тестового сценария для лучшей читаемости в отчетах
-     * @param requestModifier Функция-модификатор, которая изменяет запрос для имитации ошибки
-     * @param expectedStatus Ожидаемый HTTP-статус ответа
-     * @param expectedErrorCode Ожидаемый код ошибки в ответе
-     * @param expectedMessageSubstring Ожидаемая подстрока в сообщении об ошибке
+     * Проверяет конкретный негативный сценарий рефанда.
+     *
+     * <p><b>Идея теста:</b>
+     * Модифицировать запрос и убедиться, что API возвращает ожидаемую ошибку.</p>
+     *
+     * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+     * <ul>
+     *   <li><b>Тело ошибки:</b>
+     *     <p><b>Что проверяем:</b> код и текст ошибки.</p>
+     *     <p><b>Почему это важно:</b> помогает диагностировать причину отказа.</p>
+     *   </li>
+     * </ul>
+     *
+     * <p><b>Ожидаемые результаты:</b></p>
+     * <ul>
+     *   <li>Код ошибки совпадает с ожидаемым значением {@link GamblingErrors}.</li>
+     *   <li>Сообщение ошибки полностью соответствует ожиданию.</li>
+     * </ul>
+     *
+     * @param description описание тестового сценария
+     * @param requestModifier функция, изменяющая запрос перед отправкой
+     * @param expectedErrorCode ожидаемое значение {@link GamblingErrors}
+     * @param expectedMessage ожидаемое сообщение об ошибке
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("negativeRefundScenariosProvider")
@@ -177,44 +193,48 @@ class RefundNegativeParametrizedTest extends BaseParameterizedTest {
     void test(
             String description,
             Consumer<RefundRequestBody> requestModifier,
-            HttpStatus expectedStatus,
-            Integer expectedErrorCode,
-            String expectedMessageSubstring)
-    {
-        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+            GamblingErrors expectedErrorCode,
+            String expectedMessage
+    ) {
+        final class TestContext {
+            RefundRequestBody requestBody;
+            GamblingError error;
+        }
+        final TestContext ctx = new TestContext();
 
-        RefundRequestBody requestBody = RefundRequestBody.builder()
-                .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
-                .amount(betAmount)
-                .transactionId(UUID.randomUUID().toString())
-                .betTransactionId(this.precedingBetRequestBody.getTransactionId())
-                .roundId(this.precedingBetRequestBody.getRoundId())
-                .roundClosed(true)
-                .playerId(this.registeredPlayer.walletData().walletUUID())
-                .currency(this.registeredPlayer.walletData().currency())
-                .gameUuid(this.gameLaunchData.dbGameSession().getGameUuid())
-                .build();
+        step("Подготовка некорректного запроса: " + description, () -> {
+            ctx.requestBody = RefundRequestBody.builder()
+                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
+                    .amount(BET_AMOUNT)
+                    .transactionId(UUID.randomUUID().toString())
+                    .betTransactionId(this.precedingBetRequestBody.getTransactionId())
+                    .roundId(this.precedingBetRequestBody.getRoundId())
+                    .roundClosed(true)
+                    .playerId(this.registeredPlayer.walletData().walletUUID())
+                    .currency(this.registeredPlayer.walletData().currency())
+                    .gameUuid(this.gameLaunchData.dbGameSession().getGameUuid())
+                    .build();
 
-        requestModifier.accept(requestBody);
-
-        step("Manager API: Попытка некорректного рефанда", () -> {
-            var thrownException = assertThrows(
-                    FeignException.class,
-                    () -> managerClient.refund(
-                            validCasinoId,
-                            utils.createSignature(ApiEndpoints.REFUND, requestBody),
-                            requestBody
-                    ),
-                    "manager_api.refund_negative.exception"
-            );
-
-            var error = utils.parseFeignExceptionContent(thrownException, GamblingError.class);
-
-            assertAll(
-                    () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.refund_negative.status_code"),
-                    () -> assertEquals(expectedErrorCode, error.code(), "manager_api.refund_negative.error_code"),
-                    () -> assertTrue(error.message().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.refund_negative.error_message")
-            );
+            requestModifier.accept(ctx.requestBody);
         });
+
+        ctx.error = step(
+                "Manager API: Попытка некорректного рефанда - " + description,
+                () -> executeExpectingError(
+                        () -> managerClient.refund(
+                                casinoId,
+                                utils.createSignature(ApiEndpoints.REFUND, ctx.requestBody),
+                                ctx.requestBody
+                        ),
+                        "manager_api.refund.expected_exception",
+                        GamblingError.class
+                )
+        );
+
+        assertValidationError(
+                ctx.error,
+                expectedErrorCode.getCode(),
+                expectedMessage
+        );
     }
 }

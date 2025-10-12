@@ -30,4 +30,8 @@ public final class GamblingErrorMessages {
     // Ошибки валидации roundId
     public static final String ROUND_ID_BLANK = "validate request: roundId: cannot be blank.";
     public static final String ROUND_ID_TOO_LONG = "validate request: roundId: the length must be no more than 255.";
+
+    // Ошибки валидации betTransactionId
+    public static final String BET_TRANSACTION_ID_BLANK = "validate request: betTransactionId: cannot be blank.";
+    public static final String BET_TRANSACTION_ID_INVALID_UUID = "validate request: betTransactionId: must be a valid UUID.";
 }

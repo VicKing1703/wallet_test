@@ -1,18 +1,25 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
-import com.testing.multisource.api.nats.dto.NatsMessage;
-import com.uplatform.wallet_tests.api.nats.dto.enums.*;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionDirection;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionSource;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionStatus;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,69 +33,40 @@ import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Интеграционный тест, проверяющий функциональность возврата ставок (рефанда) в системе Wallet для азартных игр.
+ * Проверяет успешный рефанд ставок в казино для разных типов исходных операций.
  *
- * <p>Данный параметризованный тест проверяет полный жизненный цикл операции возврата ставки
- * различных типов (BET, TIPS, FREESPIN). Тест выполняет начальную ставку, а затем проверяет
- * корректность обработки возврата этой ставки со всеми сопутствующими изменениями данных
- * во всех компонентах системы.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить, что после совершения ставки система корректно обрабатывает возврат и синхронно
+ * обновляет данные во всех интеграциях (HTTP API, Kafka, NATS, Redis, БД).
+ * Каждая итерация выполняется в изолированном окружении с новым игроком и игровой сессией.</p>
  *
- * <p>Каждая итерация параметризованного теста выполняется с полностью изолированным состоянием,
- * включая создание нового игрока и игровой сессии, что обеспечивает надежность при параллельном выполнении.</p>
- *
- * <p><b>Проверяемые типы исходных операций:</b></p>
- * <ul>
- *   <li>{@link NatsGamblingTransactionOperation#BET} - возврат обычной ставки</li>
- *   <li>{@link NatsGamblingTransactionOperation#TIPS} - возврат чаевых</li>
- *   <li>{@link NatsGamblingTransactionOperation#FREESPIN} - возврат бесплатных вращений</li>
- * </ul>
- *
- * <p><b>Проверяемые аспекты системы:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
  *   <li><b>REST API:</b>
- *     <ul>
- *       <li>Выполнение исходной операции ставки ({@code /bet})</li>
- *       <li>Выполнение операции возврата ставки ({@code /refund})</li>
- *       <li>Корректность ответа API и обновленного баланса игрока</li>
- *     </ul>
+ *     <p><b>Что проверяем:</b> корректность вызовов {@code /bet} и {@code /refund} и расчетов баланса в ответах.</p>
+ *     <p><b>Почему это важно:</b> API — основной канал интеграции, поэтому возврат должен быть идемпотентным и точным.</p>
  *   </li>
- *   <li><b>События:</b>
- *     <ul>
- *       <li>Генерация события {@code refunded_from_gamble} в NATS</li>
- *       <li>Корректное заполнение всех полей события</li>
- *       <li>Соблюдение правил направления транзакции (DEPOSIT) и типа операции (REFUND)</li>
- *     </ul>
+ *   <li><b>События NATS и Kafka:</b>
+ *     <p><b>Что проверяем:</b> публикацию {@code refunded_from_gamble} и консистентность статусов, направлений и типов.</p>
+ *     <p><b>Почему это важно:</b> события запускают downstream-процессы и обеспечивают аудит операций.</p>
  *   </li>
- *   <li><b>База данных:</b>
- *     <ul>
- *       <li>Сохранение транзакции рефанда в {@code gambling_projection_transaction_history}</li>
- *       <li>Обновление порогов выигрыша в {@code player_threshold_win}</li>
- *       <li>Корректные связи между исходной ставкой и рефандом</li>
- *     </ul>
- *   </li>
- *   <li><b>Кэш:</b>
- *     <ul>
- *       <li>Обновление данных кошелька в Redis</li>
- *       <li>Корректный расчет баланса после рефанда</li>
- *     </ul>
- *   </li>
- *   <li><b>Kafka: wallet.v8.projectionSource</b>
- *     <ul>
- *       <li>Трансляция события рефанда в Kafka</li>
- *       <li>Идентичность событий в NATS и Kafka</li>
- *     </ul>
+ *   <li><b>Данные БД и Redis:</b>
+ *     <p><b>Что проверяем:</b> запись транзакции рефанда, корректные связи с исходной ставкой и обновление кеша кошелька.</p>
+ *     <p><b>Почему это важно:</b> расчет доступного баланса и лимитов зависит от согласованности горячего и холодного хранилищ.</p>
  *   </li>
  * </ul>
  *
- * <p><b>Бизнес-логика операции рефанда:</b></p>
+ * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>При возврате ставки игроку возвращается списанная ранее сумма</li>
- *   <li>Корректируется порог выигрыша с учетом отмененной ставки</li>
- *   <li>Транзакция рефанда должна содержать ссылку на ID исходной ставки</li>
- *   <li>Раунд игры может быть помечен как закрытый при рефанде</li>
+ *   <li>Возврат суммы исходной ставки для типов {@link NatsGamblingTransactionOperation#BET},
+ *       {@link NatsGamblingTransactionOperation#TIPS} и {@link NatsGamblingTransactionOperation#FREESPIN}.</li>
+ *   <li>Появление события рефанда с корректными атрибутами в NATS и Kafka.</li>
+ *   <li>Обновление проекции кошелька и порогов выигрыша в соответствии с возвращенной суммой.</li>
  * </ul>
  */
 @Severity(SeverityLevel.BLOCKER)
@@ -98,21 +76,28 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Gambling") @Tag("Wallet")
 class RefundParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
-    private static final String expectedCurrencyRates = "1";
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+    private static final String EXPECTED_CURRENCY_RATES = "1";
+
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> refundAmountProvider() {
         return Stream.of(
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.BET
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.TIPS
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.FREESPIN
                 ),
                 Arguments.of(
@@ -131,15 +116,39 @@ class RefundParametrizedTest extends BaseParameterizedTest {
     }
 
     /**
-     @param refundAmountParam Сумма для исходной транзакции и последующего рефанда
-     @param operationTypeParam Тип исходной транзакции (BET, TIPS, FREESPIN)
+     * Выполняет сценарий ставки и рефанда для заданной суммы и типа операции.
+     *
+     * <p><b>Идея теста:</b>
+     * На каждой итерации выполнить ставку и убедиться, что возврат возвращает баланс к ожидаемому значению
+     * для разных типов транзакций.</p>
+     *
+     * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+     * <ul>
+     *   <li><b>Ставка через {@code /bet}:</b>
+     *     <p><b>Что проверяем:</b> успешное списание средств и корректный расчет баланса.</p>
+     *     <p><b>Почему это важно:</b> исходная ставка задает базу для дальнейших проверок рефанда.</p>
+     *   </li>
+     *   <li><b>Рефанд через {@code /refund}:</b>
+     *     <p><b>Что проверяем:</b> возврат исходной суммы и публикацию корректного события.</p>
+     *     <p><b>Почему это важно:</b> гарантия, что игрок получает средства обратно независимо от типа исходной операции.</p>
+     *   </li>
+     * </ul>
+     *
+     * <p><b>Ожидаемые результаты:</b></p>
+     * <ul>
+     *   <li>Ответы API имеют статус {@code 200 OK}.</li>
+     *   <li>Баланс игрока соответствует расчетному после ставки и после рефанда.</li>
+     *   <li>Событие рефанда содержит корректные атрибуты и связывается с исходной ставкой.</li>
+     * </ul>
+     *
+     * @param refundAmountParam сумма для исходной транзакции и последующего рефанда
+     * @param operationTypeParam тип исходной транзакции (BET, TIPS, FREESPIN)
      */
     @ParameterizedTest(name = "Рефанд транзакции типа {1} суммой {0}")
     @MethodSource("refundAmountProvider")
     @DisplayName("Получение рефанда игроком в игровой сессии для разных сумм")
     void test(BigDecimal refundAmountParam, NatsGamblingTransactionOperation operationTypeParam) {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -158,8 +167,8 @@ class RefundParametrizedTest extends BaseParameterizedTest {
 
         ctx.refundAmount = refundAmountParam;
         ctx.betAmount = refundAmountParam;
-        ctx.adjustmentAmount = initialAdjustmentAmount;
-        ctx.expectedCurrencyRates = expectedCurrencyRates;
+        ctx.adjustmentAmount = INITIAL_ADJUSTMENT_AMOUNT;
+        ctx.expectedCurrencyRates = EXPECTED_CURRENCY_RATES;
         ctx.expectedBalanceAfterBet = BigDecimal.ZERO
                 .add(ctx.adjustmentAmount)
                 .subtract(ctx.betAmount);
