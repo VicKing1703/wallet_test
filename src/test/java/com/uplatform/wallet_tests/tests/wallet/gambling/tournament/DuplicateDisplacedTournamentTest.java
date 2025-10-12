@@ -92,7 +92,7 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
     }
 
     @Test
-    @DisplayName("Дублирование турнирного начисления, вытесненного из кеша (ожидается ошибка валидации)")
+    @DisplayName("Дублирование турнирного начисления, вытесненного из кеша (идемпотентный ответ)")
     void testDuplicateDisplacedTournamentExpectingValidationError() {
 
         final class TestContext {

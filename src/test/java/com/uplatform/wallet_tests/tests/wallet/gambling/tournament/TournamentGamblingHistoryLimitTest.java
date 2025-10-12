@@ -65,7 +65,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>Последовательность и баланс в агрегате совпадают с данными последнего события.</li>
  * </ul>
  */
-@Severity(SeverityLevel.CRITICAL)
+@Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/tournament")
 @Suite("Позитивные сценарии: /tournament")

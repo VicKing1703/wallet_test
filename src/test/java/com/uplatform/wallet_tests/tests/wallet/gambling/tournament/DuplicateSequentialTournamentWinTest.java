@@ -85,7 +85,7 @@ class DuplicateSequentialTournamentWinTest extends BaseTest {
     }
 
     @Test
-    @DisplayName("Дублирование турнирного выигрыша при последовательной отправке идентичных запросов (ожидается ошибка валидации)")
+    @DisplayName("Дублирование турнирного выигрыша при последовательной отправке идентичных запросов (идемпотентный ответ)")
     void testDuplicateSequentialTournamentWinExpectingValidationError() {
 
         final class TestContext {

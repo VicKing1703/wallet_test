@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  *   <li>Manager API возвращает {@link HttpStatus#OK} при начислении выигрыша.</li>
  * </ul>
  */
-@Severity(SeverityLevel.CRITICAL)
+@Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/tournament")
 @Suite("Позитивные сценарии: /tournament")
