@@ -1,17 +1,21 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.tournament;
-import com.testing.multisource.config.modules.http.HttpServiceHelper;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.TournamentRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
-import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
+import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -25,54 +29,71 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Интеграционный тест, проверяющий API ответ при попытке совершить дублирующее турнирное начисление
- * на транзакцию, которая была вытеснена из кеша Redis (агрегата кошелька).
- * Определение вытесненного турнирного начисления происходит динамически.
+ * Проверяет идемпотентную обработку повторного турнирного начисления, вытесненного из кеша Redis.
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что API Manager корректно обрабатывает запрос на дублирующее турнирное начисление,
- * если информация об оригинальном начислении отсутствует в "горячем" кеше Redis,
- * но должна быть найдена в основном хранилище. Тест ожидает, что система вернет
- * идемпотентный ответ со статусом {@link HttpStatus#OK}, подтверждая корректную
- * обработку дублирующего запроса.</p>
+ * <p><b>Идея теста:</b>
+ * Убедиться, что {@code POST /tournament} возвращает стабильный {@link HttpStatus#OK},
+ * даже если исходная транзакция отсутствует в Redis, но сохранена в долговременном хранилище.
+ * Это подтверждает консистентность данных после вытеснения и защиту от повторной обработки выигрышей.</p>
  *
- * <p><b>Сценарий теста:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>Определение вытесненной транзакции:</b>
+ *     <p><b>Что проверяем:</b> Правильную идентификацию {@code transactionId}, отсутствующего в кешевой истории после
+ *     выполнения {@value #TOURNAMENTS_TO_DISPLACE} выигрышей.</p>
+ *     <p><b>Почему это важно:</b> Только корректно найденный идентификатор гарантирует, что идемпотентность проверяется
+ *     на актуальном бизнес-кейсе вытеснения.</p>
+ *   </li>
+ *   <li><b>Повторный запрос в Manager API:</b>
+ *     <p><b>Что проверяем:</b> Ответ сервиса на повторное начисление с тем же {@code transactionId}.</p>
+ *     <p><b>Почему это важно:</b> Система не должна изменять баланс и обязана вернуть идентичный успешный ответ,
+ *     даже если исходная запись отсутствует в Redis.</p>
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Сценарий тестирования:</b></p>
  * <ol>
- *   <li><b>Регистрация игрока:</b> Создается новый игрок с начальным балансом.</li>
- *   <li><b>Создание игровой сессии:</b> Инициируется игровая сессия для зарегистрированного игрока.</li>
- *   <li><b>Совершение вытесняющих турнирных начислений:</b> Через API Manager совершается {@code maxGamblingCountInRedis + 1}
- *       уникальных турнирных начислений. Параметры первого начисления сохраняются (неявно, для последующего определения).</li>
- *   <li><b>Получение Sequence последнего турнирного начисления:</b> Через NATS ожидается событие {@code tournament_won_from_gamble}
- *       от последнего сделанного начисления для получения его {@code sequence number}.</li>
- *   <li><b>Определение вытесненного турнирного начисления:</b> Запрашиваются данные из Redis. Сравнивается список ID всех
- *       сделанных турнирных начислений с ID, находящимися в кеше Redis. Определяется ID начисления, которое было вытеснено.</li>
- *   <li><b>Попытка дублирования вытесненного турнирного начисления:</b> Через API отправляется новый запрос {@code /tournament}
- *       с тем же {@code transactionId}, что и у ранее определенного вытесненного турнирного начисления.</li>
- *   <li><b>Проверка ответа API:</b> Ожидается успешный ответ со статусом {@link HttpStatus#OK},
- *       содержащий {@code transactionId} дублируемого запроса и нулевой баланс.</li>
+ *   <li>Зарегистрировать игрока и открыть игровую сессию.</li>
+ *   <li>Совершить {@value #TOURNAMENTS_TO_DISPLACE} последовательных турнирных выигрышей.</li>
+ *   <li>Определить транзакцию, вытесненную из Redis.</li>
+ *   <li>Отправить повторный запрос и убедиться в идемпотентном ответе.</li>
  * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Manager API возвращает {@link HttpStatus#OK} с исходным {@code transactionId}.</li>
+ *   <li>Баланс в ответе равен нулю, подтверждая отсутствие повторного начисления.</li>
+ *   <li>Redis содержит только последние записи, а вытесненная транзакция отсутствует в кеше.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
 @Feature("/tournament")
 @Suite("Негативные сценарии: /tournament")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling")
+@Tag("Wallet")
 class DuplicateDisplacedTournamentTest extends BaseTest {
 
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("1000.00");
+    private static final BigDecimal SINGLE_TOURNAMENT_AMOUNT = new BigDecimal("10.00");
+    private static final int MAX_GAMBLING_COUNT_IN_REDIS = 50;
+    private static final int TOURNAMENTS_TO_DISPLACE = MAX_GAMBLING_COUNT_IN_REDIS + 1;
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("1000.00");
-    private static final BigDecimal singleTournamentAmount = new BigDecimal("10.00");
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     @Test
     @DisplayName("Дублирование турнирного начисления, вытесненного из кеша (ожидается ошибка валидации)")
-    void testDuplicateDisplacedTournamentExpectingValidationError()  {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
-        final int maxGamblingCountInRedis = 50;
-
-        final int tournamentsToMakeToDisplace = maxGamblingCountInRedis + 1;
+    void testDuplicateDisplacedTournamentExpectingValidationError() {
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -85,7 +106,7 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -95,15 +116,15 @@ class DuplicateDisplacedTournamentTest extends BaseTest {
         });
 
         step("Manager API: Совершение турнирных начислений для вытеснения", () -> {
-            for (int i = 0; i < tournamentsToMakeToDisplace; i++) {
+            for (int i = 0; i < TOURNAMENTS_TO_DISPLACE; i++) {
                 var transactionId = UUID.randomUUID().toString();
-                if (i == tournamentsToMakeToDisplace - 1) {
+                if (i == TOURNAMENTS_TO_DISPLACE - 1) {
                     ctx.lastMadeTournamentTransactionId = transactionId;
                 }
                 var tournamentRequestBody = TournamentRequestBody.builder()
                         .playerId(ctx.registeredPlayer.walletData().walletUUID())
                         .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
-                        .amount(singleTournamentAmount)
+                        .amount(SINGLE_TOURNAMENT_AMOUNT)
                         .transactionId(transactionId)
                         .roundId(UUID.randomUUID().toString())
                         .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())

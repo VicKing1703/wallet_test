@@ -1,17 +1,24 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.tournament;
-import com.testing.multisource.config.modules.http.HttpServiceHelper;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
-import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.TournamentRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
-import com.testing.multisource.api.nats.dto.NatsMessage;
-import com.uplatform.wallet_tests.api.nats.dto.enums.*;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionType;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsMessageName;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsTransactionDirection;
+import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -22,25 +29,75 @@ import java.util.UUID;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Проверяет успешное начисление турнирного выигрыша и консистентность данных во всех слоях системы.
+ *
+ * <p><b>Идея теста:</b>
+ * Подтвердить, что позитивный сценарий {@code POST /tournament} корректно обновляет баланс игрока
+ * и распространяет событие во все подключенные хранилища (NATS, Kafka, базы данных, Redis).
+ * Это гарантирует целостность финансовых данных после начисления выигрыша.</p>
+ *
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>API-ответ и баланс:</b>
+ *     <p><b>Что проверяем:</b> Успешный {@link HttpStatus#OK} и корректный расчет баланса после выигрыша.</p>
+ *     <p><b>Почему это важно:</b> От API зависит первичная фиксация финансового результата игрока.</p>
+ *   </li>
+ *   <li><b>Событие в NATS и Kafka:</b>
+ *     <p><b>Что проверяем:</b> Согласованность данных между NATS-событием и Kafka-проекцией.</p>
+ *     <p><b>Почему это важно:</b> Эти каналы питают downstream-сервисы (аналитику, отчеты),
+ *     поэтому они должны получать идентичный payload.</p>
+ *   </li>
+ *   <li><b>Персистентные хранилища:</b>
+ *     <p><b>Что проверяем:</b> Обновление записей в таблицах истории и порогов, а также агрегата кошелька в Redis.</p>
+ *     <p><b>Почему это важно:</b> Согласованность между кешем и БД обеспечивает надежность финансового учета.</p>
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Сценарий тестирования:</b></p>
+ * <ol>
+ *   <li>Зарегистрировать игрока и создать игровую сессию.</li>
+ *   <li>Начислить турнирный выигрыш через Manager API.</li>
+ *   <li>Проверить событие в NATS и сообщение в Kafka.</li>
+ *   <li>Убедиться в корректных данных в БД и Redis.</li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>API возвращает корректный {@link HttpStatus#OK} и новый баланс.</li>
+ *   <li>NATS и Kafka содержат идентичные данные о выигрыше.</li>
+ *   <li>История транзакций, пороги и агрегат кошелька обновлены ожидаемыми значениями.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/tournament")
-@Tag("Wallet")
 @Suite("Позитивные сценарии: /tournament")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling")
+@Tag("Wallet")
 class TournamentPositiveTest extends BaseTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
-    private static final BigDecimal tournamentAmount = generateBigDecimalAmount(initialAdjustmentAmount);
-    private final String expectedCurrencyRates = "1";
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+    private static final String EXPECTED_CURRENCY_RATES = "1";
+
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     @Test
     @DisplayName("Получение выигрыша в турнире игроком в игровой сессии")
     void shouldAwardTournamentWinAndVerify() {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+        final BigDecimal tournamentAmount = generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT);
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -52,11 +109,11 @@ class TournamentPositiveTest extends BaseTest {
         final TestContext ctx = new TestContext();
 
         ctx.expectedBalanceAfterTournament = BigDecimal.ZERO
-                .add(initialAdjustmentAmount)
+                .add(INITIAL_ADJUSTMENT_AMOUNT)
                 .add(tournamentAmount);
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -121,7 +178,7 @@ class TournamentPositiveTest extends BaseTest {
                     () -> assertEquals(ctx.registeredPlayer.walletData().currency(), ctx.tournamentEvent.getPayload().currencyConversionInfo().gameCurrency(), "nats.payload.currency_conversion.game_currency"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().currency(), ctx.tournamentEvent.getPayload().currencyConversionInfo().currencyRates().get(0).baseCurrency(), "nats.payload.currency_conversion.base_currency"),
                     () -> assertEquals(ctx.registeredPlayer.walletData().currency(), ctx.tournamentEvent.getPayload().currencyConversionInfo().currencyRates().get(0).quoteCurrency(), "nats.payload.currency_conversion.quote_currency"),
-                    () -> assertEquals(expectedCurrencyRates, ctx.tournamentEvent.getPayload().currencyConversionInfo().currencyRates().get(0).value(), "nats.payload.currency_conversion.rate_value"),
+                    () -> assertEquals(EXPECTED_CURRENCY_RATES, ctx.tournamentEvent.getPayload().currencyConversionInfo().currencyRates().get(0).value(), "nats.payload.currency_conversion.rate_value"),
                     () -> assertNotNull(ctx.tournamentEvent.getPayload().currencyConversionInfo().currencyRates().get(0).updatedAt(), "nats.payload.currency_conversion.updated_at")
             );
         });
