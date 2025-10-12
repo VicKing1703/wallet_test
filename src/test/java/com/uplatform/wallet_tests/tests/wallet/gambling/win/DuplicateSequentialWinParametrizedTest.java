@@ -1,10 +1,9 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
-import com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingResponseBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
@@ -66,7 +65,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Gambling")
 @Feature("/win")
 @Suite("Негативные сценарии: /win")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");

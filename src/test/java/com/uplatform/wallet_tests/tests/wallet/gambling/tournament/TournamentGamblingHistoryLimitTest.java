@@ -70,7 +70,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Feature("/tournament")
 @Suite("Позитивные сценарии: /tournament")
 @Tag("Gambling")
-@Tag("Wallet")
+@Tag("Wallet7")
 @DisplayName("Проверка лимита агрегата Gambling транзакций в Redis для турнирных выигрышей")
 class TournamentGamblingHistoryLimitTest extends BaseTest {
 

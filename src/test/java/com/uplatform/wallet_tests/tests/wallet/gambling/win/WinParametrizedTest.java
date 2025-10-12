@@ -1,8 +1,8 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
@@ -79,7 +79,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Gambling")
 @Feature("/win")
 @Suite("Позитивные сценарии: /win")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class WinParametrizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");

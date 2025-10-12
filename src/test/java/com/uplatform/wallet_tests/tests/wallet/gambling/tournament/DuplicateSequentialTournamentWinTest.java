@@ -70,8 +70,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Feature("/tournament")
 @Suite("Негативные сценарии: /tournament")
 @Tag("Gambling")
-@Tag("Wallet")
-@Tag("Idempotency")
+@Tag("Wallet7")
 class DuplicateSequentialTournamentWinTest extends BaseTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("1000.00");

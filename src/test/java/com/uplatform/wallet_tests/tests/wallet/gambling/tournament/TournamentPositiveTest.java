@@ -12,6 +12,7 @@ import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOper
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsMessageName;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsTransactionDirection;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -81,7 +82,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Feature("/tournament")
 @Suite("Позитивные сценарии: /tournament")
 @Tag("Gambling")
-@Tag("Wallet")
+@Tag("Wallet7")
 class TournamentPositiveTest extends BaseTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");

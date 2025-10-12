@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
@@ -25,7 +25,6 @@ import java.util.stream.Stream;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
-
 /**
  * Интеграционный тест, проверяющий получение выигрыша игроком при заблокированном беттинге.
  *
@@ -58,7 +57,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Gambling")
 @Feature("/win")
 @Suite("Позитивные сценарии: /win")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class WinWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");

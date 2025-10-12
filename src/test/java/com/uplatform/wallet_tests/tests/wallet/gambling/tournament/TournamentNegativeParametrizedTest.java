@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Feature("/tournament")
 @Suite("Негативные сценарии: /tournament")
 @Tag("Gambling")
-@Tag("Wallet")
+@Tag("Wallet7")
 class TournamentNegativeParametrizedTest extends BaseNegativeParameterizedTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("20.00");
