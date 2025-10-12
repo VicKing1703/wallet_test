@@ -122,7 +122,7 @@ class RefundNegativeParametrizedTest extends BaseNegativeParameterizedTest {
                 Arguments.of("отрицательный amount",
                         (Consumer<RefundRequestBody>) req -> req.setAmount(new BigDecimal("-1")),
                         VALIDATION_ERROR,
-                        GamblingErrorMessages.AMOUNT_NEGATIVE),
+                        GamblingErrorMessages.AMOUNT_NEGATIVE_NO_LESS_THAN_ZERO),
                 Arguments.of("без transactionId",
                         (Consumer<RefundRequestBody>) req -> req.setTransactionId(null),
                         VALIDATION_ERROR,

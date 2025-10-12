@@ -14,7 +14,8 @@ public final class GamblingErrorMessages {
     public static final String MISSING_SESSION_TOKEN = "missing session token";
 
     // Ошибки валидации amount
-    public static final String AMOUNT_NEGATIVE = "validate request: amount: must be no less than 0.";
+    public static final String AMOUNT_NEGATIVE = "validate request: amount: value [-1] must be greater or equal than [0].";
+    public static final String AMOUNT_NEGATIVE_NO_LESS_THAN_ZERO = "validate request: amount: must be no less than 0.";
 
     // Ошибки бизнес-логики
     public static final String INSUFFICIENT_BALANCE = "insufficient balance";
