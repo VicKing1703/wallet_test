@@ -8,10 +8,10 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoin
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
-import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionDirection;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionSource;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionStatus;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsTransactionDirection;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;

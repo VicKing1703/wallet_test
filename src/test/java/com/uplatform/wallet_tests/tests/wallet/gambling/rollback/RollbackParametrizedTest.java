@@ -9,10 +9,10 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoin
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
-import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionDirection;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsMessageName;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsTransactionDirection;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -254,7 +254,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
                     () -> assertTrue(ctx.rollbackEvent.getPayload().providerRoundClosed(), "nats.rollback.round_closed"),
                     () -> assertEquals(NatsMessageName.WALLET_GAME_TRANSACTION, ctx.rollbackEvent.getPayload().message(), "nats.rollback.message_name"),
                     () -> assertNotNull(ctx.rollbackEvent.getPayload().createdAt(), "nats.rollback.created_at"),
-                    () -> assertEquals(NatsGamblingTransactionDirection.DEPOSIT, ctx.rollbackEvent.getPayload().direction(), "nats.rollback.direction"),
+                    () -> assertEquals(NatsTransactionDirection.DEPOSIT, ctx.rollbackEvent.getPayload().direction(), "nats.rollback.direction"),
                     () -> assertEquals(NatsGamblingTransactionOperation.ROLLBACK, ctx.rollbackEvent.getPayload().operation(), "nats.rollback.operation"),
                     () -> assertEquals(platformNodeId, ctx.rollbackEvent.getPayload().nodeUuid(), "nats.rollback.node_uuid"),
                     () -> assertEquals(ctx.gameLaunchData.dbGameSession().getGameUuid(), ctx.rollbackEvent.getPayload().gameUuid(), "nats.rollback.game_uuid"),
