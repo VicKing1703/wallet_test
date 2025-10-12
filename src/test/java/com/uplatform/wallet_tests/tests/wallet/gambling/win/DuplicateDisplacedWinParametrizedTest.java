@@ -13,6 +13,7 @@ import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOper
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -32,34 +33,38 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Интеграционный параметризованный тест, проверяющий API ответ при попытке совершить дублирующий выигрыш
- * на транзакцию, которая была вытеснена из кэша Redis. Тест покрывает различные типы операций
- * (WIN, FREESPIN, JACKPOT) и суммы (включая нулевую).
- * Ожидается, что система найдет транзакцию в основном хранилище и вернет идемпотентный ответ.
+ * Интеграционный тест, проверяющий идемпотентность выигрыша, вытесненного из кеша Redis.
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что API Manager корректно обрабатывает запрос на дублирующий выигрыш для каждого типа операции и суммы,
- * даже если информация об оригинальной транзакции отсутствует в "горячем" кеше Redis.
- * Тест ожидает, что система найдет транзакцию в основном хранилище и вернет успешный ответ {@link HttpStatus#OK}
- * с телом {@link GamblingResponseBody}, содержащим тот же {@code transactionId} и нулевой баланс.</p>
+ * <p><b>Идея теста:</b>
+ * Смоделировать ситуацию, когда оригинальная транзакция выигрыша исчезла из Redis, но должна быть найдена в БД.
+ * Повторный запрос обязан завершиться успешно со статусом {@link HttpStatus#OK} и нулевым балансом.</p>
  *
- * <p><b>Сценарий теста (для каждой комбинации типа операции и суммы):</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>Работа лимита кеша:</b>
+ *     <p><b>Что проверяем:</b> При превышении {@code max-gambling-count} старые транзакции удаляются.</p>
+ *     <p><b>Почему это важно:</b> Очистка кеша не должна ломать повторные клиентские запросы.</p>
+ *   </li>
+ *   <li><b>Идемпотентность API:</b>
+ *     <p><b>Что проверяем:</b> Повторный {@code transactionId} возвращает тело {@link GamblingResponseBody}
+ *     с балансом {@link BigDecimal#ZERO}.</p>
+ *     <p><b>Почему это важно:</b> Гарантирует отсутствие двойного начисления выигрыша.</p>
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Сценарий тестирования:</b></p>
  * <ol>
- *   <li><b>Регистрация игрока и создание сессии:</b> Подготавливается игрок и игровая сессия.</li>
- *   <li><b>Совершение базовой ставки:</b> Делается ставка, к которой будут привязаны выигрыши.</li>
- *   <li><b>Совершение вытесняющих выигрышей:</b> Через API совершается {@code maxGamblingCountInRedis + 1}
- *       запросов на выигрыш, чтобы гарантированно вытеснить одну транзакцию из кеша Redis.</li>
- *   <li><b>Получение Sequence последнего выигрыша:</b> Через NATS ожидается событие от последнего выигрыша
- *       для получения его {@code sequence number}.</li>
- *   <li><b>Определение вытесненной транзакции:</b> Запрашиваются данные из Redis для агрегата кошелька.
- *       Сравнивая список всех сделанных транзакций со списком в Redis, определяется ID транзакции,
- *       которая была вытеснена.</li>
- *   <li><b>Попытка дублирования вытесненной транзакции:</b> Через API отправляется новый запрос на выигрыш,
- *       используя тот же {@code transactionId}, что и у вытесненной транзакции.</li>
- *   <li><b>Проверка ответа API:</b> Ожидается, что API вернет успешный ответ со статусом {@link HttpStatus#OK}.
- *       Тело ответа ({@link GamblingResponseBody}) должно содержать {@code transactionId} из первого запроса и баланс,
- *       равный {@link BigDecimal#ZERO}.</li>
+ *   <li>Создать игрока и игровую сессию.</li>
+ *   <li>Совершить {@code max + 1} выигрышей, чтобы вытеснить раннюю транзакцию из Redis.</li>
+ *   <li>Найти вытесненный {@code transactionId} по разнице между полным списком и данными Redis.</li>
+ *   <li>Отправить дубликат выигрыша и проверить ответ.</li>
  * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Каждый исходный запрос завершаетcя с {@link HttpStatus#OK}.</li>
+ *   <li>Дубликат возвращает тот же {@code transactionId} и нулевой баланс.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
@@ -68,16 +73,23 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Gambling") @Tag("Wallet")
 class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("100.00");
-    private static final BigDecimal defaultWinAmount = new BigDecimal("1.00");
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");
+    private static final BigDecimal DEFAULT_WIN_AMOUNT = new BigDecimal("1.00");
+
+    private String casinoId;
+
+    @BeforeAll
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> winOperationAndAmountProvider() {
         return Stream.of(
-                Arguments.of(NatsGamblingTransactionOperation.WIN, defaultWinAmount),
+                Arguments.of(NatsGamblingTransactionOperation.WIN, DEFAULT_WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.WIN, BigDecimal.ZERO),
-                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, defaultWinAmount),
+                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, DEFAULT_WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.FREESPIN, BigDecimal.ZERO),
-                Arguments.of(NatsGamblingTransactionOperation.JACKPOT, defaultWinAmount),
+                Arguments.of(NatsGamblingTransactionOperation.JACKPOT, DEFAULT_WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.JACKPOT, BigDecimal.ZERO)
         );
     }
@@ -85,8 +97,10 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
     @ParameterizedTest(name = "тип операции = {0}, сумма = {1}")
     @MethodSource("winOperationAndAmountProvider")
     @DisplayName("Дублирование выигрыша, вытесненного из кеша")
-    void testDuplicateDisplacedWinReturnsIdempotentResponse(NatsGamblingTransactionOperation operationParam, BigDecimal winAmountParam)  {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    void testDuplicateDisplacedWinReturnsIdempotentResponse(
+            NatsGamblingTransactionOperation operationParam,
+            BigDecimal winAmountParam
+    ) {
         final int maxGamblingCountInRedis = 50;
 
         final int winsToMakeToDisplace = maxGamblingCountInRedis + 1;
@@ -102,7 +116,7 @@ class DuplicateDisplacedWinParametrizedTest extends BaseParameterizedTest {
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 

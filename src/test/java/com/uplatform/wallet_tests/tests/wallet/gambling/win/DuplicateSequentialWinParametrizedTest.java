@@ -14,6 +14,7 @@ import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOper
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -29,31 +30,37 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Интеграционный параметризованный тест, проверяющий API ответ при последовательной отправке двух идентичных запросов на выигрыш
- * для различных типов операций (WIN, FREESPIN, JACKPOT) и различных сумм (включая нулевую).
- * Ожидается, что первый запрос будет успешным, а второй, идентичный ему, вернет ответ 200 OK с тем же transactionId и нулевым балансом,
- * подтверждая идемпотентность операции.
+ * Интеграционный тест, проверяющий идемпотентность последовательных запросов на выигрыш.
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что API Manager корректно обрабатывает попытку дублирования выигрыша для каждого типа операции и суммы,
- * когда второй запрос полностью идентичен первому (включая {@code transactionId}).
- * Тест ожидает, что система вернет ответ {@link HttpStatus#OK} с телом {@link GamblingResponseBody},
- * содержащим тот же {@code transactionId} и нулевой баланс, что является подтверждением корректной идемпотентной обработки дубликата.</p>
+ * <p><b>Идея теста:</b>
+ * Убедиться, что повторный {@code transactionId}, отправленный сразу после успешного выигрыша, обрабатывается
+ * идемпотентно и не приводит к двойному начислению средств.</p>
  *
- * <p><b>Сценарий теста (для каждой комбинации типа операции и суммы):</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>Идемпотентность API:</b>
+ *     <p><b>Что проверяем:</b> Второй запрос возвращает {@link HttpStatus#OK} и нулевой баланс.</p>
+ *     <p><b>Почему это важно:</b> Клиентские ретраи не должны приводить к повторному начислению выигрыша.</p>
+ *   </li>
+ *   <li><b>Консистентность событий:</b>
+ *     <p><b>Что проверяем:</b> В NATS появляется событие только для первого запроса.</p>
+ *     <p><b>Почему это важно:</b> Это исключает дублирование в аналитических и отчетных системах.</p>
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Сценарий тестирования:</b></p>
  * <ol>
- *   <li><b>Регистрация игрока:</b> Создается новый игрок с начальным балансом.</li>
- *   <li><b>Создание игровой сессии:</b> Инициируется игровая сессия для зарегистрированного игрока.</li>
- *   <li><b>Совершение базовой ставки:</b> Делается одна ставка, к которой будет привязан выигрыш.</li>
- *   <li><b>Совершение первого (успешного) выигрыша:</b> Через API Manager отправляется запрос {@code /win} с указанным типом операции и суммой.
- *       Проверяется успешный ответ (HTTP 200 OK). Параметры этого запроса сохраняются.</li>
- *   <li><b>Ожидание NATS-события:</b> Ожидается NATS-событие {@code won_from_gamble} для подтверждения обработки первого выигрыша.</li>
- *   <li><b>Попытка дублирования выигрыша:</b> Через API отправляется второй запрос {@code /win}
- *       с абсолютно теми же параметрами, что и первый успешный выигрыш (включая {@code transactionId}, тип операции и сумму).</li>
- *   <li><b>Проверка ответа API на дубликат:</b> Ожидается, что API вернет успешный ответ со статусом {@link HttpStatus#OK}.
- *       Тело ответа ({@link GamblingResponseBody}) должно содержать {@code transactionId} из первого запроса и баланс,
- *       равный {@link BigDecimal#ZERO}, что подтверждает корректную обработку дублирующей транзакции.</li>
+ *   <li>Создать игрока и игровую сессию.</li>
+ *   <li>Совершить базовую ставку.</li>
+ *   <li>Отправить первый выигрыш и дождаться события {@code won_from_gamble}.</li>
+ *   <li>Повторно отправить идентичный выигрыш и проверить ответ.</li>
  * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Первый выигрыш завершается успешно и публикует событие.</li>
+ *   <li>Дубликат возвращает тот же {@code transactionId} и баланс {@link BigDecimal#ZERO}.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
@@ -62,18 +69,24 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Gambling") @Tag("Wallet")
 class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
 
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");
+    private static final BigDecimal BET_AMOUNT = new BigDecimal("10.00");
+    private static final BigDecimal WIN_AMOUNT = new BigDecimal("1.00");
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("100.00");
-    private static final BigDecimal betAmount = new BigDecimal("10.00");
-    private static final BigDecimal winAmount = new BigDecimal("1.00");
+    private String casinoId;
+
+    @BeforeAll
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> winOperationAndAmountProvider() {
         return Stream.of(
-                Arguments.of(NatsGamblingTransactionOperation.WIN, winAmount),
+                Arguments.of(NatsGamblingTransactionOperation.WIN, WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.WIN, BigDecimal.ZERO),
-                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, winAmount),
+                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.FREESPIN, BigDecimal.ZERO),
-                Arguments.of(NatsGamblingTransactionOperation.JACKPOT, winAmount),
+                Arguments.of(NatsGamblingTransactionOperation.JACKPOT, WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.JACKPOT, BigDecimal.ZERO)
         );
     }
@@ -82,8 +95,6 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
     @MethodSource("winOperationAndAmountProvider")
     @DisplayName("Дублирование выигрыша при последовательной отправке")
     void testDuplicateWinReturnsIdempotentResponse(NatsGamblingTransactionOperation operationParam, BigDecimal winAmountParam)  {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
-
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             GameLaunchData gameLaunchData;
@@ -94,7 +105,7 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -106,7 +117,7 @@ class DuplicateSequentialWinParametrizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение базовой ставки", () -> {
             ctx.initialBetRequest = BetRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
-                    .amount(betAmount)
+                    .amount(BET_AMOUNT)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
                     .roundId(UUID.randomUUID().toString())
