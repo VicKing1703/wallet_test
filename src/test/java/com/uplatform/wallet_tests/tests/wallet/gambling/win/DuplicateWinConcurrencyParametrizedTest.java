@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingResponseBody;
@@ -11,7 +11,7 @@ import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOper
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -33,76 +33,93 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Интеграционный параметризованный тест, проверяющий идемпотентную обработку дублирующихся выигрышей
- * при одновременной отправке для различных типов операций (WIN, FREESPIN, JACKPOT) и сумм (включая нулевую).
+ * Интеграционный тест, проверяющий идемпотентность выигрыша при параллельных запросах.
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что при отправке двух абсолютно идентичных запросов на выигрыш одновременно, система корректно
- * обработает только один из них, а второй обработает идемпотентно. Тест ожидает, что оба запроса вернут
- * статус {@link HttpStatus#OK}, но с разными телами ответа: один с актуальным балансом после начисления,
- * а второй — с нулевым балансом, подтверждая, что повторного начисления не произошло.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить, что при одновременном повторе одного и того же выигрыша система начисляет средства только
+ * один раз, а дубликат получает нулевой баланс.</p>
  *
- * <p><b>Сценарий теста (для каждой комбинации типа операции и суммы):</b></p>
- * <ol>
- *   <li><b>Подготовка:</b> Для каждого набора параметров создается новый игрок, игровая сессия и совершается базовая
- *       ставка, к которой будет привязан выигрыш.</li>
- *   <li><b>Одновременная отправка запросов:</b> Создается два идентичных `Callable`, выполняющих запрос {@code /win}.
- *       Оба `Callable` отправляются на выполнение одновременно в пуле из двух потоков.</li>
- *   <li><b>Проверка ответов:</b>
- *       <ul>
- *           <li>Оба ответа должны вернуться со статусом {@link HttpStatus#OK}.</li>
- *           <li>{@code transactionId} в обоих ответах должен быть одинаковым.</li>
- *           <li>Баланс в одном из ответов должен соответствовать ожидаемому балансу после начисления выигрыша.</li>
- *           <li>Баланс во втором ответе должен быть равен {@link BigDecimal#ZERO}.</li>
- *       </ul>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>Идемпотентность под нагрузкой:</b>
+ *     <p><b>Что проверяем:</b> Оба ответа имеют {@link HttpStatus#OK}, но только один содержит новый баланс.</p>
+ *     <p><b>Почему это важно:</b> Параллельные ретраи часто встречаются в проде; двойные начисления недопустимы.</p>
  *   </li>
+ *   <li><b>Согласованность идентификаторов:</b>
+ *     <p><b>Что проверяем:</b> Оба ответа используют один {@code transactionId}.</p>
+ *     <p><b>Почему это важно:</b> Это ключевой механизм идемпотентности и трекинга транзакций.</p>
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Сценарий тестирования:</b></p>
+ * <ol>
+ *   <li>Создать игрока и игровую сессию.</li>
+ *   <li>Совершить базовую ставку и зафиксировать баланс.</li>
+ *   <li>Отправить два идентичных запроса {@code /win} в параллельных потоках.</li>
+ *   <li>Сравнить ответы и убедиться, что начисление произошло только один раз.</li>
  * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Оба ответа возвращаются со статусом {@link HttpStatus#OK}.</li>
+ *   <li>Один ответ содержит новый баланс, второй — {@link BigDecimal#ZERO}.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
 @Feature("/win")
 @Suite("Негативные сценарии: /win")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
 
-    private RegisteredPlayerData registeredPlayer;
-    private GameLaunchData gameLaunchData;
-    private BetRequestBody initialBetRequest;
-    private BigDecimal balanceAfterBet;
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("1000.00");
+    private static final BigDecimal BASE_BET_AMOUNT = new BigDecimal("10.00");
+    private static final BigDecimal DEFAULT_WIN_AMOUNT = new BigDecimal("1.00");
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("1000.00");
-    private static final BigDecimal baseBetAmount = new BigDecimal("10.00");
-    private static final BigDecimal defaultWinAmount = new BigDecimal("1.00");
+    private String casinoId;
+
+    @BeforeAll
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> winOperationAndAmountProvider() {
         return Stream.of(
-                Arguments.of(NatsGamblingTransactionOperation.WIN, defaultWinAmount),
+                Arguments.of(NatsGamblingTransactionOperation.WIN, DEFAULT_WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.WIN, BigDecimal.ZERO),
-                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, defaultWinAmount),
+                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, DEFAULT_WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.FREESPIN, BigDecimal.ZERO),
-                Arguments.of(NatsGamblingTransactionOperation.JACKPOT, defaultWinAmount),
+                Arguments.of(NatsGamblingTransactionOperation.JACKPOT, DEFAULT_WIN_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.JACKPOT, BigDecimal.ZERO)
         );
     }
 
-    @BeforeEach
-    void setupForEachTest() {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    @ParameterizedTest(name = "тип операции = {0}, сумма = {1}")
+    @MethodSource("winOperationAndAmountProvider")
+    @DisplayName("Идемпотентная обработка дублей выигрышей при одновременной отправке")
+    void testConcurrentDuplicateWinsHandledIdempotently(NatsGamblingTransactionOperation operationParam, BigDecimal winAmountParam) throws InterruptedException {
+        final class TestContext {
+            RegisteredPlayerData registeredPlayer;
+            GameLaunchData gameLaunchData;
+            BetRequestBody initialBetRequest;
+            BigDecimal balanceAfterBet;
+        }
+        final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя для теста", () -> {
-            this.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            assertNotNull(this.registeredPlayer, "default_step.registration");
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
+            assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
         step("Default Step: Создание игровой сессии для теста", () -> {
-            this.gameLaunchData = defaultTestSteps.createGameSession(this.registeredPlayer);
-            assertNotNull(this.gameLaunchData, "default_step.create_game_session");
+            ctx.gameLaunchData = defaultTestSteps.createGameSession(ctx.registeredPlayer);
+            assertNotNull(ctx.gameLaunchData, "default_step.create_game_session");
         });
 
         step("Default Step: Совершение базовой ставки для привязки выигрыша", () -> {
-            this.initialBetRequest = BetRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
-                    .amount(baseBetAmount)
+            ctx.initialBetRequest = BetRequestBody.builder()
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
+                    .amount(BASE_BET_AMOUNT)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
                     .roundId(UUID.randomUUID().toString())
@@ -111,32 +128,26 @@ class DuplicateWinConcurrencyParametrizedTest extends BaseParameterizedTest {
 
             var response = managerClient.bet(
                     casinoId,
-                    utils.createSignature(ApiEndpoints.BET, initialBetRequest),
-                    initialBetRequest);
+                    utils.createSignature(ApiEndpoints.BET, ctx.initialBetRequest),
+                    ctx.initialBetRequest);
 
             assertAll("default_step.base_bet_response",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "default_step.base_bet_status_code"),
                     () -> assertNotNull(response.getBody(), "default_step.base_bet_response_body_not_null")
             );
-            this.balanceAfterBet = response.getBody().balance();
+            ctx.balanceAfterBet = response.getBody().balance();
         });
-    }
 
-    @ParameterizedTest(name = "тип операции = {0}, сумма = {1}")
-    @MethodSource("winOperationAndAmountProvider")
-    @DisplayName("Идемпотентная обработка дублей выигрышей при одновременной отправке")
-    void testConcurrentDuplicateWinsHandledIdempotently(NatsGamblingTransactionOperation operationParam, BigDecimal winAmountParam) throws InterruptedException {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
-        BigDecimal expectedBalanceAfterSuccessfulWin = this.balanceAfterBet.add(winAmountParam);
+        BigDecimal expectedBalanceAfterSuccessfulWin = ctx.balanceAfterBet.add(winAmountParam);
 
         step(String.format("Manager API: Одновременная отправка дублирующихся выигрышей (тип: %s, сумма: %s)", operationParam, winAmountParam), () -> {
 
             var request = WinRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
-                    .roundId(this.initialBetRequest.getRoundId())
+                    .roundId(ctx.initialBetRequest.getRoundId())
                     .roundClosed(false)
                     .build();
 

@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
@@ -12,6 +12,7 @@ import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOper
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,69 +26,70 @@ import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
- * Интеграционный тест, проверяющий лимит хранения истории гэмблинг-операций выигрышей в агрегированных данных кошелька в Redis
- * для различных типов операций (WIN, FREESPIN, JACKPOT).
+ * Интеграционный тест, проверяющий лимит хранения выигрышей в Redis.
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что система Wallet корректно обрабатывает большое количество операций выигрышей
- * и в кэше Redis (в поле {@code Gambling} объекта {@code WalletFullData}, которое является {@link java.util.Map Map})
- * хранится ограниченное количество последних транзакций.
- * Лимит определяется параметром конфигурации {@code app.redis.aggregate.max-gambling.count}.
- * Это важно для оптимизации производительности и управления объемом данных в кэше.</p>
+ * <p><b>Идея теста:</b>
+ * Убедиться, что агрегат кошелька в Redis хранит не более {@code max-gambling-count} записей и корректно
+ * обновляется даже при выполнении серии из {@code max + 1} операций выигрыша.</p>
  *
- * <p><b>Сценарий теста для каждой операции (WIN, FREESPIN, JACKPOT):</b></p>
- * <ol>
- *   <li><b>Регистрация игрока:</b> Создается новый игрок с начальным нулевым балансом ({@link #initialBalance}).
- *       Баланс будет увеличиваться с каждой операцией выигрыша.</li>
- *   <li><b>Создание игровой сессии:</b> Для зарегистрированного игрока инициируется новая игровая сессия.</li>
- *   <li><b>Совершение операций выигрыша:</b> Последовательно через Manager API ({@code /win})
- *       совершается количество операций выигрыша (заданного типа), равное {@code maxGamblingCountInRedis + 1}.
- *       Каждая операция имеет уникальный ID транзакции и сумму {@link #operationAmount}.
- *       ID последней совершенной транзакции сохраняется.
- *       Отслеживается ожидаемый баланс игрока после каждой операции выигрыша.</li>
- *   <li><b>Получение Sequence Number последней операции:</b> После совершения всех операций, тест ожидает
- *       поступление NATS-события {@code won_from_gamble} для самой последней транзакции.
- *       Из этого события извлекается {@code sequence number}, который необходим для
- *       запроса консистентных данных из Redis.</li>
- *   <li><b>Запрос данных кошелька из Redis:</b> Используя UUID кошелька и полученный {@code sequence number}
- *       последней транзакции, запрашиваются полные агрегированные данные кошелька
- *       (например, {@code com.uplatform.wallet_tests.api.redis.model.WalletFullData}) из Redis.</li>
- *   <li><b>Проверка содержимого поля {@code Gambling} ({@link java.util.Map Map}) в Redis:</b>
- *     <ul>
- *       <li>Проверяется, что {@link java.util.Map Map} {@code Gambling} в полученных данных содержит ровно
- *           {@code maxGamblingCountInRedis} записей.</li>
- *     </ul>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>Контроль объема данных:</b>
+ *     <p><b>Что проверяем:</b> Размер коллекции {@code Gambling} равен лимиту конфигурации.</p>
+ *     <p><b>Почему это важно:</b> Избыточные данные в Redis увеличивают задержки и стоимость хранения.</p>
  *   </li>
- *   <li><b>Дополнительные проверки Redis:</b> Проверяется, что итоговый баланс кошелька в Redis
- *       и {@code lastSeqNumber} соответствуют ожидаемым значениям.</li>
+ *   <li><b>Согласованность балансов:</b>
+ *     <p><b>Что проверяем:</b> Баланс и {@code lastSeqNumber} соответствуют последнему событию {@code won_from_gamble}.</p>
+ *     <p><b>Почему это важно:</b> Любое расхождение приведет к неверным отображениям в клиентах.</p>
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Сценарий тестирования:</b></p>
+ * <ol>
+ *   <li>Создать игрока с нулевым балансом и игровую сессию.</li>
+ *   <li>Выполнить {@code max + 1} операции выигрыша указанного типа.</li>
+ *   <li>Дождаться события {@code won_from_gamble} для последнего выигрыша.</li>
+ *   <li>Получить агрегат кошелька из Redis и убедиться в соблюдении лимита.</li>
  * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Каждый запрос {@code /win} завершается успешно.</li>
+ *   <li>Redis хранит ровно {@code maxGamblingCountInRedis} записей и верный баланс.</li>
+ * </ul>
  */
-@Severity(SeverityLevel.CRITICAL)
+@Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/win")
 @Suite("Позитивные сценарии: /win")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 @DisplayName("Проверка лимита агрегата Gambling транзакций в Redis для различных типов операций")
 class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
-    private static final BigDecimal operationAmount = new BigDecimal("1.00");
-    private static final BigDecimal initialBalance = BigDecimal.ZERO;
+    private static final BigDecimal OPERATION_AMOUNT = new BigDecimal("1.00");
+    private static final BigDecimal INITIAL_BALANCE = BigDecimal.ZERO;
+
+    private String casinoId;
+
+    @BeforeAll
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> winOperationProvider() {
         return Stream.of(
-                arguments(NatsGamblingTransactionOperation.WIN),
-                arguments(NatsGamblingTransactionOperation.FREESPIN),
-                arguments(NatsGamblingTransactionOperation.JACKPOT)
+                Arguments.of(NatsGamblingTransactionOperation.WIN),
+                Arguments.of(NatsGamblingTransactionOperation.FREESPIN),
+                Arguments.of(NatsGamblingTransactionOperation.JACKPOT)
         );
     }
 
     @ParameterizedTest(name = "операция выигрыша = {0}")
     @MethodSource("winOperationProvider")
+    @DisplayName("Соблюдение лимита хранения выигрышей в Redis:")
     void testWinGamblingHistoryCountLimitInRedis(NatsGamblingTransactionOperation operationParam) {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int operationsToMake = maxGamblingCountInRedis + 1;
@@ -102,12 +104,12 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialBalance);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_BALANCE);
             ctx.currentBalance = ctx.registeredPlayer.walletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
-        step("Default Step: Создание игровой сессии ", () -> {
+        step("Default Step: Создание игровой сессии", () -> {
             ctx.gameLaunchData = defaultTestSteps.createGameSession(ctx.registeredPlayer);
             assertNotNull(ctx.gameLaunchData, "default_step.create_game_session");
         });
@@ -121,7 +123,7 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
                 WinRequestBody winRequestBody = WinRequestBody.builder()
                         .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
-                        .amount(operationAmount)
+                        .amount(OPERATION_AMOUNT)
                         .transactionId(transactionId)
                         .type(operationParam)
                         .roundId(UUID.randomUUID().toString())
@@ -131,13 +133,13 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
                 var currentOperationNumber = i + 1;
                 var currentTxId = transactionId;
 
-                step(String.format("Совершение операции  %s #%d с ID: %s", operationParam, currentOperationNumber, currentTxId), () -> {
+                step(String.format("Совершение операции %s #%d с ID: %s", operationParam, currentOperationNumber, currentTxId), () -> {
                     var response = managerClient.win(
                             casinoId,
                             utils.createSignature(ApiEndpoints.WIN, winRequestBody),
                             winRequestBody);
 
-                    ctx.currentBalance = ctx.currentBalance.add(operationAmount);
+                    ctx.currentBalance = ctx.currentBalance.add(OPERATION_AMOUNT);
 
                     assertAll(String.format("Проверка ответа API для операции %s #%d", operationParam, currentOperationNumber),
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),

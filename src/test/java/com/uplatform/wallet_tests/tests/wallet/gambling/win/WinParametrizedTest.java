@@ -1,8 +1,8 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.win;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
@@ -16,6 +16,7 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,84 +35,97 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Интеграционный тест, проверяющий функциональность получения выигрышей в системе Wallet для азартных игр.
  *
- * <p>Данный параметризованный тест проверяет полный жизненный цикл операции получения выигрыша
- * различных типов (WIN, FREESPIN, JACKPOT) и с различными суммами. Тест включает как нулевые суммы,
- * так и ненулевые значения. Проверяется распространение события по всем ключевым компонентам системы.</p>
+ * <p><b>Идея теста:</b>
+ * Отследить полный жизненный цикл операции {@code POST /win} — от вызова Manager API до консистентности
+ * данных в NATS, Kafka, базе Wallet и Redis. Каждая итерация выполняется в изолированном окружении
+ * (новый игрок и игровая сессия), что исключает влияние параллельных запусков.</p>
  *
- * <p>Каждая итерация параметризованного теста выполняется с полностью изолированным состоянием,
- * включая создание нового игрока и игровой сессии, для обеспечения надежности при параллельном выполнении.</p>
- *
- * <p><b>Проверяемые уровни приложения:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>REST API: Получение выигрыша через Manager API ({@code /win}).</li>
- *   <li>Система обмена сообщениями: Передача события {@code won_from_gamble} через NATS.</li>
- *   <li>База данных (Wallet):
- *     <ul>
- *       <li>Сохранение транзакции в истории выигрышей казино ({@code gambling_projection_transaction_history}).</li>
- *       <li>Обновление порогов выигрыша игрока для функционала тегирования ({@code player_threshold_win}).</li>
- *     </ul>
+ *   <li><b>Целостность Manager API:</b>
+ *     <p><b>Что проверяем:</b> Возврат статуса {@link HttpStatus#OK}, корректного {@code transactionId}
+ *     и ожидаемого баланса.</p>
+ *     <p><b>Почему это важно:</b> Это основной контракт с игровыми провайдерами; ошибка ведет к потере
+ *     выигрышей игроков и некорректным расчетам.</p>
  *   </li>
- *   <li>Кэш: Обновление агрегированных данных кошелька в Redis (ключ {@code wallet:<wallet_uuid>}).</li>
- *   <li>Kafka: Трансляция события в Kafka для сервиса отчетов (топик {@code wallet.v8.projectionSource}).</li>
+ *   <li><b>Событийная шина и база данных:</b>
+ *     <p><b>Что проверяем:</b> Появление события {@code won_from_gamble} в NATS и запись в
+ *     {@code gambling_projection_transaction_history}/{@code player_threshold_win}.</p>
+ *     <p><b>Почему это важно:</b> Эти системы питают отчетность и лимиты — рассинхрон приводит к бизнес-рискам.</p>
+ *   </li>
+ *   <li><b>Согласованность кэшей и Kafka:</b>
+ *     <p><b>Что проверяем:</b> Обновление агрегата кошелька в Redis и идентичность сообщения в Kafka.</p>
+ *     <p><b>Почему это важно:</b> Эти данные отображаются пользователям и аналитике, поэтому должны совпадать</p>
+ *     <p>с первичными источниками.</p>
+ *   </li>
  * </ul>
  *
- * <p><b>Проверяемые типы ставок ({@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation}):</b></p>
- * <ul>
- *   <li>{@code WIN} - обычный выигрыш.</li>
- *   <li>{@code FREESPIN} - выигрыш от бесплатных вращений.</li>
- *   <li>{@code JACKPOT} - выигрыш джекпота.</li>
- * </ul>
+ * <p><b>Сценарий тестирования:</b></p>
+ * <ol>
+ *   <li>Создать игрока с балансом {@link #INITIAL_ADJUSTMENT_AMOUNT} и игровую сессию.</li>
+ *   <li>Совершить ставку и зафиксировать баланс после ставки.</li>
+ *   <li>Отправить запрос {@code /win} с параметрами набора данных.</li>
+ *   <li>Проверить события в NATS и Kafka, записи в БД и состояние Redis.</li>
+ * </ol>
  *
- * <p><b>Проверяемые суммы выигрышей:</b></p>
+ * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>Динамически генерируемые ненулевые значения (в пределах {@link #initialAdjustmentAmount}).</li>
- *   <li>Нулевые значения ({@code 0.00}).</li>
+ *   <li>API возвращает корректный статус и тело ответа.</li>
+ *   <li>Событие {@code won_from_gamble} содержит ожидаемые значения и совпадает с БД.</li>
+ *   <li>Баланс в Redis и сообщение Kafka соответствуют ответу API.</li>
  * </ul>
  */
 @Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/win")
 @Suite("Позитивные сценарии: /win")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class WinParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
-    private static final String expectedCurrencyRates = "1";
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+    private static final String EXPECTED_CURRENCY_RATES = "1";
+
+    private String casinoId;
+
+    @BeforeAll
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> winAmountProvider() {
         return Stream.of(
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.WIN,
                         NatsGamblingTransactionType.TYPE_WIN
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.WIN,
                         NatsGamblingTransactionType.TYPE_WIN
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.FREESPIN,
                         NatsGamblingTransactionType.TYPE_FREESPIN
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.FREESPIN,
                         NatsGamblingTransactionType.TYPE_FREESPIN
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.JACKPOT,
                         NatsGamblingTransactionType.TYPE_JACKPOT
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.JACKPOT,
                         NatsGamblingTransactionType.TYPE_JACKPOT
@@ -135,7 +149,6 @@ class WinParametrizedTest extends BaseParameterizedTest {
             NatsGamblingTransactionOperation operationParam,
             NatsGamblingTransactionType transactionTypeParam) {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -148,11 +161,11 @@ class WinParametrizedTest extends BaseParameterizedTest {
         }
         final TestContext ctx = new TestContext();
 
-        ctx.expectedBalanceAfterBet = BigDecimal.ZERO.add(initialAdjustmentAmount).subtract(betAmountParam);
+        ctx.expectedBalanceAfterBet = BigDecimal.ZERO.add(INITIAL_ADJUSTMENT_AMOUNT).subtract(betAmountParam);
         ctx.expectedBalanceAfterWin = ctx.expectedBalanceAfterBet.add(winAmountParam);
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -251,7 +264,7 @@ class WinParametrizedTest extends BaseParameterizedTest {
                     () -> assertEquals(player.currency(), conversionInfo.gameCurrency(), "currency_conversion_info.game_currency"),
                     () -> assertEquals(player.currency(), currencyRates.baseCurrency(), "currency_conversion_info.currency_rates.base_currency"),
                     () -> assertEquals(player.currency(), currencyRates.quoteCurrency(), "currency_conversion_info.currency_rates.quote_currency"),
-                    () -> assertEquals(expectedCurrencyRates, currencyRates.value(), "currency_conversion_info.currency_rates.value"),
+                    () -> assertEquals(EXPECTED_CURRENCY_RATES, currencyRates.value(), "currency_conversion_info.currency_rates.value"),
                     () -> assertNotNull(currencyRates.updatedAt(), "currency_conversion_info.currency_rates.updated_at")
             );
         });

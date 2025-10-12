@@ -72,7 +72,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Epic("Gambling")
 @Feature("/bet")
 @Suite("Негативные сценарии: /bet")
-@Tag("Gambling") @Tag("Wallet7") @Tag("Limits")
+@Tag("Gambling") @Tag("Wallet") @Tag("Limits")
 class BetWhenCasinoLossLimitParametrizedTest extends BaseNegativeParameterizedTest {
 
     private static final BigDecimal LIMIT_AMOUNT = new BigDecimal("150.00");
