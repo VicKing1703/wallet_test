@@ -35,4 +35,9 @@ public final class GamblingErrorMessages {
     // Ошибки валидации betTransactionId
     public static final String BET_TRANSACTION_ID_BLANK = "validate request: betTransactionId: cannot be blank.";
     public static final String BET_TRANSACTION_ID_INVALID_UUID = "validate request: betTransactionId: must be a valid UUID.";
+
+    // Ошибки валидации rollbackTransactionId
+    public static final String ROLLBACK_TRANSACTION_ID_BLANK = "validate request: rollbackTransactionId: cannot be blank.";
+    public static final String ROLLBACK_TRANSACTION_ID_INVALID_UUID_LENGTH =
+            "parse betTransaction: invalid UUID length: 10";
 }
