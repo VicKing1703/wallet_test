@@ -88,6 +88,7 @@ class WinGamblingHistoryLimitTest extends BaseParameterizedTest {
 
     @ParameterizedTest(name = "операция выигрыша = {0}")
     @MethodSource("winOperationProvider")
+    @DisplayName("Соблюдение лимита хранения выигрышей в Redis:")
     void testWinGamblingHistoryCountLimitInRedis(NatsGamblingTransactionOperation operationParam) {
         final int maxGamblingCountInRedis = 50;
 
