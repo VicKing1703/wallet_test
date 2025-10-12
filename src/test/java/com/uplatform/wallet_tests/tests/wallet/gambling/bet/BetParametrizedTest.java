@@ -1,8 +1,8 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
@@ -31,43 +31,46 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Интеграционный тест, проверяющий функциональность совершения ставок в системе Wallet для азартных игр.
+ * Сквозной интеграционный тест, верифицирующий корректность обработки позитивных сценариев совершения ставки ({@code POST /bet}).
  *
- * <p>Данный параметризованный тест проверяет полный жизненный цикл операции совершения ставки
- * различных типов (BET, TIPS, FREESPIN)
- * и с различными суммами. Тест включает как нулевые суммы, так и ненулевые суммы, динамически
- * генерируемые в допустимых пределах начального баланса игрока. Проверяется распространение
- * события по всем ключевым компонентам системы.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить полную сквозную консистентность данных при обработке одной из ключевых финансовых
+ * операций — совершения ставки. Тест должен доказать, что успешный API-запрос инициирует корректную и атомарную
+ * последовательность событий: от генерации сообщения в NATS до финального обновления состояния в персистентных (БД)
+ * и кеширующих (Redis) хранилищах. Это гарантирует целостность финансового учета и синхронизацию состояния игрока
+ * во всей распределенной системе.</p>
  *
- * <p>Каждая итерация параметризованного теста выполняется с полностью изолированным состоянием,
- * включая создание нового игрока и игровой сессии, для обеспечения надежности при параллельном выполнении.</p>
- *
- * <p><b>Проверяемые уровни приложения:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>REST API: Совершение ставки через Manager API ({@code /bet}).</li>
- *   <li>Система обмена сообщениями: Передача события {@code betted_from_gamble} через NATS.</li>
- *   <li>База данных (Wallet):
- *     <ul>
- *       <li>Сохранение транзакции в истории ставок казино ({@code gambling_projection_transaction_history}).</li>
- *       <li>Обновление порогов выигрыша игрока для функционала тэгирования ({@code player_threshold_win}).</li>
- *     </ul>
+ *   <li><b>Распространение события (Event Propagation):</b>
+ *     <p><b>Что проверяем:</b> Корректную генерацию и передачу события {@code betted_from_gamble} через NATS,
+ *     а также его последующую проекцию в Kafka-топик {@code wallet.v8.projectionSource}.
+ *     <p><b>Почему это важно:</b> Это основной механизм межсервисного взаимодействия. Сбой на этом этапе приведет
+ *     к рассинхронизации данных в системе (например, сервис отчетов не получит информацию о транзакции).
  *   </li>
- *   <li>Кэш: Обновление агрегированных данных кошелька в Redis (ключ {@code wallet:<wallet_uuid>}).</li>
- *   <li>Kafka: Трансляция события в Kafka для сервиса отчетов (топик {@code wallet.v8.projectionSource}).</li>
+ *   <li><b>Обновление состояния (State Update):</b>
+ *     <p><b>Что проверяем:</b> Корректное изменение баланса игрока и сохранение транзакции в основной базе данных
+ *     (таблица {@code gambling_projection_transaction_history}) и в кеше (агрегат кошелька в Redis).
+ *     <p><b>Почему это важно:</b> Верификация данных одновременно в персистентном хранилище (гарантия сохранности)
+ *     и в кеше (гарантия производительности и актуальности для быстрых чтений) подтверждает, что модель чтения (Redis)
+ *     полностью соответствует модели записи (БД), что критично для финансовых систем.
+ *   </li>
+ *   <li><b>Побочные эффекты бизнес-логики (Business Logic Side-Effects):</b>
+ *     <p><b>Что проверяем:</b> Обновление вспомогательных данных, таких как пороги выигрыша игрока
+ *     (таблица {@code player_threshold_win}).
+ *     <p><b>Почему это важно:</b> Это подтверждает, что система обрабатывает не только основную финансовую операцию,
+ *     но и связанные с ней бизнес-процессы (например, для аналитики, сегментации или антифрод-систем).
+ *   </li>
  * </ul>
  *
- * <p><b>Проверяемые типы ставок ({@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation}):</b></p>
+ * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>{@code BET} - обычная ставка.</li>
- *   <li>{@code TIPS} - чаевые.</li>
- *   <li>{@code FREESPIN} - бесплатные вращения.
- * </ul>
- *
- * <p><b>Проверяемые суммы ставок:</b></p>
- * <ul>
- *   <li>Динамически генерируемые ненулевые значения (в пределах {@link #initialAdjustmentAmount}).</li>
- *   <li>Нулевые значения ({@code 0.00}).</li>
- *   <li>Значения равные размеру баланса игрока ({@link #initialAdjustmentAmount}).</li>
+ *   <li>API-запрос на совершение ставки успешно обрабатывается (HTTP 200 OK) и возвращает актуальный баланс.</li>
+ *   <li>В NATS публикуется событие {@code betted_from_gamble} с полностью корректным набором данных.</li>
+ *   <li>В БД создается запись о транзакции в таблице {@code gambling_projection_transaction_history}.</li>
+ *   <li>В БД обновляется запись о пороге выигрыша в таблице {@code player_threshold_win}.</li>
+ *   <li>Агрегат кошелька в Redis обновляется: изменяется баланс, {@code lastSeqNumber} и добавляется транзакция в историю.</li>
+ *   <li>В Kafka публикуется сообщение, полностью идентичное по содержанию NATS-событию.</li>
  * </ul>
  */
 @Severity(SeverityLevel.BLOCKER)
@@ -77,13 +80,13 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Gambling") @Tag("Wallet")
 class BetParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
-    private final String expectedCurrencyRates = "1";
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+    private static final String EXPECTED_CURRENCY_RATES = "1";
 
     static Stream<Arguments> betAmountProvider() {
         return Stream.of(
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.BET,
                         NatsGamblingTransactionType.TYPE_BET
                 ),
@@ -93,12 +96,12 @@ class BetParametrizedTest extends BaseParameterizedTest {
                         NatsGamblingTransactionType.TYPE_BET
                 ),
                 Arguments.of(
-                        initialAdjustmentAmount,
+                        INITIAL_ADJUSTMENT_AMOUNT,
                         NatsGamblingTransactionOperation.BET,
                         NatsGamblingTransactionType.TYPE_BET
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.TIPS,
                         NatsGamblingTransactionType.TYPE_TIPS
                 ),
@@ -108,12 +111,12 @@ class BetParametrizedTest extends BaseParameterizedTest {
                         NatsGamblingTransactionType.TYPE_TIPS
                 ),
                 Arguments.of(
-                        initialAdjustmentAmount,
+                        INITIAL_ADJUSTMENT_AMOUNT,
                         NatsGamblingTransactionOperation.TIPS,
                         NatsGamblingTransactionType.TYPE_TIPS
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.FREESPIN,
                         NatsGamblingTransactionType.TYPE_FREESPIN
                 ),
@@ -123,7 +126,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
                         NatsGamblingTransactionType.TYPE_FREESPIN
                 ),
                 Arguments.of(
-                        initialAdjustmentAmount,
+                        INITIAL_ADJUSTMENT_AMOUNT,
                         NatsGamblingTransactionOperation.FREESPIN,
                         NatsGamblingTransactionType.TYPE_FREESPIN
                 )
@@ -148,10 +151,10 @@ class BetParametrizedTest extends BaseParameterizedTest {
             BigDecimal expectedBalance;
         }
         final TestContext ctx = new TestContext();
-        ctx.expectedBalance = BigDecimal.ZERO.add(initialAdjustmentAmount).subtract(amountParam);
+        ctx.expectedBalance = BigDecimal.ZERO.add(INITIAL_ADJUSTMENT_AMOUNT).subtract(amountParam);
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -224,7 +227,7 @@ class BetParametrizedTest extends BaseParameterizedTest {
                     () -> assertFalse(conversionInfo.gameCurrency().isEmpty(), "currency_conversion_info.game_currency"),
                     () -> assertEquals(player.currency(), currencyRates.baseCurrency(), "currency_conversion_info.currency_rates.base_currency"),
                     () -> assertEquals(player.currency(), currencyRates.quoteCurrency(), "currency_conversion_info.currency_rates.quote_currency"),
-                    () -> assertEquals(expectedCurrencyRates, currencyRates.value(), "currency_conversion_info.currency_rates.value"),
+                    () -> assertEquals(EXPECTED_CURRENCY_RATES, currencyRates.value(), "currency_conversion_info.currency_rates.value"),
                     () -> assertNotNull(currencyRates.updatedAt(), "currency_conversion_info.currency_rates.updated_at")
             );
         });

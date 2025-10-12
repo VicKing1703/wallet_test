@@ -7,7 +7,7 @@ public enum GamblingErrors {
     MISSING_TOKEN(100, "Missing or invalid token"),
     VALIDATION_ERROR(103, "Validation error"),
     BUSINESS_LOGIC_ERROR(104, "Business logic error"),
-    LIMIT_IS_OVER(105, "Limit is over"),
+    LIMIT_IS_OVER(105, "limit is over"),
     PLAYER_BLOCKED(107, "player was blocked"),
     REFUND_NOT_ALLOWED(107, "refund not allowed"),
     REFUND_ALREADY_HANDLED(107, "refund already handled"),

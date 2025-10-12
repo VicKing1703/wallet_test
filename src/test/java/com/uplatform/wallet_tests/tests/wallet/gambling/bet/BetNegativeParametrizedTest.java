@@ -1,160 +1,166 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
-import com.testing.multisource.config.modules.http.HttpServiceHelper;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingError;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
+import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrorMessages;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrors;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.tests.base.BaseNegativeParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import feign.FeignException;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrors.*;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Интеграционный тест, проверяющий обработку некорректных запросов на совершение ставок в системе Wallet.
+ * Интеграционный тест, проверяющий негативные сценарии для эндпоинта совершения ставки: {@code POST /bet}.
  *
- * <p>Данный параметризованный тест проверяет валидацию входных данных запроса и бизнес-ограничения
- * при обработке запросов на совершение ставки в азартных играх. Тест проверяет корректность
- * возвращаемых кодов ошибок и сообщений при различных некорректных запросах.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить надежность и финансовую целостность системы при обработке ставок.
+ * Основная задача — верифицировать, что API выполняет строгую предварительную валидацию всех входящих запросов.
+ * Любой запрос, не соответствующий контракту (невалидные данные) или нарушающий бизнес-правила (недостаточно средств),
+ * должен быть категорически отклонен <b>до</b> начала какой-либо финансовой операции и <b>до</b> изменения баланса игрока.
+ * Таким образом, тест гарантирует, что система предотвращает любую возможность случайного или намеренного некорректного
+ * списания средств, обеспечивая целостность данных.</p>
  *
- * <p><b>Проверяемые типы ошибок:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>Отсутствие обязательных полей тела запроса (sessionToken, transactionId, type, roundId).</li>
- *   <li>Валидация форматов и ограничений полей (UUID, максимальная длина строки).</li>
- *   <li>Бизнес-ограничения (отрицательная сумма, недостаточный баланс).</li>
+ *   <li><b>Целостность и полнота данных:</b>
+ *     <p><b>Что проверяем:</b> Отсутствие, пустоту или некорректный формат обязательных полей, таких как
+ *     {@code sessionToken}, {@code transactionId}, {@code type} и {@code roundId}.
+ *     <p><b>Почему это важно:</b> Чтобы гарантировать, что ни одна транзакция не может быть обработана без полного
+ *     и валидного набора идентификаторов. Это предотвращает создание "транзакций-призраков", которые невозможно
+ *     отследить или корректно обработать в последующих системах (например, в отчетах или при разрешении споров).
+ *   </li>
+ *   <li><b>Соблюдение финансовых правил:</b>
+ *     <p><b>Что проверяем:</b> Попытки совершить ставку с нелогичной (отрицательной) или невозможной
+ *     (превышающей баланс) суммой.
+ *     <p><b>Почему это важно:</b> Это фундаментальная проверка, защищающая как игрока, так и оператора от
+ *     финансовых ошибок. Система должна на самом раннем этапе пресекать любые операции, которые могут
+ *     привести к отрицательному балансу или некорректным списаниям. Это ядро финансовой целостности.
+ *   </li>
  * </ul>
  *
- * <p><b>Проверяемые коды ошибок ({@link GamblingErrors}):</b></p>
+ * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>{@code MISSING_TOKEN} (100) - Отсутствие токена сессии.</li>
- *   <li>{@code VALIDATION_ERROR} (103) - Ошибки валидации входных данных.</li>
- *   <li>{@code BUSINESS_LOGIC_ERROR} (104) - Ошибки бизнес-логики (недостаточный баланс и др.).</li>
+ *   <li>Система возвращает корректный HTTP-статус и код ошибки для каждого невалидного сценария.</li>
+ *   <li>Баланс игрока остается неизменным, подтверждая, что валидация происходит до списания средств.</li>
+ *   <li>Отсутствие побочных эффектов: для отклоненных запросов не генерируются события в NATS или Kafka.</li>
  * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
 @Feature("/bet")
 @Suite("Негативные сценарии: /bet")
-@Tag("Gambling") @Tag("Wallet")
-class BetNegativeParametrizedTest extends BaseParameterizedTest {
+@Tag("Gambling") @Tag("Wallet7")
+class BetNegativeParametrizedTest extends BaseNegativeParameterizedTest {
+
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("20.00");
+    private static final BigDecimal VALID_BET_AMOUNT = new BigDecimal("1.00");
 
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
-    private final BigDecimal initialAdjustmentAmount = new BigDecimal("20.00");
-    private final BigDecimal validBetAmount = new BigDecimal("1.00");
+    private String casinoId;
 
     @BeforeAll
-    void setup() {
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+
         step("Default Step: Регистрация нового пользователя", () -> {
-            this.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            assertNotNull(this.registeredPlayer, "default_step.registration");
+            registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
+            assertNotNull(registeredPlayer, "default_step.registration");
         });
 
         step("Default Step: Создание игровой сессии", () -> {
-            this.gameLaunchData = defaultTestSteps.createGameSession(this.registeredPlayer);
-            assertNotNull(this.gameLaunchData, "default_step.create_game_session");
+            gameLaunchData = defaultTestSteps.createGameSession(registeredPlayer);
+            assertNotNull(gameLaunchData, "default_step.create_game_session");
         });
     }
 
     static Stream<Arguments> negativeBetScenariosProvider() {
         return Stream.of(
-                arguments("без sessionToken",
+                Arguments.of("без sessionToken",
                         (Consumer<BetRequestBody>) req -> req.setSessionToken(null),
-                        HttpStatus.BAD_REQUEST,
-                        MISSING_TOKEN,
-                        "missing session token"),
+                        GamblingErrors.MISSING_TOKEN,
+                        GamblingErrorMessages.MISSING_SESSION_TOKEN),
 
-                arguments("пустой sessionToken",
+                Arguments.of("пустой sessionToken",
                         (Consumer<BetRequestBody>) req -> req.setSessionToken(""),
-                        HttpStatus.BAD_REQUEST,
-                        MISSING_TOKEN,
-                        "missing session token"),
+                        GamblingErrors.MISSING_TOKEN,
+                        GamblingErrorMessages.MISSING_SESSION_TOKEN),
 
-                arguments("отрицательный amount",
+                Arguments.of("отрицательный amount",
                         (Consumer<BetRequestBody>) req -> req.setAmount(new BigDecimal("-1.0")),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "validate request: amount: value [-1] must be greater or equal than [0]."),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.AMOUNT_NEGATIVE),
 
-                arguments("размер ставки превышает баланс",
+                Arguments.of("размер ставки превышает баланс",
                         (Consumer<BetRequestBody>) req -> req.setAmount(new BigDecimal("21.00")),
-                        HttpStatus.BAD_REQUEST,
-                        BUSINESS_LOGIC_ERROR,
-                        "insufficient balance"),
+                        GamblingErrors.BUSINESS_LOGIC_ERROR,
+                        GamblingErrorMessages.INSUFFICIENT_BALANCE),
 
-                arguments("без transactionId",
+                Arguments.of("без transactionId",
                         (Consumer<BetRequestBody>) req -> req.setTransactionId(null),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "transactionId: cannot be blank"),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.TRANSACTION_ID_BLANK),
 
-                arguments("пустой transactionId",
+                Arguments.of("пустой transactionId",
                         (Consumer<BetRequestBody>) req -> req.setTransactionId(""),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "transactionId: cannot be blank"),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.TRANSACTION_ID_BLANK),
 
-                arguments("невалидный transactionId (не UUID)",
+                Arguments.of("невалидный transactionId (не UUID)",
                         (Consumer<BetRequestBody>) req -> req.setTransactionId("not-a-uuid"),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "transactionId: must be a valid UUID"),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.TRANSACTION_ID_INVALID_UUID),
 
-                arguments("без type",
+                Arguments.of("без type",
                         (Consumer<BetRequestBody>) req -> req.setType(null),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "type: cannot be blank"),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.TYPE_BLANK),
 
-                arguments("пустой type",
+                Arguments.of("пустой type",
                         (Consumer<BetRequestBody>) req -> req.setType(NatsGamblingTransactionOperation.EMPTY),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "type: cannot be blank"),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.TYPE_BLANK),
 
-                arguments("невалидный type",
+                Arguments.of("невалидный type",
                         (Consumer<BetRequestBody>) req -> req.setType(NatsGamblingTransactionOperation.UNKNOWN),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "type: must be a valid value"),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.TYPE_INVALID),
 
-                arguments("roundId превышает 255 символов",
+                Arguments.of("roundId превышает 255 символов",
                         (Consumer<BetRequestBody>) req -> req.setRoundId("a".repeat(256)),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "roundId: the length must be no more than 255"),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.ROUND_ID_TOO_LONG),
 
-                arguments("без roundId",
+                Arguments.of("без roundId",
                         (Consumer<BetRequestBody>) req -> req.setRoundId(null),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "roundId: cannot be blank"),
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.ROUND_ID_BLANK),
 
-                arguments("пустой roundId",
+                Arguments.of("пустой roundId",
                         (Consumer<BetRequestBody>) req -> req.setRoundId(""),
-                        HttpStatus.BAD_REQUEST,
-                        VALIDATION_ERROR,
-                        "roundId: cannot be blank")
+                        GamblingErrors.VALIDATION_ERROR,
+                        GamblingErrorMessages.ROUND_ID_BLANK)
         );
     }
 
@@ -164,21 +170,19 @@ class BetNegativeParametrizedTest extends BaseParameterizedTest {
     void test(
             String description,
             Consumer<BetRequestBody> requestModifier,
-            HttpStatus expectedStatus,
             GamblingErrors expectedErrorCode,
-            String expectedMessageSubstring)
-    {
-        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
-
+            String expectedMessage
+    ) {
         final class TestContext {
             BetRequestBody request;
+            GamblingError error;
         }
         final TestContext ctx = new TestContext();
 
         step("Подготовка некорректного запроса: " + description, () -> {
             ctx.request = BetRequestBody.builder()
                     .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
-                    .amount(this.validBetAmount)
+                    .amount(VALID_BET_AMOUNT)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
                     .roundId(UUID.randomUUID().toString())
@@ -188,25 +192,23 @@ class BetNegativeParametrizedTest extends BaseParameterizedTest {
             requestModifier.accept(ctx.request);
         });
 
-        step("Manager API: Попытка некорректной ставки - " + description, () -> {
-            var thrownException = assertThrows(
-                    FeignException.class,
-                    () -> managerClient.bet(
-                            validCasinoId,
-                            utils.createSignature(ApiEndpoints.BET, ctx.request),
-                            ctx.request
-                    ),
-                    "manager_api.bet"
-            );
+        ctx.error = step(
+                "Manager API: Попытка некорректной ставки - " + description,
+                () -> executeExpectingError(
+                        () -> managerClient.bet(
+                                casinoId,
+                                utils.createSignature(ApiEndpoints.BET, ctx.request),
+                                ctx.request
+                        ),
+                        "manager_api.bet.expected_exception",
+                        GamblingError.class
+                )
+        );
 
-            var error = utils.parseFeignExceptionContent(thrownException, GamblingError.class);
-
-            assertAll("Проверка деталей ошибки",
-                    () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.error.status_code"),
-                    () -> assertEquals(expectedErrorCode.getCode(), error.code(), "manager_api.error.code"),
-                    () -> assertTrue(error.message().toLowerCase().contains(expectedMessageSubstring.toLowerCase()),
-                            "manager_api.error.message")
-            );
-        });
+        assertValidationError(
+                ctx.error,
+                expectedErrorCode.getCode(),
+                expectedMessage
+        );
     }
 }

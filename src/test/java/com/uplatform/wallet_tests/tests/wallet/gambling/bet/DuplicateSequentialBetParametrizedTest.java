@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
@@ -27,30 +27,46 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Интеграционный параметризованный тест, проверяющий API ответ при последовательной отправке двух идентичных запросов на ставку
- * для различных типов операций (BET, TIPS, FREESPIN) и различных сумм (включая нулевую).
- * Ожидается, что первый запрос будет успешным, а второй, идентичный ему, вернет ответ 200 OK с тем же transactionId и нулевым балансом,
- * подтверждая идемпотентность операции.
+ * Интеграционный тест, верифицирующий идемпотентную обработку последовательно отправленных дублирующихся транзакций.
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что API Manager корректно обрабатывает попытку дублирования ставки для каждого типа операции и суммы,
- * когда второй запрос полностью идентичен первому (включая {@code transactionId}).
- * Тест ожидает, что система вернет ответ {@link HttpStatus#OK} с телом {@link com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingResponseBody},
- * содержащим тот же {@code transactionId} и нулевой баланс, что является подтверждением корректной идемпотентной обработки дубликата.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить надежность и корректность механизма идемпотентности при обработке стандартных
+ * клиентских повторов (retries). Система обязана гарантировать семантику обработки транзакций "exactly-once",
+ * предотвращая двойное списание средств при получении дублирующего запроса. Тест верифицирует, что после успешной
+ * обработки транзакции, любой последующий идентичный запрос будет распознан как дубликат и не приведет к повторному
+ * изменению состояния баланса.</p>
  *
- * <p><b>Сценарий теста (для каждой комбинации типа операции и суммы):</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>Проверка по ключу идемпотентности ({@code transactionId}):</b>
+ *     <p><b>Что проверяем:</b> Реакцию системы на повторный запрос с тем же {@code transactionId}, что и у ранее успешно обработанной транзакции.
+ *     <p><b>Почему это важно:</b> Это основной механизм предотвращения двойных списаний. Тест подтверждает, что система
+ *     корректно использует {@code transactionId} для поиска уже существующей транзакции (предположительно, в "горячем"
+ *     кеше Redis) и прерывает повторную обработку финансовой логики.
+ *   </li>
+ *   <li><b>Корректность идемпотентного ответа:</b>
+ *     <p><b>Что проверяем:</b> Возврат успешного статуса {@link HttpStatus#OK} и тела ответа с нулевым балансом.
+ *     <p><b>Почему это важно:</b> Успешный статус критичен для клиентских интеграций, так как он сигнализирует
+ *     об успешном завершении операции без необходимости дальнейших повторов. Тело ответа с нулевым балансом является
+ *     системным соглашением (convention), подтверждающим, что запрос был распознан как дубликат и нового списания не произошло.
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Сценарий тестирования:</b></p>
  * <ol>
- *   <li><b>Регистрация игрока:</b> Создается новый игрок с начальным балансом.</li>
- *   <li><b>Создание игровой сессии:</b> Инициируется игровая сессия для зарегистрированного игрока.</li>
- *   <li><b>Совершение первой (успешной) ставки:</b> Через API Manager отправляется запрос {@code /bet} с указанным типом операции и суммой.
- *       Проверяется успешный ответ (HTTP 200 OK). Параметры этого запроса сохраняются.</li>
- *   <li><b>Ожидание NATS-события:</b> Ожидается NATS-событие {@code betted_from_gamble} для подтверждения обработки первой ставки.</li>
- *   <li><b>Попытка дублирования ставки:</b> Через API отправляется второй запрос {@code /bet}
- *       с абсолютно теми же параметрами, что и первая успешная ставка (включая {@code transactionId}, тип операции и сумму).</li>
- *   <li><b>Проверка ответа API на дубликат:</b> Ожидается, что API вернет успешный ответ со статусом {@link HttpStatus#OK}.
- *       Тело ответа ({@link com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingResponseBody}) должно содержать {@code transactionId} из первого запроса и баланс,
- *       равный {@link BigDecimal#ZERO}, что подтверждает корректную обработку дублирующей транзакции.</li>
+ *   <li>Создается игрок и игровая сессия.</li>
+ *   <li>Отправляется первый, оригинальный запрос на ставку, и проверяется его успешное выполнение.</li>
+ *   <li>После подтверждения обработки (через NATS-событие), отправляется второй, абсолютно идентичный запрос.</li>
+ *   <li>Анализируется ответ на второй (дублирующий) запрос.</li>
  * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>API возвращает статус {@link HttpStatus#OK} на дублирующий запрос.</li>
+ *   <li>Тело ответа на дубликат содержит тот же {@code transactionId}, что и оригинальный запрос.</li>
+ *   <li>Баланс в теле ответа на дубликат равен {@link BigDecimal#ZERO}.</li>
+ *   <li>Финальный баланс игрока в системе отражает только однократное списание средств.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
@@ -59,16 +75,16 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Gambling") @Tag("Wallet")
 class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("100.00");
-    private static final BigDecimal defaultBetAmount = new BigDecimal("10.00");
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");
+    private static final BigDecimal DEFAULT_BET_AMOUNT = new BigDecimal("10.00");
 
     static Stream<Arguments> betOperationAndAmountProvider() {
         return Stream.of(
-                Arguments.of(NatsGamblingTransactionOperation.BET, defaultBetAmount),
+                Arguments.of(NatsGamblingTransactionOperation.BET, DEFAULT_BET_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.BET, BigDecimal.ZERO),
-                Arguments.of(NatsGamblingTransactionOperation.TIPS, defaultBetAmount),
+                Arguments.of(NatsGamblingTransactionOperation.TIPS, DEFAULT_BET_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.TIPS, BigDecimal.ZERO),
-                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, defaultBetAmount),
+                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, DEFAULT_BET_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.FREESPIN, BigDecimal.ZERO)
         );
     }
@@ -88,7 +104,7 @@ class DuplicateSequentialBetParametrizedTest extends BaseParameterizedTest {
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 

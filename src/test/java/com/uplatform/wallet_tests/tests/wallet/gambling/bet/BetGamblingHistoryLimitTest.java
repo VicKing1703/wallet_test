@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
@@ -29,7 +29,8 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Интеграционный тест, который проверяет механизм ротации и ограничения истории гэмблинг-транзакций в кэше Redis.
  *
- * <p><b>Идея теста:</b> Гарантировать стабильность и производительность системы при высокой интенсивности игровых
+ * <p><b>Идея теста:</b>
+ * Гарантировать стабильность и производительность системы при высокой интенсивности игровых
  * операций. Бесконечное накопление истории транзакций в кэше Redis может привести к исчерпанию памяти и замедлению
  * отклика. Этот тест подтверждает, что в системе реализован надежный механизм ротации (FIFO - First-In, First-Out),
  * который автоматически удаляет самые старые записи при достижении лимита, сохраняя в памяти только N последних
@@ -67,7 +68,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("Проверка лимита агрегата Gambling транзакций в Redis для различных типов операций")
 class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
 
-    private static final BigDecimal operationAmount = new BigDecimal("1.00");
+    private static final BigDecimal OPERATION_AMOUNT = new BigDecimal("1.00");
 
     static Stream<Arguments> gamblingOperationProvider() {
         return Stream.of(
@@ -84,7 +85,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
         final int maxGamblingCountInRedis = 50;
 
         final int operationsToMake = maxGamblingCountInRedis + 1;
-        final BigDecimal dynamicInitialAdjustmentAmount = operationAmount
+        final BigDecimal dynamicInitialAdjustmentAmount = OPERATION_AMOUNT
                 .multiply(new BigDecimal(operationsToMake))
                 .add(new BigDecimal("10.00"));
 
@@ -119,7 +120,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
 
                 var betRequestBody = BetRequestBody.builder()
                         .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
-                        .amount(operationAmount)
+                        .amount(OPERATION_AMOUNT)
                         .transactionId(transactionId)
                         .type(operationParam)
                         .roundId(UUID.randomUUID().toString())
@@ -135,7 +136,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
                             utils.createSignature(ApiEndpoints.BET, betRequestBody),
                             betRequestBody);
 
-                    ctx.currentBalance = ctx.currentBalance.subtract(operationAmount);
+                    ctx.currentBalance = ctx.currentBalance.subtract(OPERATION_AMOUNT);
 
                     assertAll(String.format("Проверка ответа API для операции %s #%d", operationParam, currentOperationNumber),
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
@@ -154,7 +155,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
             ctx.lastBetEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
                     .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
-                    .with("$.uuid", ctx.lastTransactionId)
+                    .with("uuid", ctx.lastTransactionId)
                     .fetch();
 
             assertNotNull(ctx.lastBetEvent, "nats.betted_from_gamble");

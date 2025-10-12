@@ -2,7 +2,6 @@ package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
 
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseNegativeParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
@@ -28,39 +27,43 @@ import java.util.stream.Stream;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
- * Интеграционный тест, проверяющий негативные сценарии совершения ставок полностью заблокированным игроком.
+ * Интеграционный тест, верифицирующий механизм блокировки гемблинга при совершении ставки в казино.
  *
- * <p><b>Идея теста:</b> Убедиться в абсолютной надежности механизма полной блокировки игрока. Этот тест является
- * более строгой версией проверки блокировки гемблинга, так как эмулирует ситуацию, когда администратор полностью
- * заблокировал аккаунт ({@code manuallyBlocked=true}). Система должна действовать как непробиваемая стена,
- * категорически отклоняя любые попытки совершить ставку. Это подтверждает, что глобальная блокировка имеет
- * наивысший приоритет и гарантирует полную изоляцию игрока от финансовых операций.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить абсолютную надежность и непробиваемость механизма блокировки по вертикали "гемблинг".
+ * Система обязана синхронно проверять и принудительно применять флаг {@code gamblingEnabled=false} на уровне обработки
+ * транзакции, категорически отклоняя любую операцию <b>до</b> списания средств. Это гарантирует, что установленные
+ * административные ограничения являются неотвратимыми и защищают как игрока, так и оператора.</p>
+ *
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>Принудительное применение блокировки:</b>
+ *     <p><b>Что проверяем:</b> Попытки совершить ставку ({@code POST /bet}) для игрока с активным флагом {@code gamblingEnabled=false}.
+ *     <p><b>Почему это важно:</b> Это основная проверка, подтверждающая, что статус блокировки является высшим приоритетом
+ *     при принятии решения о проведении финансовой операции. Сбой на этом этапе обесценивает весь механизм
+ *     административного контроля и ответственной игры.
+ *   </li>
+ *   <li><b>Универсальность блокировки для всех типов операций:</b>
+ *     <p><b>Что проверяем:</b> Применение блокировки ко всем типам расходных операций в казино: {@code BET}, {@code TIPS}, {@code FREESPIN}.
+ *     <p><b>Почему это важно:</b> Блокировка должна быть всеобъемлющей. Тест доказывает отсутствие "слепых зон" или
+ *     уязвимостей, через которые игрок мог бы обойти ограничение, используя специфический тип транзакции.
+ *   </li>
+ * </ul>
  *
  * <p><b>Сценарий тестирования:</b></p>
- * <p>Тест эмулирует ситуацию, когда администратор установил игроку полную ручную блокировку аккаунта.
- * После этого игрок пытается совершить различные типы ставок (BET, TIPS, FREESPIN). Проверяется, что каждая
- * такая попытка будет немедленно отклонена системой.</p>
- *
- * <p><b>Последовательность действий:</b></p>
  * <ol>
- *   <li>Регистрация нового игрока, пополнение баланса и создание игровой сессии.</li>
- *   <li>Установка полной ручной блокировки для этого игрока через CAP API ({@code manuallyBlocked = true}).</li>
- *   <li>Для каждого типа ставки (BET, TIPS, FREESPIN):
- *     <ul>
- *       <li>Отправка запроса на совершение ставки через Manager API.</li>
- *       <li>Проверка получения ожидаемой ошибки о блокировке игрока.</li>
- *     </ul>
- *   </li>
+ *   <li>Игроку устанавливается блокировка на гемблинг ({@code gamblingEnabled=false}) через CAP API.</li>
+ *   <li>Последовательно выполняются попытки совершить ставки разных типов (BET, TIPS, FREESPIN).</li>
+ *   <li>Проверяется, что каждая попытка отклоняется с ожидаемой ошибкой.</li>
  * </ol>
  *
  * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>Для всех типов ставок API возвращает ошибку с кодом {@link GamblingErrors#PLAYER_BLOCKED} и сообщением "player was blocked".</li>
- *   <li>Баланс игрока остается абсолютно неизменным.</li>
- *   <li>В системе не генерируются никакие события о финансовых транзакциях, связанные с этими попытками.</li>
+ *   <li>API возвращает ошибку с кодом {@link GamblingErrors#PLAYER_BLOCKED}.</li>
+ *   <li>Баланс игрока остается неизменным.</li>
+ *   <li>Финансовые транзакции не создаются, события в NATS/Kafka не генерируются.</li>
  * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
@@ -74,12 +77,10 @@ class BetWhenGamblingBlockedParametrizedTest extends BaseNegativeParameterizedTe
 
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
-    private BigDecimal betAmount;
     private String casinoId;
 
     @BeforeAll
     void setUp() {
-        betAmount = generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT);
         casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
 
@@ -112,17 +113,17 @@ class BetWhenGamblingBlockedParametrizedTest extends BaseNegativeParameterizedTe
 
     static Stream<Arguments> blockedBetProvider() {
         return Stream.of(
-                arguments(
+                Arguments.of(
                         NatsGamblingTransactionOperation.BET,
                         GamblingErrors.PLAYER_BLOCKED,
                         GamblingErrors.PLAYER_BLOCKED.getMessage()
                 ),
-                arguments(
+                Arguments.of(
                         NatsGamblingTransactionOperation.TIPS,
                         GamblingErrors.PLAYER_BLOCKED,
                         GamblingErrors.PLAYER_BLOCKED.getMessage()
                 ),
-                arguments(
+                Arguments.of(
                         NatsGamblingTransactionOperation.FREESPIN,
                         GamblingErrors.PLAYER_BLOCKED,
                         GamblingErrors.PLAYER_BLOCKED.getMessage()
@@ -147,7 +148,7 @@ class BetWhenGamblingBlockedParametrizedTest extends BaseNegativeParameterizedTe
         step("Manager API: Попытка совершения ставки с заблокированным гемблингом", () -> {
             ctx.request = BetRequestBody.builder()
                     .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
-                    .amount(betAmount)
+                    .amount(generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT))
                     .transactionId(UUID.randomUUID().toString())
                     .type(type)
                     .roundId(UUID.randomUUID().toString())

@@ -1,7 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
@@ -24,30 +24,35 @@ import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 /**
- * Интеграционный тест, проверяющий функциональность совершения ставок игроком
- * с заблокированным беттингом в системе Wallet.
+ * Интеграционный тест, верифицирующий селективность механизма блокировок при совершении ставки в казино.
  *
- * <p>Данный параметризованный тест проверяет сценарий, когда игрок, у которого заблокирован
- * беттинг (bettingEnabled=false), но разрешен гемблинг (gamblingEnabled=true),
- * пытается совершить ставку в казино различных типов (BET, TIPS, FREESPIN).
- * В данном сценарии ставки должны успешно проходить, так как блокировка беттинга
- * относится только к спортивным ставкам, а не к ставкам в казино.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить корректность и изоляцию механизмов блокировки для различных игровых вертикалей.
+ * Система должна четко разграничивать ограничения, наложенные на "гемблинг" (казино-игры) и "беттинг" (ставки на спорт).
+ * Данный тест должен доказать, что активация блокировки для одной вертикали ({@code bettingEnabled=false}) не оказывает
+ * нежелательного влияния на операции в другой, разрешенной вертикали ({@code gamblingEnabled=true}). Это гарантирует
+ * гибкость и точность системы управления ограничениями игрока.</p>
  *
- * <p>Тест использует единую игровую сессию и регистрационные данные игрока для всех тестовых
- * сценариев, а также предварительно устанавливает блокировку беттинга через CAP API.</p>
- *
- * <p><b>Проверяемые типы ставок:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>{@code BET} - обычная ставка.</li>
- *   <li>{@code TIPS} - чаевые.</li>
- *   <li>{@code FREESPIN} - бесплатные вращения.</li>
+ *   <li><b>Селективность блокировки:</b>
+ *     <p><b>Что проверяем:</b> Возможность успешно выполнить транзакцию в казино (через {@code POST /bet}) для игрока,
+ *     у которого активна блокировка на спортивные ставки ({@code bettingEnabled=false}).
+ *     <p><b>Почему это важно:</b> Это подтверждает, что бизнес-логика системы корректно интерпретирует и применяет
+ *     различные типы ограничений. Неправильная, чрезмерно широкая блокировка привела бы к необоснованному отказу в
+ *     обслуживании и прямым финансовым потерям, а также свидетельствовала бы о серьезном дефекте в логике
+ *     применения пользовательских ограничений.
+ *   </li>
  * </ul>
  *
- * <p><b>Ожидаемый результат:</b> Система должна успешно обрабатывать все виды ставок в казино,
- * несмотря на блокировку беттинга у игрока.</p>
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>API-запрос на совершение ставки в казино успешно обрабатывается (HTTP 200 OK).</li>
+ *   <li>В ответе API возвращается корректный идентификатор транзакции, подтверждая ее успешное выполнение.</li>
+ *   <li>Система не возвращает никаких ошибок, связанных с блокировкой игрока.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
@@ -56,17 +61,18 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 @Tag("Gambling") @Tag("Wallet")
 class BetWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
 
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("100.00");
+    private static final BigDecimal BET_AMOUNT = new BigDecimal("10.00");
+
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
-    private final BigDecimal initialAdjustmentAmount = new BigDecimal("100.00");
-    private final BigDecimal betAmount = new BigDecimal("10.00");
 
     @BeforeAll
-    void setup() {
+    void setUp() {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(registeredPlayer, "default_step.registration");
         });
 
@@ -94,9 +100,9 @@ class BetWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
 
     static Stream<Arguments> blockedBetProvider() {
         return Stream.of(
-                arguments(NatsGamblingTransactionOperation.BET),
-                arguments(NatsGamblingTransactionOperation.TIPS),
-                arguments(NatsGamblingTransactionOperation.FREESPIN)
+                Arguments.of(NatsGamblingTransactionOperation.BET),
+                Arguments.of(NatsGamblingTransactionOperation.TIPS),
+                Arguments.of(NatsGamblingTransactionOperation.FREESPIN)
         );
     }
 
@@ -114,7 +120,7 @@ class BetWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки", () -> {
             var request = BetRequestBody.builder()
                     .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
-                    .amount(betAmount)
+                    .amount(BET_AMOUNT)
                     .transactionId(UUID.randomUUID().toString())
                     .type(type)
                     .roundId(UUID.randomUUID().toString())
