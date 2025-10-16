@@ -7,6 +7,7 @@ import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -19,6 +20,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
     private final CoreGameProviderRepository coreGameProviderRepository;
     private final CoreBrandRepository coreBrandRepository;
     private final CoreGameCategoryRepository coreGameCategoryRepository;
+    private final CoreGameCategoriesGamesRepository coreGameCategoriesGamesRepository;
 
     public CoreDatabaseClient(AllureAttachmentService attachmentService,
                               CoreGameSessionRepository coreGameSessionRepository,
@@ -27,6 +29,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
                               CoreGameProviderRepository coreGameProviderRepository,
                               CoreBrandRepository coreBrandRepository,
                               CoreGameCategoryRepository coreGameCategoryRepository,
+                              CoreGameCategoriesGamesRepository coreGameCategoriesGamesRepository,
                               ObjectMapper objectMapper) {
         super(attachmentService);
         this.coreGameSessionRepository = coreGameSessionRepository;
@@ -35,6 +38,7 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
         this.coreGameProviderRepository = coreGameProviderRepository;
         this.coreBrandRepository = coreBrandRepository;
         this.coreGameCategoryRepository = coreGameCategoryRepository;
+        this.coreGameCategoriesGamesRepository = coreGameCategoriesGamesRepository;
 
     }
 
@@ -98,4 +102,23 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
         return coreGameCategoryRepository.findByUuid(uuid);
     }
 
+    public List<String> findRandomGameUuids(int limit) {
+        String description = String.format("get %d random game uuids", limit);
+        String attachmentNamePrefix = "Random Game UUIDs";
+
+        Supplier<Optional<List<String>>> querySupplier = () ->
+                Optional.of(coreGameRepository.findRandomUuids(limit));
+
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+    }
+
+    public CoreGameCategoriesGames findByGameUuid(String gameUuid) {
+        String description = String.format("core Category record by uuid '%s'", gameUuid);
+        String attachmentNamePrefix = String.format("Core Category Record [uuid: %s]", gameUuid);
+
+        Supplier<Optional<CoreGameCategoriesGames>> querySupplier = () ->
+                coreGameCategoriesGamesRepository.findByGameUuid(gameUuid);
+
+        return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
+    }
 }

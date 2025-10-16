@@ -9,6 +9,8 @@ import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.tests.util.utils.RetryUtils;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
@@ -40,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Feature("/categories/{uuid}")
 @Suite("Позитивный сценарий: Действия с категориями")
 @Tag("Platform") @Tag("GameCategory") @Tag("GetGameCategory")
+@Execution(ExecutionMode.SAME_THREAD)
 class GetGameCategoryTest extends BaseTest {
 
     static final class TestContext {
@@ -65,18 +68,16 @@ class GetGameCategoryTest extends BaseTest {
                     .builder()
                     .alias(get(ALIAS, 5))
                     .type(CategoryType.VERTICAL)
-                    .sort(1)
+                    .sort(88)
                     .groupId(configProvider.getEnvironmentConfig().getPlatform().getGroupId())
                     .projectId(configProvider.getEnvironmentConfig().getPlatform().getNodeId())
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 5)))
                     .build();
 
-            ctx.createGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
-                    capAdminClient.createGameCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                     ctx.createGameCategoryRequest
-                    )
             );
 
             assertAll("Проверяем код ответа и тело ответа",
@@ -162,12 +163,10 @@ class GetGameCategoryTest extends BaseTest {
                     .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.deleteGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
-                    capAdminClient.deleteGameCategory(
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
-                    )
             );
 
             assertEquals(HttpStatus.NO_CONTENT, ctx.deleteGameCategoryResponse.getStatusCode(),

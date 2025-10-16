@@ -14,6 +14,8 @@ import com.uplatform.wallet_tests.tests.util.utils.RetryUtils;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -51,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Feature("/categories")
 @Suite("Позитивный сценарий: Действия с категориями")
 @Tag("Platform") @Tag("GameCategory") @Tag("CreateGameCategory")
+@Execution(ExecutionMode.SAME_THREAD)
 class CreateGameCategoryParameterizedTest extends BaseParameterizedTest {
 
     static Stream<Arguments> categoryParams() {
@@ -89,18 +92,17 @@ class CreateGameCategoryParameterizedTest extends BaseParameterizedTest {
             ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, aliasLengths))
                     .type(categoryType)
-                    .sort(1)
+                    .sort(66)
                     .groupId(configProvider.getEnvironmentConfig().getPlatform().getGroupId())
                     .projectId(configProvider.getEnvironmentConfig().getPlatform().getNodeId())
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, titleLengths)))
                     .build();
 
-            ctx.createGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
+            ctx.createGameCategoryResponse =
                     capAdminClient.createGameCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                     ctx.createGameCategoryRequest
-                    )
             );
 
             assertAll("Проверка ответа создания категории",
@@ -164,13 +166,12 @@ class CreateGameCategoryParameterizedTest extends BaseParameterizedTest {
                     .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.deleteGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
-                    capAdminClient.deleteGameCategory(
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
-                    )
-            );
+                    );
+
 
             assertEquals(HttpStatus.NO_CONTENT, ctx.deleteGameCategoryResponse.getStatusCode(),
                     "Ожидаем статус 204 No Content"

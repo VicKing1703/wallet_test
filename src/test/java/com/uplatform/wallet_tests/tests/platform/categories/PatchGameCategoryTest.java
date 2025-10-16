@@ -14,6 +14,8 @@ import io.qameta.allure.Feature;
 import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import java.util.Map;
@@ -47,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Feature("/categories/{uuid}")
 @Suite("Позитивный сценарий: Действия с категориями")
 @Tag("Platform") @Tag("GameCategory") @Tag("PatchGameCategory")
+@Execution(ExecutionMode.SAME_THREAD)
 public class PatchGameCategoryTest extends BaseTest {
 
     static final class TestContext {
@@ -73,18 +76,16 @@ public class PatchGameCategoryTest extends BaseTest {
             ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
                     .alias(get(ALIAS, 7))
                     .type(CategoryType.VERTICAL)
-                    .sort(1)
+                    .sort(99)
                     .groupId(configProvider.getEnvironmentConfig().getPlatform().getGroupId())
                     .projectId(configProvider.getEnvironmentConfig().getPlatform().getNodeId())
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 7)))
                     .build();
 
-            ctx.createGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
-                    capAdminClient.createGameCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                     ctx.createGameCategoryRequest
-                    )
             );
 
             assertAll(
@@ -114,17 +115,15 @@ public class PatchGameCategoryTest extends BaseTest {
                     .builder()
                     .alias(get(ALIAS, 11))
                     .type(CategoryType.HORIZONTAL)
-                    .sort(1)
+                    .sort(100)
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 11)))
                     .build();
 
-            ctx.patchGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
-                    capAdminClient.patchGameCategory(
+            ctx.patchGameCategoryResponse = capAdminClient.patchGameCategory(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                     ctx.patchGameCategoryRequest
-                    )
             );
 
             assertAll(
@@ -203,12 +202,10 @@ public class PatchGameCategoryTest extends BaseTest {
                     .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.deleteGameCategoryResponse = RetryUtils.withDeadlockRetry(() ->
-                    capAdminClient.deleteGameCategory(
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
-                    )
             );
 
             assertEquals(
