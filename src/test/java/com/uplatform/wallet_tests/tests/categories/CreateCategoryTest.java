@@ -7,7 +7,6 @@ import com.uplatform.wallet_tests.api.http.cap.dto.categories.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryResponse;
 import com.uplatform.wallet_tests.api.db.entity.core.GameCategory;
-import com.uplatform.wallet_tests.api.db.entity.core.enums.GameCategoryStatus;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import io.qameta.allure.Epic;
@@ -21,6 +20,7 @@ import org.springframework.http.HttpStatus;
 
 import java.util.Map;
 
+import static com.uplatform.wallet_tests.api.db.entity.core.enums.GameCategoryStatus.DISABLED;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.ALIAS;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.get;
@@ -98,7 +98,7 @@ class CreateCategoryTest extends BaseTest {
                     () -> assertEquals(PROJECT_ID, ctx.gameCategory.getProjectUuid(), "core_db.game_category.project_uuid"),
                     () -> assertTrue(ctx.gameCategory.getProjectGroupUuid().isBlank(),
                             "core_db.game_category.project_group_uuid"),
-                    () -> assertEquals(GameCategoryStatus.ACTIVE.getId(), ctx.gameCategory.getStatusId(), "core_db.game_category.status_id"),
+                    () -> assertEquals(DISABLED.statusId, ctx.gameCategory.getStatusId(), "core_db.game_category.status_id"),
                     () -> assertEquals(SORT_ORDER, ctx.gameCategory.getEntitySort(), "core_db.game_category.entity_sort"),
                     () -> assertFalse(ctx.gameCategory.isDefault(), "core_db.game_category.is_default"),
                     () -> assertNull(ctx.gameCategory.getParentUuid(), "core_db.game_category.parent_uuid"),
