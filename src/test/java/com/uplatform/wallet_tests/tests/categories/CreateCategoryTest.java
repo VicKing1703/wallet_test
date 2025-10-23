@@ -103,6 +103,7 @@ class CreateCategoryTest extends BaseParameterizedTest {
             GameCategory gameCategory;
             Map<String, String> expectedLocalizedNames;
             GameCategoryMessage gameCategoryMessage;
+            long cleanupRemainingRecords;
         }
         final TestContext ctx = new TestContext();
 
@@ -178,6 +179,20 @@ class CreateCategoryTest extends BaseParameterizedTest {
                     () -> assertEquals(ctx.request.getNames().getRu(), kafkaCategory.name(), "kafka.game_category_event.category.name"),
                     () -> assertEquals(GAME_CATEGORY_EVENT_TYPE, messageEnvelope.eventType(), "kafka.game_category_event.message.event_type")
             );
+        });
+
+        step("Постусловие: Удаление созданной категории и проверка очистки БД", () -> {
+            var response = capAdminClient.deleteCategory(
+                    ctx.responseBody.id(),
+                    utils.getAuthorizationHeader(),
+                    platformUserId,
+                    platformUsername
+            );
+
+            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.delete_category.status_code");
+
+            ctx.cleanupRemainingRecords = coreDatabaseClient.waitForGameCategoryDeletionOrFail(ctx.responseBody.id());
+            assertEquals(0L, ctx.cleanupRemainingRecords, "core_db.game_category.remaining_rows_after_cleanup");
         });
     }
 }
