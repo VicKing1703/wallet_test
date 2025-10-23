@@ -24,7 +24,10 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
@@ -40,6 +43,7 @@ class CreateCategoryTest extends BaseTest {
         final String PLATFORM_USER_ID = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
         final String PLATFORM_USERNAME = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
         final int SORT_ORDER = 1;
+        final short ACTIVE_STATUS_ID = 2;
 
         final class TestContext {
             CreateCategoryRequest request;
@@ -80,13 +84,25 @@ class CreateCategoryTest extends BaseTest {
             ctx.gameCategory = coreDatabaseClient.findGameCategoryByUuidOrFail(ctx.responseBody.id());
 
             assertAll(
+                    () -> assertNotNull(ctx.gameCategory.getId(), "core_db.game_category.id"),
+                    () -> assertTrue(ctx.gameCategory.getId() > 0, "core_db.game_category.id_positive"),
                     () -> assertEquals(ctx.responseBody.id(), ctx.gameCategory.getUuid(), "core_db.game_category.uuid"),
                     () -> assertEquals(ctx.request.getAlias(), ctx.gameCategory.getAlias(), "core_db.game_category.alias"),
+                    () -> assertTrue(ctx.gameCategory.getCreatedAt() > 0, "core_db.game_category.created_at"),
+                    () -> assertTrue(ctx.gameCategory.getUpdatedAt() >= ctx.gameCategory.getCreatedAt(), "core_db.game_category.updated_at"),
                     () -> assertEquals(PROJECT_ID, ctx.gameCategory.getProjectUuid(), "core_db.game_category.project_uuid"),
+                    () -> assertTrue(ctx.gameCategory.getProjectGroupUuid() == null || ctx.gameCategory.getProjectGroupUuid().isBlank(),
+                            "core_db.game_category.project_group_uuid"),
+                    () -> assertEquals(ACTIVE_STATUS_ID, ctx.gameCategory.getStatusId(), "core_db.game_category.status_id"),
+                    () -> assertEquals(SORT_ORDER, ctx.gameCategory.getEntitySort(), "core_db.game_category.entity_sort"),
+                    () -> assertFalse(ctx.gameCategory.isDefault(), "core_db.game_category.is_default"),
+                    () -> assertNull(ctx.gameCategory.getParentUuid(), "core_db.game_category.parent_uuid"),
                     () -> assertEquals(ctx.request.getType().value(), ctx.gameCategory.getEntityType(), "core_db.game_category.entity_type"),
+                    () -> assertNotNull(ctx.gameCategory.getLocalizedNames(), "core_db.game_category.localized_names"),
                     () -> assertEquals(ctx.request.getNames().getRu(), ctx.gameCategory.getLocalizedNames().get("ru"), "core_db.game_category.localized_names.ru"),
                     () -> assertEquals(ctx.request.getNames().getEn(), ctx.gameCategory.getLocalizedNames().get("en"), "core_db.game_category.localized_names.en"),
-                    () -> assertEquals(ctx.request.getNames().getLv(), ctx.gameCategory.getLocalizedNames().get("lv"), "core_db.game_category.localized_names.lv")
+                    () -> assertEquals(ctx.request.getNames().getLv(), ctx.gameCategory.getLocalizedNames().get("lv"), "core_db.game_category.localized_names.lv"),
+                    () -> assertFalse(ctx.gameCategory.isCms(), "core_db.game_category.cms")
             );
         });
     }
