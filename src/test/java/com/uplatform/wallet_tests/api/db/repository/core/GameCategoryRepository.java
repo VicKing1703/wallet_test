@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface GameCategoryRepository extends JpaRepository<GameCategory, Integer> {
     Optional<GameCategory> findByUuid(String uuid);
+
+    long countByUuid(String uuid);
 }

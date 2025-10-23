@@ -102,6 +102,14 @@ public interface CapAdminClient {
             @RequestBody CreateCategoryRequest request
     );
 
+    @DeleteMapping("/_cap/api/v2/categories/{categoryUuid}")
+    ResponseEntity<Void> deleteCategory(
+            @PathVariable("categoryUuid") String categoryUuid,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-Userid") String platformUserId,
+            @RequestHeader("Platform-Username") String platformUsername
+    );
+
     @GetMapping("/_cap/api/v1/wallet/{player_uuid}/block-amount-list")
     ResponseEntity<BlockAmountListResponseBody> getBlockAmountList(
             @RequestHeader("Authorization")     String authorizationHeader,
