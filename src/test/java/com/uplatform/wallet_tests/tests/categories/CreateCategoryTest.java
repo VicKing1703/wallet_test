@@ -7,6 +7,7 @@ import com.uplatform.wallet_tests.api.http.cap.dto.categories.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryResponse;
 import com.uplatform.wallet_tests.api.db.entity.core.GameCategory;
+import com.uplatform.wallet_tests.api.kafka.dto.GameCategoryMessage;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import io.qameta.allure.Epic;
@@ -51,6 +52,8 @@ class CreateCategoryTest extends BaseTest {
             CreateCategoryRequest request;
             CreateCategoryResponse responseBody;
             GameCategory gameCategory;
+            Map<String, String> expectedLocalizedNames;
+            GameCategoryMessage gameCategoryMessage;
         }
         final TestContext ctx = new TestContext();
 
@@ -66,6 +69,11 @@ class CreateCategoryTest extends BaseTest {
                     .projectId(PROJECT_ID)
                     .type(CategoryType.CATEGORY)
                     .build();
+
+            ctx.expectedLocalizedNames = objectMapper.convertValue(
+                    ctx.request.getNames(),
+                    new TypeReference<Map<String, String>>() {}
+            );
 
             var response = capAdminClient.createCategory(
                     utils.getAuthorizationHeader(),
@@ -85,11 +93,6 @@ class CreateCategoryTest extends BaseTest {
         step("Core DB: Категория сохранена", () -> {
             ctx.gameCategory = coreDatabaseClient.findGameCategoryByUuidOrFail(ctx.responseBody.id());
 
-            Map<String, String> expectedLocalizedNames = objectMapper.convertValue(
-                    ctx.request.getNames(),
-                    new TypeReference<Map<String, String>>() {}
-            );
-
             assertAll(
                     () -> assertEquals(ctx.responseBody.id(), ctx.gameCategory.getUuid(), "core_db.game_category.uuid"),
                     () -> assertEquals(ctx.request.getAlias(), ctx.gameCategory.getAlias(), "core_db.game_category.alias"),
@@ -103,8 +106,28 @@ class CreateCategoryTest extends BaseTest {
                     () -> assertFalse(ctx.gameCategory.isDefault(), "core_db.game_category.is_default"),
                     () -> assertNull(ctx.gameCategory.getParentUuid(), "core_db.game_category.parent_uuid"),
                     () -> assertEquals(ctx.request.getType().value(), ctx.gameCategory.getEntityType(), "core_db.game_category.entity_type"),
-                    () -> assertEquals(expectedLocalizedNames, ctx.gameCategory.getLocalizedNames(), "core_db.game_category.localized_names"),
+                    () -> assertEquals(ctx.expectedLocalizedNames, ctx.gameCategory.getLocalizedNames(), "core_db.game_category.localized_names"),
                     () -> assertFalse(ctx.gameCategory.isCms(), "core_db.game_category.cms")
+            );
+        });
+
+        step("Kafka: Категория опубликована в топике core.gambling.v3.Game", () -> {
+            ctx.gameCategoryMessage = kafkaClient.expect(GameCategoryMessage.class)
+                    .with("category.uuid", ctx.responseBody.id())
+                    .unique()
+                    .fetch();
+
+            var kafkaCategory = ctx.gameCategoryMessage.category();
+            assertNotNull(kafkaCategory, "kafka.core_gambling_game.category");
+
+            assertAll(
+                    () -> assertNotNull(ctx.gameCategoryMessage.message(), "kafka.core_gambling_game.message"),
+                    () -> assertEquals(ctx.request.getType().value(), kafkaCategory.type(), "kafka.core_gambling_game.category.type"),
+                    () -> assertEquals(ctx.responseBody.id(), kafkaCategory.uuid(), "kafka.core_gambling_game.category.uuid"),
+                    () -> assertEquals(ctx.request.getNames().getRu(), kafkaCategory.name(), "kafka.core_gambling_game.category.name"),
+                    () -> assertEquals(ctx.expectedLocalizedNames, kafkaCategory.localizedNames(), "kafka.core_gambling_game.category.localized_names"),
+                    () -> assertEquals(DISABLED.status, kafkaCategory.status(), "kafka.core_gambling_game.category.status"),
+                    () -> assertEquals(ctx.request.getType().value(), ctx.gameCategoryMessage.message().eventType(), "kafka.core_gambling_game.message.event_type")
             );
         });
     }
