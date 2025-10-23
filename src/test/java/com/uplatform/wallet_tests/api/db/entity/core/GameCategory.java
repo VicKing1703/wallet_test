@@ -66,4 +66,8 @@ public class GameCategory {
 
     @Column(name = "cms", nullable = false)
     private boolean cms;
+
+    public String getProjectGroupUuid() {
+        return projectGroupUuid == null ? "" : projectGroupUuid;
+    }
 }

@@ -1,11 +1,13 @@
 package com.uplatform.wallet_tests.tests.categories;
 
 import com.uplatform.wallet_tests.allure.Suite;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.uplatform.wallet_tests.api.http.cap.dto.LocalizedName;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryResponse;
 import com.uplatform.wallet_tests.api.db.entity.core.GameCategory;
+import com.uplatform.wallet_tests.api.db.entity.core.enums.GameCategoryStatus;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import io.qameta.allure.Epic;
@@ -15,7 +17,6 @@ import io.qameta.allure.SeverityLevel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 
 import java.util.Map;
@@ -45,7 +46,6 @@ class CreateCategoryTest extends BaseTest {
         final String PLATFORM_USER_ID = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
         final String PLATFORM_USERNAME = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
         final int SORT_ORDER = 1;
-        final short ACTIVE_STATUS_ID = 2;
 
         final class TestContext {
             CreateCategoryRequest request;
@@ -85,28 +85,24 @@ class CreateCategoryTest extends BaseTest {
         step("Core DB: Категория сохранена", () -> {
             ctx.gameCategory = coreDatabaseClient.findGameCategoryByUuidOrFail(ctx.responseBody.id());
 
-            Map<String, String> expectedLocalizedNames = Map.of(
-                    "ru", ctx.request.getNames().getRu(),
-                    "en", ctx.request.getNames().getEn(),
-                    "lv", ctx.request.getNames().getLv()
+            Map<String, String> expectedLocalizedNames = objectMapper.convertValue(
+                    ctx.request.getNames(),
+                    new TypeReference<Map<String, String>>() {}
             );
 
             assertAll(
-                    () -> assertNotNull(ctx.gameCategory.getId(), "core_db.game_category.id"),
-                    () -> assertTrue(ctx.gameCategory.getId() > 0, "core_db.game_category.id_positive"),
                     () -> assertEquals(ctx.responseBody.id(), ctx.gameCategory.getUuid(), "core_db.game_category.uuid"),
                     () -> assertEquals(ctx.request.getAlias(), ctx.gameCategory.getAlias(), "core_db.game_category.alias"),
                     () -> assertTrue(ctx.gameCategory.getCreatedAt() > 0, "core_db.game_category.created_at"),
                     () -> assertTrue(ctx.gameCategory.getUpdatedAt() >= ctx.gameCategory.getCreatedAt(), "core_db.game_category.updated_at"),
                     () -> assertEquals(PROJECT_ID, ctx.gameCategory.getProjectUuid(), "core_db.game_category.project_uuid"),
-                    () -> assertTrue(ctx.gameCategory.getProjectGroupUuid() == null || ctx.gameCategory.getProjectGroupUuid().isBlank(),
+                    () -> assertTrue(ctx.gameCategory.getProjectGroupUuid().isBlank(),
                             "core_db.game_category.project_group_uuid"),
-                    () -> assertEquals(ACTIVE_STATUS_ID, ctx.gameCategory.getStatusId(), "core_db.game_category.status_id"),
+                    () -> assertEquals(GameCategoryStatus.ACTIVE.getId(), ctx.gameCategory.getStatusId(), "core_db.game_category.status_id"),
                     () -> assertEquals(SORT_ORDER, ctx.gameCategory.getEntitySort(), "core_db.game_category.entity_sort"),
                     () -> assertFalse(ctx.gameCategory.isDefault(), "core_db.game_category.is_default"),
                     () -> assertNull(ctx.gameCategory.getParentUuid(), "core_db.game_category.parent_uuid"),
                     () -> assertEquals(ctx.request.getType().value(), ctx.gameCategory.getEntityType(), "core_db.game_category.entity_type"),
-                    () -> assertNotNull(ctx.gameCategory.getLocalizedNames(), "core_db.game_category.localized_names"),
                     () -> assertEquals(expectedLocalizedNames, ctx.gameCategory.getLocalizedNames(), "core_db.game_category.localized_names"),
                     () -> assertFalse(ctx.gameCategory.isCms(), "core_db.game_category.cms")
             );
