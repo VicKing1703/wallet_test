@@ -1,18 +1,26 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
-import com.testing.multisource.config.modules.http.HttpServiceHelper;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
+import com.testing.multisource.api.nats.dto.NatsMessage;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RollbackRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
-import com.testing.multisource.api.nats.dto.NatsMessage;
-import com.uplatform.wallet_tests.api.nats.dto.enums.*;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionType;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsMessageName;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsTransactionDirection;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,93 +34,71 @@ import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Интеграционный тест, проверяющий функциональность отката ставок (роллбэка) в системе Wallet для азартных игр.
+ * Проверяет успешное выполнение роллбэка ставок для разных типов исходных операций.
  *
- * <p>Данный параметризованный тест проверяет полный жизненный цикл операции отката ставки
- * различных типов (BET, TIPS, FREESPIN). Тест выполняет начальную ставку, а затем проверяет
- * корректность обработки отката этой ставки со всеми сопутствующими изменениями данных
- * во всех компонентах системы.</p>
+ * <p><b>Идея теста:</b>
+ * Совершить ставку, выполнить роллбэк и убедиться, что все интеграции (HTTP API, Kafka, NATS, Redis, БД)
+ * отражают возврат средств и связь с исходной транзакцией.</p>
  *
- * <p>Каждая итерация параметризованного теста выполняется с полностью изолированным состоянием,
- * включая создание нового игрока и игровой сессии, что обеспечивает надежность при параллельном выполнении.</p>
- *
- * <p><b>Проверяемые типы исходных операций:</b></p>
- * <ul>
- *   <li>{@link NatsGamblingTransactionOperation#BET} - откат обычной ставки</li>
- *   <li>{@link NatsGamblingTransactionOperation#TIPS} - откат чаевых</li>
- *   <li>{@link NatsGamblingTransactionOperation#FREESPIN} - откат бесплатных вращений</li>
- * </ul>
- *
- * <p><b>Проверяемые аспекты системы:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
  *   <li><b>REST API:</b>
- *     <ul>
- *       <li>Выполнение исходной операции ставки ({@code /bet})</li>
- *       <li>Выполнение операции отката ставки ({@code /rollback})</li>
- *       <li>Корректность ответа API и обновленного баланса игрока</li>
- *     </ul>
+ *     <p><b>Что проверяем:</b> ответы {@code /bet} и {@code /rollback} и расчет баланса.</p>
+ *     <p><b>Почему это важно:</b> API — основной канал взаимодействия, ошибки недопустимы.</p>
  *   </li>
  *   <li><b>События:</b>
- *     <ul>
- *       <li>Генерация события {@code rollbacked_from_gamble} в NATS</li>
- *       <li>Корректное заполнение всех полей события</li>
- *       <li>Соблюдение правил направления транзакции (DEPOSIT) и типа операции (ROLLBACK)</li>
- *     </ul>
+ *     <p><b>Что проверяем:</b> публикацию {@code rollbacked_from_gamble} и содержимое Kafka.</p>
+ *     <p><b>Почему это важно:</b> downstream-сервисы зависят от корректности сообщений.</p>
  *   </li>
- *   <li><b>База данных:</b>
- *     <ul>
- *       <li>Сохранение транзакции роллбэка в {@code gambling_projection_transaction_history}</li>
- *       <li>Обновление порогов выигрыша в {@code player_threshold_win}</li>
- *       <li>Корректные связи между исходной ставкой и роллбэком</li>
- *     </ul>
- *   </li>
- *   <li><b>Кэш:</b>
- *     <ul>
- *       <li>Обновление данных кошелька в Redis</li>
- *       <li>Корректный расчет баланса после роллбэка</li>
- *     </ul>
- *   </li>
- *   <li><b>Kafka: wallet.v8.projectionSource</b>
- *     <ul>
- *       <li>Трансляция события роллбэка в Kafka</li>
- *       <li>Идентичность событий в NATS и Kafka</li>
- *     </ul>
+ *   <li><b>Хранилища:</b>
+ *     <p><b>Что проверяем:</b> запись транзакции в БД и обновление кеша кошелька.</p>
+ *     <p><b>Почему это важно:</b> баланс и лимиты игрока должны быть согласованными.</p>
  *   </li>
  * </ul>
  *
- * <p><b>Бизнес-логика операции роллбэка:</b></p>
+ * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>При откате ставки игроку возвращается списанная ранее сумма</li>
- *   <li>Корректируется порог выигрыша с учетом отмененной ставки</li>
- *   <li>Транзакция роллбэка должна содержать ссылку на ID исходной ставки</li>
- *   <li>Раунд игры может быть помечен как закрытый при роллбэке</li>
+ *   <li>Ставка и роллбэк завершаются статусом {@code 200 OK}.</li>
+ *   <li>Событие роллбэка фиксируется в NATS и Kafka с корректными атрибутами.</li>
+ *   <li>Redis и БД отражают возврат средств и связь с исходной ставкой.</li>
  * </ul>
  */
 @Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/rollback")
 @Suite("Позитивные сценарии: /rollback")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RollbackParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
-    private static final String expectedCurrencyRates = "1";
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+    private static final String EXPECTED_CURRENCY_RATES = "1";
+
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> rollbackAmountProvider() {
         return Stream.of(
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.BET
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.TIPS
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.FREESPIN
                 ),
                 Arguments.of(
@@ -131,17 +117,38 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
     }
 
     /**
-     @param rollbackAmountParam Сумма для исходной транзакции и последующего роллбэка
-     @param operationTypeParam Тип исходной транзакции (BET, TIPS, FREESPIN)
+     * Выполняет ставку и роллбэк для заданной суммы и типа операции.
+     *
+     * <p><b>Идея теста:</b>
+     * Проверить, что возврат корректно восстанавливает баланс и фиксируется во всех интеграциях.</p>
+     *
+     * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+     * <ul>
+     *   <li><b>Ставка через {@code /bet}:</b>
+     *     <p><b>Что проверяем:</b> успешное списание средств и расчет баланса.</p>
+     *     <p><b>Почему это важно:</b> исходная ставка задает основу для роллбэка.</p>
+     *   </li>
+     *   <li><b>Роллбэк через {@code /rollback}:</b>
+     *     <p><b>Что проверяем:</b> возврат суммы и связь с исходной транзакцией.</p>
+     *     <p><b>Почему это важно:</b> гарантия, что система корректно отменяет операции.</p>
+     *   </li>
+     * </ul>
+     *
+     * <p><b>Ожидаемые результаты:</b></p>
+     * <ul>
+     *   <li>API возвращает ожидаемые статусы и баланс игрока.</li>
+     *   <li>События содержат корректные ссылки на исходную ставку.</li>
+     *   <li>Хранилища отражают завершившийся роллбэк.</li>
+     * </ul>
+     *
+     * @param rollbackAmountParam сумма исходной ставки и последующего роллбэка
+     * @param operationTypeParam тип исходной транзакции (BET, TIPS, FREESPIN)
      */
     @ParameterizedTest(name = "Роллбэк транзакции типа {1} суммой {0}")
     @MethodSource("rollbackAmountProvider")
-    @DisplayName("Получение роллбэка игроком в игровой сессии для разных сумм и типов транзакций")
-    void test(
-            BigDecimal rollbackAmountParam,
-            NatsGamblingTransactionOperation operationTypeParam) {
+    @DisplayName("Получение роллбэка игроком в игровой сессии для разных сумм")
+    void test(BigDecimal rollbackAmountParam, NatsGamblingTransactionOperation operationTypeParam) {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -160,8 +167,8 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
 
         ctx.rollbackAmount = rollbackAmountParam;
         ctx.betAmount = rollbackAmountParam;
-        ctx.adjustmentAmount = initialAdjustmentAmount;
-        ctx.expectedCurrencyRates = expectedCurrencyRates;
+        ctx.adjustmentAmount = INITIAL_ADJUSTMENT_AMOUNT;
+        ctx.expectedCurrencyRates = EXPECTED_CURRENCY_RATES;
         ctx.expectedBalanceAfterBet = BigDecimal.ZERO
                 .add(ctx.adjustmentAmount)
                 .subtract(ctx.betAmount);
@@ -263,8 +270,8 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
         });
 
         step("DB Wallet: Проверка записи роллбэка в gambling_projection_transaction_history", () -> {
-            var transaction = walletDatabaseClient.
-                    findTransactionByUuidOrFail(ctx.rollbackRequestBody.getTransactionId());
+            var transaction = walletDatabaseClient
+                    .findTransactionByUuidOrFail(ctx.rollbackRequestBody.getTransactionId());
 
             assertNotNull(transaction, "db.transaction");
 
@@ -284,7 +291,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
             );
         });
 
-        step("DB Wallet: Проверка записи порога выигрыша в player_threshold_win после rollback", () -> {
+        step("DB Wallet: Проверка записи порога выигрыша после роллбэка", () -> {
             var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
                     ctx.registeredPlayer.walletData().playerUUID());
 
@@ -297,7 +304,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
             );
         });
 
-        step("Kafka: Проверка поступления сообщения о роллбэке в топик wallet.v8.projectionSource", () -> {
+        step("Kafka: Проверка сообщения о роллбэке в wallet.v8.projectionSource", () -> {
             var message = kafkaClient.expect(WalletProjectionMessage.class)
                     .with("seq_number", ctx.rollbackEvent.getSequence())
                     .fetch();
@@ -306,7 +313,7 @@ class RollbackParametrizedTest extends BaseParameterizedTest {
             assertTrue(utils.areEquivalent(message, ctx.rollbackEvent), "kafka.message.equivalent_to_nats");
         });
 
-        step("Redis(Wallet): Получение и проверка полных данных кошелька после роллбэка", () -> {
+        step("Redis(Wallet): Проверка агрегата кошелька после роллбэка", () -> {
             var aggregate = redisWalletClient
                     .key(ctx.registeredPlayer.walletData().walletUUID())
                     .withAtLeast("LastSeqNumber", (int) ctx.rollbackEvent.getSequence())

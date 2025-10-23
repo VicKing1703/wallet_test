@@ -1,7 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
-import com.testing.multisource.config.modules.http.HttpServiceHelper;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingError;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RollbackRequestBody;
@@ -9,10 +8,15 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrors;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import feign.FeignException;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,84 +30,75 @@ import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Интеграционный тест, проверяющий невозможность выполнения роллбэка для транзакций начисления выигрышей различных типов,
- * включая транзакции с нулевой суммой выигрыша.
+ * Проверяет отказ роллбэка для транзакций выигрыша различных типов.
  *
- * <p>Данный параметризованный тест проверяет поведение системы при попытке выполнить операцию роллбэка,
- * указывая в качестве {@code rollbackTransactionId} идентификатор транзакции начисления выигрыша
- * одного из следующих типов: {@link NatsGamblingTransactionOperation#WIN WIN},
- * {@link NatsGamblingTransactionOperation#JACKPOT JACKPOT}, или {@link NatsGamblingTransactionOperation#FREESPIN FREESPIN}.
- * Тест подтверждает, что система корректно обрабатывает такие запросы, отклоняя их,
- * поскольку операция роллбэка применима только к транзакциям типа "ставка" (bet).</p>
+ * <p><b>Идея теста:</b>
+ * Начислить выигрыш (WIN, JACKPOT или FREESPIN), затем убедиться, что попытка откатить его завершается ошибкой.</p>
  *
- * <p>Тест также включает сценарии с нулевой суммой выигрыша. Ключевым аспектом является то, что роллбэк применим исключительно
- * к транзакциям типа "ставка" (bet), а не к результатам этих ставок (выигрышам), независимо от их суммы.</p>
- *
- * <p><b>Последовательность действий для каждого набора параметров:</b></p>
- * <ol>
- *   <li>Регистрация игрока с начальным балансом.</li>
- *   <li>Создание игровой сессии.</li>
- *   <li>Совершение транзакции начисления выигрыша указанного типа ({@code win}, {@code jackpot}, {@code freespin})
- *       и суммы (включая нулевую) игроку (успешно).</li>
- *   <li>Попытка выполнения роллбэка, используя {@code transactionId} транзакции выигрыша
- *       в качестве {@code rollbackTransactionId} (ожидается ошибка).</li>
- * </ol>
- *
- * <p><b>Ожидаемые результаты для каждого набора параметров:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>Начисление выигрыша (в том числе с нулевой суммой) выполняется успешно (HTTP 200 OK).</li>
- *   <li>Попытка роллбэка для транзакции выигрыша (любого из тестируемых типов и сумм)
- *       должна быть отклонена с кодом {@code HTTP 400 BAD REQUEST}
- *       и содержать ошибку {@link GamblingErrors#ROLLBACK_NOT_ALLOWED} (или аналогичную ошибку,
- *       указывающую, что исходная транзакция не является ставкой, для которой возможен роллбэк).</li>
+ *   <li><b>Начисление выигрыша:</b>
+ *     <p><b>Что проверяем:</b> успешный ответ {@code /win}.</p>
+ *     <p><b>Почему это важно:</b> подтверждает корректность исходной операции.</p>
+ *   </li>
+ *   <li><b>Попытка роллбэка:</b>
+ *     <p><b>Что проверяем:</b> ошибку {@link GamblingErrors#ROLLBACK_NOT_ALLOWED}.</p>
+ *     <p><b>Почему это важно:</b> выигрыши не должны отменяться через роллбэк.</p>
+ *   </li>
  * </ul>
  *
- * <p><b>Тестируемые типы транзакций выигрыша ({@link NatsGamblingTransactionOperation}):</b></p>
+ * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>{@code WIN} - Обычный выигрыш.</li>
- *   <li>{@code JACKPOT} - Выигрыш джекпота.</li>
- *   <li>{@code FREESPIN} - Выигрыш, полученный в результате бесплатных вращений.</li>
+ *   <li>Начисление выигрыша выполняется успешно.</li>
+ *   <li>Роллбэк завершается ошибкой {@code 400 BAD REQUEST}.</li>
+ *   <li>Ответ содержит код и сообщение {@code ROLLBACK_NOT_ALLOWED}.</li>
  * </ul>
- *
- * @see NatsGamblingTransactionOperation
- * @see GamblingErrors#ROLLBACK_NOT_ALLOWED
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
 @Feature("/rollback")
 @Suite("Негативные сценарии: /rollback")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RollbackAfterWinParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> winLikeTransactionTypeProvider() {
         return Stream.of(
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.WIN
                 ),
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.JACKPOT
                 ),
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.FREESPIN
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.WIN
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.JACKPOT
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.FREESPIN
                 )
@@ -111,26 +106,28 @@ class RollbackAfterWinParametrizedTest extends BaseParameterizedTest {
     }
 
     /**
-     * Тестирует невозможность выполнения роллбэка для транзакции выигрыша.
+     * Выполняет попытку роллбэка для начисленного выигрыша и проверяет ожидаемую ошибку.
      *
-     * @param winAmountParam Сумма исходной транзакции выигрыша (может быть 0).
-     * @param winOperationTypeParam Тип операции выигрыша (WIN, JACKPOT, FREESPIN).
+     * @param winAmountParam сумма выигрыша (может быть нулевой)
+     * @param winOperationTypeParam тип операции выигрыша
      */
     @ParameterizedTest(name = "транзакция типа [{1}] суммой [{0}] должна вызвать ошибку")
     @MethodSource("winLikeTransactionTypeProvider")
-    @DisplayName("Попытка роллбэка:")
-    void testRollbackForWinTransactionReturnsError(BigDecimal winAmountParam, NatsGamblingTransactionOperation winOperationTypeParam) {
-        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
-
+    @DisplayName("Попытка роллбэка выигрыша")
+    void testRollbackForWinTransactionReturnsError(
+            BigDecimal winAmountParam,
+            NatsGamblingTransactionOperation winOperationTypeParam
+    ) {
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             GameLaunchData gameLaunchData;
             WinRequestBody winRequestBody;
+            GamblingError error;
         }
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -157,7 +154,7 @@ class RollbackAfterWinParametrizedTest extends BaseParameterizedTest {
             assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.win.status_code");
         });
 
-        step("Manager API: Попытка выполнения роллбэка для транзакции выигрыша", () -> {
+        step("Manager API: Попытка роллбэка транзакции выигрыша", () -> {
             var rollbackRequestBody = RollbackRequestBody.builder()
                     .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
@@ -177,16 +174,16 @@ class RollbackAfterWinParametrizedTest extends BaseParameterizedTest {
                             utils.createSignature(ApiEndpoints.ROLLBACK, rollbackRequestBody),
                             rollbackRequestBody
                     ),
-                    "manager_api.rollback_after_win.exception"
+                    "manager_api.rollback.win.expected_exception"
             );
 
-            var error = utils.parseFeignExceptionContent(thrownException, GamblingError.class);
+            ctx.error = utils.parseFeignExceptionContent(thrownException, GamblingError.class);
 
-            assertAll("Проверка деталей ошибки при попытке роллбэка после транзакции выигрыша",
+            assertAll(
                     () -> assertEquals(HttpStatus.BAD_REQUEST.value(), thrownException.status(), "manager_api.rollback.status_code"),
-                    () -> assertNotNull(error, "manager_api.rollback.body"),
-                    () -> assertEquals(GamblingErrors.ROLLBACK_NOT_ALLOWED.getCode(), error.code(), "manager_api.rollback.error_code"),
-                    () -> assertEquals(GamblingErrors.ROLLBACK_NOT_ALLOWED.getMessage(), error.message(), "manager_api.rollback.error_message")
+                    () -> assertNotNull(ctx.error, "manager_api.rollback.body"),
+                    () -> assertEquals(GamblingErrors.ROLLBACK_NOT_ALLOWED.getCode(), ctx.error.code(), "manager_api.rollback.error_code"),
+                    () -> assertEquals(GamblingErrors.ROLLBACK_NOT_ALLOWED.getMessage(), ctx.error.message(), "manager_api.rollback.error_message")
             );
         });
     }

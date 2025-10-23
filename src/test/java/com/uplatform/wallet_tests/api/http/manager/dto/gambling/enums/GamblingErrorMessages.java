@@ -15,6 +15,7 @@ public final class GamblingErrorMessages {
 
     // Ошибки валидации amount
     public static final String AMOUNT_NEGATIVE = "validate request: amount: value [-1] must be greater or equal than [0].";
+    public static final String AMOUNT_NEGATIVE_NO_LESS_THAN_ZERO = "validate request: amount: must be no less than 0.";
 
     // Ошибки бизнес-логики
     public static final String INSUFFICIENT_BALANCE = "insufficient balance";
@@ -30,4 +31,13 @@ public final class GamblingErrorMessages {
     // Ошибки валидации roundId
     public static final String ROUND_ID_BLANK = "validate request: roundId: cannot be blank.";
     public static final String ROUND_ID_TOO_LONG = "validate request: roundId: the length must be no more than 255.";
+
+    // Ошибки валидации betTransactionId
+    public static final String BET_TRANSACTION_ID_BLANK = "validate request: betTransactionId: cannot be blank.";
+    public static final String BET_TRANSACTION_ID_INVALID_UUID = "validate request: betTransactionId: must be a valid UUID.";
+
+    // Ошибки валидации rollbackTransactionId
+    public static final String ROLLBACK_TRANSACTION_ID_BLANK = "validate request: rollbackTransactionId: cannot be blank.";
+    public static final String ROLLBACK_TRANSACTION_ID_INVALID_UUID_LENGTH =
+            "parse betTransaction: invalid UUID length: 10";
 }
