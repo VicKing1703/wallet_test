@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.api.db;
-import com.testing.multisource.api.db.AbstractDatabaseClient;
 
+import com.testing.multisource.api.db.AbstractDatabaseClient;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGame;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGameSession;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreWallet;
@@ -87,5 +87,4 @@ public class CoreDatabaseClient extends AbstractDatabaseClient {
 
         return awaitAndGetOrFail(description, attachmentNamePrefix, querySupplier);
     }
-
 }
