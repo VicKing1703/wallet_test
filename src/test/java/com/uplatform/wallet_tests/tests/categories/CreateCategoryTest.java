@@ -5,6 +5,7 @@ import com.uplatform.wallet_tests.api.http.cap.dto.LocalizedName;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryResponse;
+import com.uplatform.wallet_tests.api.db.entity.core.GameCategory;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import io.qameta.allure.Epic;
@@ -43,6 +44,7 @@ class CreateCategoryTest extends BaseTest {
         final class TestContext {
             CreateCategoryRequest request;
             CreateCategoryResponse responseBody;
+            GameCategory gameCategory;
         }
         final TestContext ctx = new TestContext();
 
@@ -71,6 +73,20 @@ class CreateCategoryTest extends BaseTest {
             assertNotNull(ctx.responseBody, "cap_api.categories.create.response_body");
             assertAll(
                     () -> assertNotNull(ctx.responseBody.id(), "cap_api.categories.create.id")
+            );
+        });
+
+        step("Core DB: Категория сохранена", () -> {
+            ctx.gameCategory = coreDatabaseClient.findGameCategoryByUuidOrFail(ctx.responseBody.id());
+
+            assertAll(
+                    () -> assertEquals(ctx.responseBody.id(), ctx.gameCategory.getUuid(), "core_db.game_category.uuid"),
+                    () -> assertEquals(ctx.request.getAlias(), ctx.gameCategory.getAlias(), "core_db.game_category.alias"),
+                    () -> assertEquals(PROJECT_ID, ctx.gameCategory.getProjectUuid(), "core_db.game_category.project_uuid"),
+                    () -> assertEquals(ctx.request.getType().value(), ctx.gameCategory.getEntityType(), "core_db.game_category.entity_type"),
+                    () -> assertEquals(ctx.request.getNames().getRu(), ctx.gameCategory.getLocalizedNames().get("ru"), "core_db.game_category.localized_names.ru"),
+                    () -> assertEquals(ctx.request.getNames().getEn(), ctx.gameCategory.getLocalizedNames().get("en"), "core_db.game_category.localized_names.en"),
+                    () -> assertEquals(ctx.request.getNames().getLv(), ctx.gameCategory.getLocalizedNames().get("lv"), "core_db.game_category.localized_names.lv")
             );
         });
     }
