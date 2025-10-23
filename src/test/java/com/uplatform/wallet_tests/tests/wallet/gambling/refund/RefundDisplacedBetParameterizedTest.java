@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
+
 import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -70,12 +71,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Epic("Gambling")
 @Feature("/refund")
 @Suite("Позитивные сценарии: /refund")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RefundDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("1000.00");
     private static final int MAX_GAMBLING_COUNT_IN_REDIS = 50;
-
     private String casinoId;
 
     @BeforeEach

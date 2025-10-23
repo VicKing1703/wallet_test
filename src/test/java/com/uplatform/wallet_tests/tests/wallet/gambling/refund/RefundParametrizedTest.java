@@ -7,11 +7,7 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBod
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
-import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
-import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionSource;
-import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionStatus;
-import com.uplatform.wallet_tests.api.nats.dto.enums.NatsTransactionDirection;
+import com.uplatform.wallet_tests.api.nats.dto.enums.*;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -33,9 +29,7 @@ import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Проверяет успешный рефанд ставок в казино для разных типов исходных операций.

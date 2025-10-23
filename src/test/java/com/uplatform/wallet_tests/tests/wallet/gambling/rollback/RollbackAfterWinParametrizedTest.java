@@ -64,7 +64,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Epic("Gambling")
 @Feature("/rollback")
 @Suite("Негативные сценарии: /rollback")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RollbackAfterWinParametrizedTest extends BaseParameterizedTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
+
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
@@ -61,12 +62,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Epic("Gambling")
 @Feature("/refund")
 @Suite("Негативные сценарии: /refund")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RefundAfterRollbackTest extends BaseTest {
 
     private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
     private static final BigDecimal BET_AMOUNT = generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT);
-
     private String casinoId;
 
     @BeforeEach
