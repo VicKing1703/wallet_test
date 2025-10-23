@@ -3,11 +3,11 @@ package com.uplatform.wallet_tests.tests.categories;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.db.entity.core.GameCategory;
 import com.uplatform.wallet_tests.api.http.cap.dto.LocalizedName;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryResponse;
+import com.uplatform.wallet_tests.api.kafka.dto.GameCategoryMessage;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
@@ -26,6 +26,7 @@ import org.springframework.http.HttpStatus;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static com.uplatform.wallet_tests.api.db.entity.core.enums.GameCategoryStatus.DISABLED;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.ALIAS;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.get;
@@ -42,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class DeleteCategoryTest extends BaseParameterizedTest {
 
     private static final int SORT_ORDER = 1;
+    private static final String GAME_CATEGORY_EVENT_TYPE = "category";
 
     private String projectId;
     private String platformUserId;
@@ -69,9 +71,9 @@ class DeleteCategoryTest extends BaseParameterizedTest {
         final class TestContext {
             CreateCategoryRequest createRequest;
             CreateCategoryResponse createResponse;
-            GameCategory gameCategoryBeforeDeletion;
             Map<String, String> expectedLocalizedNames;
             long remainingRecords;
+            GameCategoryMessage gameCategoryMessage;
         }
         final TestContext ctx = new TestContext();
 
@@ -106,17 +108,6 @@ class DeleteCategoryTest extends BaseParameterizedTest {
             assertNotNull(ctx.createResponse.id(), "cap_api.create_category.id");
         });
 
-        step("DB (Core): Проверка сохранения категории перед удалением", () -> {
-            ctx.gameCategoryBeforeDeletion = coreDatabaseClient.findGameCategoryByUuidOrFail(ctx.createResponse.id());
-
-            assertAll("Проверка полей созданной категории перед удалением",
-                    () -> assertEquals(ctx.createResponse.id(), ctx.gameCategoryBeforeDeletion.getUuid(), "core_db.game_category.uuid"),
-                    () -> assertEquals(ctx.createRequest.getAlias(), ctx.gameCategoryBeforeDeletion.getAlias(), "core_db.game_category.alias"),
-                    () -> assertEquals(projectId, ctx.gameCategoryBeforeDeletion.getProjectUuid(), "core_db.game_category.project_uuid"),
-                    () -> assertEquals(ctx.expectedLocalizedNames, ctx.gameCategoryBeforeDeletion.getLocalizedNames(), "core_db.game_category.localized_names")
-            );
-        });
-
         step("CAP API: Удаление категории игр", () -> {
             var response = capAdminClient.deleteCategory(
                     ctx.createResponse.id(),
@@ -131,6 +122,28 @@ class DeleteCategoryTest extends BaseParameterizedTest {
         step("DB (Core): Проверка удаления категории из таблицы game_category", () -> {
             ctx.remainingRecords = coreDatabaseClient.waitForGameCategoryDeletionOrFail(ctx.createResponse.id());
             assertEquals(0L, ctx.remainingRecords, "core_db.game_category.remaining_rows");
+        });
+
+        step("Kafka: Проверка события удаления категории в топике core.gambling.v3.Game", () -> {
+            ctx.gameCategoryMessage = kafkaClient.expect(GameCategoryMessage.class)
+                    .with("category.uuid", ctx.createResponse.id())
+                    .with("message.eventType", GAME_CATEGORY_EVENT_TYPE)
+                    .fetch();
+
+            assertNotNull(ctx.gameCategoryMessage, "kafka.game_category_event.message");
+            var messageEnvelope = ctx.gameCategoryMessage.message();
+            assertNotNull(messageEnvelope, "kafka.game_category_event.message_envelope");
+            var kafkaCategory = ctx.gameCategoryMessage.category();
+            assertNotNull(kafkaCategory, "kafka.game_category_event.category");
+
+            assertAll("Проверка полей Kafka-сообщения об удалении категории",
+                    () -> assertEquals(GAME_CATEGORY_EVENT_TYPE, messageEnvelope.eventType(), "kafka.game_category_event.message.event_type"),
+                    () -> assertEquals(ctx.createResponse.id(), kafkaCategory.uuid(), "kafka.game_category_event.category.uuid"),
+                    () -> assertEquals(ctx.createRequest.getType().value(), kafkaCategory.type(), "kafka.game_category_event.category.type"),
+                    () -> assertEquals(ctx.expectedLocalizedNames, kafkaCategory.localizedNames(), "kafka.game_category_event.category.localized_names"),
+                    () -> assertEquals(ctx.createRequest.getNames().getRu(), kafkaCategory.name(), "kafka.game_category_event.category.name"),
+                    () -> assertEquals(DISABLED.status, kafkaCategory.status(), "kafka.game_category_event.category.status")
+            );
         });
     }
 }
