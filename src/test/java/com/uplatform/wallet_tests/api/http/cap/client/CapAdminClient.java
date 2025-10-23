@@ -1,6 +1,8 @@
 package com.uplatform.wallet_tests.api.http.cap.client;
 
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
@@ -90,6 +92,14 @@ public interface CapAdminClient {
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
             @RequestBody CreateBlockAmountRequest request
+    );
+
+    @PostMapping("/_cap/api/v2/categories")
+    ResponseEntity<CreateCategoryResponse> createCategory(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-Userid") String platformUserId,
+            @RequestHeader("Platform-Username") String platformUsername,
+            @RequestBody CreateCategoryRequest request
     );
 
     @GetMapping("/_cap/api/v1/wallet/{player_uuid}/block-amount-list")
