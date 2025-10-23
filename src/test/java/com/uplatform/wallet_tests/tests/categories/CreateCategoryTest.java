@@ -72,7 +72,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class CreateCategoryTest extends BaseParameterizedTest {
 
     private static final int SORT_ORDER = 1;
-    private static final String GAME_CATEGORY_EVENT_TYPE = "category";
 
     private String projectId;
     private String platformUserId;
@@ -166,7 +165,6 @@ class CreateCategoryTest extends BaseParameterizedTest {
 
             var kafkaCategory = ctx.gameCategoryMessage.category();
             assertNotNull(kafkaCategory, "kafka.game_category_event.category");
-
             var messageEnvelope = ctx.gameCategoryMessage.message();
             assertNotNull(messageEnvelope, "kafka.game_category_event.message");
 
@@ -177,11 +175,11 @@ class CreateCategoryTest extends BaseParameterizedTest {
                     () -> assertEquals(ctx.expectedLocalizedNames, kafkaCategory.localizedNames(), "kafka.game_category_event.category.localized_names"),
                     //ToDo тут какой-то артефакт name дублирует данные из localized_names
                     () -> assertEquals(ctx.request.getNames().getRu(), kafkaCategory.name(), "kafka.game_category_event.category.name"),
-                    () -> assertEquals(GAME_CATEGORY_EVENT_TYPE, messageEnvelope.eventType(), "kafka.game_category_event.message.event_type")
+                    () -> assertEquals(CategoryType.CATEGORY.value(), messageEnvelope.eventType(), "kafka.game_category_event.message.event_type")
             );
         });
 
-        step("Постусловие: Удаление созданной категории и проверка очистки БД", () -> {
+        step("CAP API: Удаление созданной категории", () -> {
             var response = capAdminClient.deleteCategory(
                     ctx.responseBody.id(),
                     utils.getAuthorizationHeader(),
@@ -190,9 +188,6 @@ class CreateCategoryTest extends BaseParameterizedTest {
             );
 
             assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.delete_category.status_code");
-
-            ctx.cleanupRemainingRecords = coreDatabaseClient.waitForGameCategoryDeletionOrFail(ctx.responseBody.id());
-            assertEquals(0L, ctx.cleanupRemainingRecords, "core_db.game_category.remaining_rows_after_cleanup");
         });
     }
 }

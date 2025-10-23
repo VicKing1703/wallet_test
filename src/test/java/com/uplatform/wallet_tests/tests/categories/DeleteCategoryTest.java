@@ -33,13 +33,42 @@ import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.ge
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Интеграционный параметризованный тест, проверяющий позитивные сценарии удаления категорий игр через CAP API:
+ * {@code DELETE /_cap/api/v1/categories/{uuid}}.
+ *
+ * <p><b>Идея теста:</b> Продемонстрировать полную сквозную надежность системы при выполнении деструктивной административной
+ * операции — удаления категории. Тест гарантирует, что запрос на удаление через единую точку входа (CAP API)
+ * корректно распространяется по всей системе: запись физически удаляется из основной базы данных, а в Kafka отправляется
+ * соответствующее событие. Это подтверждает, что состояние каталога игр остается консистентным во всех сервисах.</p>
+ *
+ * <p><b>Сценарии тестирования:</b></p>
+ * <p>Тестируется удаление двух основных типов сущностей: обычной категории ({@code CATEGORY}) и коллекции ({@code COLLECTION}),
+ * чтобы убедиться в правильной обработке каждого из них.</p>
+ *
+ * <p><b>Последовательность действий для каждого набора параметров:</b></p>
+ * <ol>
+ *   <li>Создание новой категории игр через CAP API (как предусловие для теста).</li>
+ *   <li>Отправка запроса в CAP API для удаления только что созданной категории.</li>
+ *   <li>Проверка успешного ответа от CAP API (HTTP 204 NO CONTENT).</li>
+ *   <li>Проверка того, что запись о категории была физически удалена из основной базы данных Core.</li>
+ *   <li>Прослушивание и валидация события в Kafka-топике {@code core.gambling.v3.Game}, подтверждающего факт удаления категории.</li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Запрос на удаление категории успешно обрабатывается (HTTP 204 NO CONTENT).</li>
+ *   <li>Запись в таблице {@code game_category} в базе данных Core полностью удаляется.</li>
+ *   <li>В Kafka-топик {@code core.gambling.v3.Game} публикуется событие, содержащее информацию об удаленной категории.</li>
+ *   <li>Система остается в консистентном состоянии после выполнения операции.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Execution(ExecutionMode.SAME_THREAD)
 @Epic("CAP")
-@Feature("Управление списком игр")
+@Feature("Категории")
 @Suite("Удаление категорий: Позитивные сценарии")
-@Tag("CAP")
-@Tag("Platform")
+@Tag("CAP") @Tag("Platform")
 class DeleteCategoryTest extends BaseParameterizedTest {
 
     private static final int SORT_ORDER = 1;
@@ -71,12 +100,11 @@ class DeleteCategoryTest extends BaseParameterizedTest {
             CreateCategoryRequest createRequest;
             CreateCategoryResponse createResponse;
             Map<String, String> expectedLocalizedNames;
-            long remainingRecords;
             GameCategoryMessage gameCategoryMessage;
         }
         final TestContext ctx = new TestContext();
 
-        step("CAP API: Создание категории игр для последующего удаления", () -> {
+        step("Pre-condition: Создание категории для последующего удаления", () -> {
             ctx.createRequest = CreateCategoryRequest.builder()
                     .names(LocalizedName.builder()
                             .ru(get(NAME, 10))
@@ -101,13 +129,13 @@ class DeleteCategoryTest extends BaseParameterizedTest {
                     ctx.createRequest
             );
 
-            assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.create_category.status_code");
+            assertEquals(HttpStatus.OK, response.getStatusCode(), "precondition.create_category.status_code");
             ctx.createResponse = response.getBody();
-            assertNotNull(ctx.createResponse, "cap_api.create_category.response_body");
-            assertNotNull(ctx.createResponse.id(), "cap_api.create_category.id");
+            assertNotNull(ctx.createResponse, "precondition.create_category.response_body");
+            assertNotNull(ctx.createResponse.id(), "precondition.create_category.id");
         });
 
-        step("CAP API: Удаление категории игр", () -> {
+        step("CAP API: Отправка запроса на удаление категории", () -> {
             var response = capAdminClient.deleteCategory(
                     ctx.createResponse.id(),
                     utils.getAuthorizationHeader(),
@@ -118,15 +146,14 @@ class DeleteCategoryTest extends BaseParameterizedTest {
             assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.delete_category.status_code");
         });
 
-        step("DB (Core): Проверка удаления категории из таблицы game_category", () -> {
-            ctx.remainingRecords = coreDatabaseClient.waitForGameCategoryDeletionOrFail(ctx.createResponse.id());
-            assertEquals(0L, ctx.remainingRecords, "core_db.game_category.remaining_rows");
+        step("DB (Core): Проверка физического удаления категории из таблицы game_category", () -> {
+            var remainingRecords = coreDatabaseClient.waitForGameCategoryDeletionOrFail(ctx.createResponse.id());
+            assertEquals(0L, remainingRecords, "core_db.game_category.remaining_rows");
         });
 
-        step("Kafka: Проверка события удаления категории в топике core.gambling.v3.Game", () -> {
+        step("Kafka: Проверка события об удалении категории в топике core.gambling.v3.Game", () -> {
             ctx.gameCategoryMessage = kafkaClient.expect(GameCategoryMessage.class)
                     .with("category.uuid", ctx.createResponse.id())
-                    .with("message.eventType", CategoryType.CATEGORY.value())
                     .fetch();
 
             assertNotNull(ctx.gameCategoryMessage, "kafka.game_category_event.message");
@@ -136,12 +163,13 @@ class DeleteCategoryTest extends BaseParameterizedTest {
             assertNotNull(kafkaCategory, "kafka.game_category_event.category");
 
             assertAll("Проверка полей Kafka-сообщения об удалении категории",
-                    () -> assertEquals(CategoryType.CATEGORY.value(), messageEnvelope.eventType(), "kafka.game_category_event.message.event_type"),
                     () -> assertEquals(ctx.createResponse.id(), kafkaCategory.uuid(), "kafka.game_category_event.category.uuid"),
                     () -> assertEquals(ctx.createRequest.getType().value(), kafkaCategory.type(), "kafka.game_category_event.category.type"),
                     () -> assertEquals(ctx.expectedLocalizedNames, kafkaCategory.localizedNames(), "kafka.game_category_event.category.localized_names"),
-                    () -> assertEquals(ctx.createRequest.getNames().getRu(), kafkaCategory.name(), "kafka.game_category_event.category.name"),
-                    () -> assertEquals(DISABLED.status, kafkaCategory.status(), "kafka.game_category_event.category.status")
+                    () -> assertEquals(DISABLED.status, kafkaCategory.status(), "kafka.game_category_event.category.status"),
+                    () -> assertEquals(CategoryType.CATEGORY.value(), messageEnvelope.eventType(), "kafka.game_category_event.message.event_type"),
+                    //ToDo тут какой-то артефакт name дублирует данные из localized_names
+                    () -> assertEquals(ctx.createRequest.getNames().getRu(), kafkaCategory.name(), "kafka.game_category_event.category.name")
             );
         });
     }
