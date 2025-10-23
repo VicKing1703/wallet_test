@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CreateCategoryTest extends BaseParameterizedTest {
 
     private static final int SORT_ORDER = 1;
+    private static final String GAME_CATEGORY_EVENT_TYPE = "category";
 
     private String projectId;
     private String platformUserId;
@@ -141,14 +142,16 @@ class CreateCategoryTest extends BaseParameterizedTest {
             var kafkaCategory = ctx.gameCategoryMessage.category();
             assertNotNull(kafkaCategory, "kafka.core_gambling_game.category");
 
+            var messageEnvelope = ctx.gameCategoryMessage.message();
+            assertNotNull(messageEnvelope, "kafka.core_gambling_game.message");
+
             assertAll(
-                    () -> assertNotNull(ctx.gameCategoryMessage.message(), "kafka.core_gambling_game.message"),
                     () -> assertEquals(ctx.request.getType().value(), kafkaCategory.type(), "kafka.core_gambling_game.category.type"),
                     () -> assertEquals(ctx.responseBody.id(), kafkaCategory.uuid(), "kafka.core_gambling_game.category.uuid"),
                     () -> assertEquals(ctx.request.getNames().getRu(), kafkaCategory.name(), "kafka.core_gambling_game.category.name"),
                     () -> assertEquals(ctx.expectedLocalizedNames, kafkaCategory.localizedNames(), "kafka.core_gambling_game.category.localized_names"),
                     () -> assertEquals(DISABLED.status, kafkaCategory.status(), "kafka.core_gambling_game.category.status"),
-                    () -> assertEquals(ctx.request.getType().value(), ctx.gameCategoryMessage.message().eventType(), "kafka.core_gambling_game.message.event_type")
+                    () -> assertEquals(GAME_CATEGORY_EVENT_TYPE, messageEnvelope.eventType(), "kafka.core_gambling_game.message.event_type")
             );
         });
     }
