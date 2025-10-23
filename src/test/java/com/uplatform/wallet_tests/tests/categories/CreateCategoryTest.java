@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 
+import java.util.Map;
+
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.ALIAS;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.NAME;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.get;
@@ -83,6 +85,12 @@ class CreateCategoryTest extends BaseTest {
         step("Core DB: Категория сохранена", () -> {
             ctx.gameCategory = coreDatabaseClient.findGameCategoryByUuidOrFail(ctx.responseBody.id());
 
+            Map<String, String> expectedLocalizedNames = Map.of(
+                    "ru", ctx.request.getNames().getRu(),
+                    "en", ctx.request.getNames().getEn(),
+                    "lv", ctx.request.getNames().getLv()
+            );
+
             assertAll(
                     () -> assertNotNull(ctx.gameCategory.getId(), "core_db.game_category.id"),
                     () -> assertTrue(ctx.gameCategory.getId() > 0, "core_db.game_category.id_positive"),
@@ -99,9 +107,7 @@ class CreateCategoryTest extends BaseTest {
                     () -> assertNull(ctx.gameCategory.getParentUuid(), "core_db.game_category.parent_uuid"),
                     () -> assertEquals(ctx.request.getType().value(), ctx.gameCategory.getEntityType(), "core_db.game_category.entity_type"),
                     () -> assertNotNull(ctx.gameCategory.getLocalizedNames(), "core_db.game_category.localized_names"),
-                    () -> assertEquals(ctx.request.getNames().getRu(), ctx.gameCategory.getLocalizedNames().get("ru"), "core_db.game_category.localized_names.ru"),
-                    () -> assertEquals(ctx.request.getNames().getEn(), ctx.gameCategory.getLocalizedNames().get("en"), "core_db.game_category.localized_names.en"),
-                    () -> assertEquals(ctx.request.getNames().getLv(), ctx.gameCategory.getLocalizedNames().get("lv"), "core_db.game_category.localized_names.lv"),
+                    () -> assertEquals(expectedLocalizedNames, ctx.gameCategory.getLocalizedNames(), "core_db.game_category.localized_names"),
                     () -> assertFalse(ctx.gameCategory.isCms(), "core_db.game_category.cms")
             );
         });
