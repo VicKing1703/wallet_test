@@ -1,4 +1,4 @@
-package com.uplatform.platform.categories;
+package com.uplatform.wallet_tests.tests.categories;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.LocalizedName;
@@ -14,6 +14,7 @@ import io.qameta.allure.SeverityLevel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.ALIAS;
@@ -28,8 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Epic("CAP")
 @Feature("Категории")
 @Suite("Создание категорий: Позитивные сценарии")
-@Tag("CAP")
-@Tag("Platform")
+@Tag("CAP") @Tag("Platform")
 class CreateCategoryTest extends BaseTest {
 
     @Test
@@ -46,7 +46,7 @@ class CreateCategoryTest extends BaseTest {
         }
         final TestContext ctx = new TestContext();
 
-        step("CAP API: Подготовка и отправка запроса на создание категории", () -> {
+        step("CAP API: Создание категории игр", () -> {
             ctx.request = CreateCategoryRequest.builder()
                     .names(LocalizedName.builder()
                             .ru(get(NAME, 10))

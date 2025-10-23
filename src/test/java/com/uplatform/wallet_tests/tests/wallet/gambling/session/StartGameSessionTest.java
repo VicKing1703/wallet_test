@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Epic("Gambling")
 @Feature("StartGameSession")
 @Suite("Позитивные сценарии: StartGameSession")
-@Tag("Gambling") @Tag("Wallet") @Tag("Platform")
+@Tag("Gambling") @Tag("Wallet")
 class StartGameSessionTest extends BaseTest {
 
     private static final Random RANDOM = new Random();
