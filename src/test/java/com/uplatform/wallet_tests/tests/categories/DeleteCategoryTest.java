@@ -43,7 +43,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class DeleteCategoryTest extends BaseParameterizedTest {
 
     private static final int SORT_ORDER = 1;
-    private static final String GAME_CATEGORY_EVENT_TYPE = "category";
 
     private String projectId;
     private String platformUserId;
@@ -127,7 +126,7 @@ class DeleteCategoryTest extends BaseParameterizedTest {
         step("Kafka: Проверка события удаления категории в топике core.gambling.v3.Game", () -> {
             ctx.gameCategoryMessage = kafkaClient.expect(GameCategoryMessage.class)
                     .with("category.uuid", ctx.createResponse.id())
-                    .with("message.eventType", GAME_CATEGORY_EVENT_TYPE)
+                    .with("message.eventType", CategoryType.CATEGORY.value())
                     .fetch();
 
             assertNotNull(ctx.gameCategoryMessage, "kafka.game_category_event.message");
@@ -137,7 +136,7 @@ class DeleteCategoryTest extends BaseParameterizedTest {
             assertNotNull(kafkaCategory, "kafka.game_category_event.category");
 
             assertAll("Проверка полей Kafka-сообщения об удалении категории",
-                    () -> assertEquals(GAME_CATEGORY_EVENT_TYPE, messageEnvelope.eventType(), "kafka.game_category_event.message.event_type"),
+                    () -> assertEquals(CategoryType.CATEGORY.value(), messageEnvelope.eventType(), "kafka.game_category_event.message.event_type"),
                     () -> assertEquals(ctx.createResponse.id(), kafkaCategory.uuid(), "kafka.game_category_event.category.uuid"),
                     () -> assertEquals(ctx.createRequest.getType().value(), kafkaCategory.type(), "kafka.game_category_event.category.type"),
                     () -> assertEquals(ctx.expectedLocalizedNames, kafkaCategory.localizedNames(), "kafka.game_category_event.category.localized_names"),
