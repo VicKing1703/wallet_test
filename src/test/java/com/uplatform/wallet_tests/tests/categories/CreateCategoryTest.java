@@ -8,18 +8,22 @@ import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryRequ
 import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryResponse;
 import com.uplatform.wallet_tests.api.db.entity.core.GameCategory;
 import com.uplatform.wallet_tests.api.kafka.dto.GameCategoryMessage;
-import com.uplatform.wallet_tests.tests.base.BaseTest;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.db.entity.core.enums.GameCategoryStatus.DISABLED;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.GeneratorType.ALIAS;
@@ -38,15 +42,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Feature("Категории")
 @Suite("Создание категорий: Позитивные сценарии")
 @Tag("CAP") @Tag("Platform")
-class CreateCategoryTest extends BaseTest {
+class CreateCategoryTest extends BaseParameterizedTest {
 
-    @Test
+    private static final int SORT_ORDER = 1;
+
+    private String projectId;
+    private String platformUserId;
+    private String platformUsername;
+
+    @BeforeAll
+    void setupGlobalContext() {
+        projectId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+        platformUserId = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
+        platformUsername = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
+    }
+
+    static Stream<Arguments> categoryTypeProvider() {
+        return Stream.of(
+                Arguments.of(CategoryType.CATEGORY),
+                Arguments.of(CategoryType.COLLECTION)
+        );
+    }
+
+    @ParameterizedTest(name = "Тип категории = {0}")
+    @MethodSource("categoryTypeProvider")
     @DisplayName("CAP: Создание категории - успешный ответ содержит идентификатор.")
-    void shouldCreateCategory() {
-        final String PROJECT_ID = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String PLATFORM_USER_ID = HttpServiceHelper.getCapPlatformUserId(configProvider.getEnvironmentConfig().getHttp());
-        final String PLATFORM_USERNAME = HttpServiceHelper.getCapPlatformUsername(configProvider.getEnvironmentConfig().getHttp());
-        final int SORT_ORDER = 1;
+    void shouldCreateCategory(CategoryType categoryType) {
 
         final class TestContext {
             CreateCategoryRequest request;
@@ -66,8 +87,8 @@ class CreateCategoryTest extends BaseTest {
                             .build())
                     .alias(get(ALIAS, 12))
                     .sort(SORT_ORDER)
-                    .projectId(PROJECT_ID)
-                    .type(CategoryType.CATEGORY)
+                    .projectId(projectId)
+                    .type(categoryType)
                     .build();
 
             ctx.expectedLocalizedNames = objectMapper.convertValue(
@@ -77,8 +98,8 @@ class CreateCategoryTest extends BaseTest {
 
             var response = capAdminClient.createCategory(
                     utils.getAuthorizationHeader(),
-                    PLATFORM_USER_ID,
-                    PLATFORM_USERNAME,
+                    platformUserId,
+                    platformUsername,
                     ctx.request
             );
 
@@ -98,7 +119,7 @@ class CreateCategoryTest extends BaseTest {
                     () -> assertEquals(ctx.request.getAlias(), ctx.gameCategory.getAlias(), "core_db.game_category.alias"),
                     () -> assertTrue(ctx.gameCategory.getCreatedAt() > 0, "core_db.game_category.created_at"),
                     () -> assertTrue(ctx.gameCategory.getUpdatedAt() >= ctx.gameCategory.getCreatedAt(), "core_db.game_category.updated_at"),
-                    () -> assertEquals(PROJECT_ID, ctx.gameCategory.getProjectUuid(), "core_db.game_category.project_uuid"),
+                    () -> assertEquals(projectId, ctx.gameCategory.getProjectUuid(), "core_db.game_category.project_uuid"),
                     () -> assertTrue(ctx.gameCategory.getProjectGroupUuid().isBlank(),
                             "core_db.game_category.project_group_uuid"),
                     () -> assertEquals(DISABLED.statusId, ctx.gameCategory.getStatusId(), "core_db.game_category.status_id"),
