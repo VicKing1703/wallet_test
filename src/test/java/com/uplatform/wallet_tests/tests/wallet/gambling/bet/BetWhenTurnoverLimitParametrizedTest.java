@@ -1,5 +1,4 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitRequest;
@@ -11,9 +10,9 @@ import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
+import com.uplatform.wallet_tests.tests.base.BaseNegativeParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import feign.FeignException;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -25,53 +24,72 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
+import static com.testing.multisource.config.modules.http.HttpServiceHelper.getManagerCasinoId;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Интеграционный тест, проверяющий функциональность системы ограничений
- * на оборот средств (TurnoverLimit) при совершении ставок в казино.
+ * Интеграционный тест, верифицирующий механизм ограничения на оборот (Turnover Limit) при совершении ставок.
  *
- * <p>Данный параметризованный тест проверяет корректность обработки запросов
- * на совершение ставок, превышающих установленный лимит на оборот средств.
- * Тест проверяет все типы ставок (BET, TIPS, FREESPIN) и подтверждает,
- * что система корректно отклоняет их, когда сумма ставки превышает
- * установленный дневной лимит на оборот средств.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить абсолютную надежность и точность работы функционала "Ответственная игра" (Responsible Gaming)
+ * в части контроля лимита на оборот. Система обязана выполнять строгую, синхронную проверку совокупной суммы ставок и
+ * принудительно отклонять любую транзакцию, если ее выполнение приведет к превышению установленного лимита, <b>до</b> списания средств.
+ * Это гарантирует, что общая сумма ставок игрока за период не превысит заданного им значения.</p>
  *
- * <p>Тест предварительно настраивает дневной лимит на оборот средств для игрока через Public API
- * и затем пытается сделать ставку, превышающую этот лимит.</p>
- *
- * <p><b>Проверяемые типы ставок:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>{@code BET} - обычная ставка.</li>
- *   <li>{@code TIPS} - чаевые.</li>
- *   <li>{@code FREESPIN} - бесплатные вращения.</li>
+ *   <li><b>Контроль совокупного оборота в реальном времени:</b>
+ *     <p><b>Что проверяем:</b> Попытки совершить ставку ({@code POST /bet}), сумма которой в совокупности с ранее сделанными ставками
+ *     превысит установленный лимит оборота.
+ *     <p><b>Почему это важно:</b> Верификация должна происходить синхронно, агрегируя все предыдущие ставки за период.
+ *     Это подтверждает, что система ведет точный учет оборота и способна мгновенно предотвратить нарушение лимита,
+ *     что является ключевым требованием для функционала "Ответственная игра".
+ *   </li>
+ *   <li><b>Универсальность ограничения:</b>
+ *     <p><b>Что проверяем:</b> Применение лимита ко всем типам расходных операций в казино ({@code BET}, {@code TIPS}, {@code FREESPIN}).
+ *     <p><b>Почему это важно:</b> Лимит на оборот должен учитывать все виды ставок, формирующих общую сумму поставленных средств.
+ *     Тест доказывает отсутствие уязвимостей, при которых определенный тип транзакции мог бы быть исключен из расчета оборота.
+ *   </li>
  * </ul>
  *
- * <p><b>Ожидаемый результат:</b> API возвращает ошибку с кодом {@link GamblingErrors#LIMIT_IS_OVER}
- * и соответствующим сообщением о превышении лимита.</p>
+ * <p><b>Сценарий тестирования:</b></p>
+ * <ol>
+ *   <li>Игроку устанавливается дневной лимит на оборот через Public API.</li>
+ *   <li>Игрок (имея достаточный баланс) пытается совершить ставку на сумму, которая сразу превышает этот лимит.</li>
+ *   <li>Проверяется, что система отклоняет операцию с соответствующей ошибкой.</li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>API возвращает ошибку с кодом {@link GamblingErrors#LIMIT_IS_OVER}.</li>
+ *   <li>Баланс игрока остается неизменным, подтверждая, что проверка происходит до списания.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
 @Feature("/bet")
 @Suite("Негативные сценарии: /bet")
 @Tag("Gambling") @Tag("Wallet") @Tag("Limits")
-class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
+class BetWhenTurnoverLimitParametrizedTest extends BaseNegativeParameterizedTest {
+
+    private static final BigDecimal LIMIT_AMOUNT = new BigDecimal("150.00");
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("2000.00");
+    private static final BigDecimal EXCEEDED_BET_AMOUNT = new BigDecimal("100.00");
 
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
-    private final BigDecimal limitAmount = new BigDecimal("150.00");
-    private final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
-    private final BigDecimal exceededBetAmount = new BigDecimal("100.00");
+    private String casinoId;
 
     @BeforeAll
-    void setup() {
+    void setUp() {
+        casinoId = getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+
         step("Default Step: Регистрация нового пользователя", () -> {
-            registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(registeredPlayer, "default_step.registration");
         });
 
@@ -82,14 +100,14 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(registeredPlayer.getWalletData().getCurrency())
+                    .currency(registeredPlayer.walletData().currency())
                     .type(NatsLimitIntervalType.DAILY)
-                    .amount(limitAmount.toString())
+                    .amount(LIMIT_AMOUNT.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setTurnoverLimit(
-                    registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "public_api.status_code");
@@ -97,15 +115,12 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    registeredPlayer.getWalletData().getPlayerUUID(),
-                    registeredPlayer.getWalletData().getWalletUUID());
-
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
+                    registeredPlayer.walletData().playerUUID(),
+                    registeredPlayer.walletData().walletUUID());
 
             var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
                     .fetch();
 
             assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
@@ -114,30 +129,26 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
 
     static Stream<Arguments> blockedBetProvider() {
         return Stream.of(
-                arguments(
+                Arguments.of(
                         NatsGamblingTransactionOperation.BET,
-                        HttpStatus.BAD_REQUEST,
                         GamblingErrors.LIMIT_IS_OVER,
-                        "limit is over"
+                        GamblingErrors.LIMIT_IS_OVER.getMessage()
                 ),
-                arguments(
+                Arguments.of(
                         NatsGamblingTransactionOperation.TIPS,
-                        HttpStatus.BAD_REQUEST,
                         GamblingErrors.LIMIT_IS_OVER,
-                        "limit is over"
+                        GamblingErrors.LIMIT_IS_OVER.getMessage()
                 ),
-                arguments(
+                Arguments.of(
                         NatsGamblingTransactionOperation.FREESPIN,
-                        HttpStatus.BAD_REQUEST,
                         GamblingErrors.LIMIT_IS_OVER,
-                        "limit is over"
+                        GamblingErrors.LIMIT_IS_OVER.getMessage()
                 )
         );
     }
 
     /**
      * @param type Тип операции ставки для проверки
-     * @param expectedStatus Ожидаемый HTTP статус ответа
      * @param expectedErrorCode Ожидаемый код ошибки
      * @param expectedMessage Ожидаемое сообщение об ошибке
      */
@@ -146,39 +157,40 @@ class BetWhenTurnoverLimitParametrizedTest extends BaseParameterizedTest {
     @DisplayName("Совершение ставки в казино, превышающей TurnoverLimit:")
     void test(
             NatsGamblingTransactionOperation type,
-            HttpStatus expectedStatus,
             GamblingErrors expectedErrorCode,
             String expectedMessage
     ) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final class TestContext {
+            BetRequestBody request;
+            GamblingError error;
+        }
+        final TestContext ctx = new TestContext();
 
         step("Manager API: Попытка совершения ставки, превышающей лимит на оборот средств", () -> {
-            var request = BetRequestBody.builder()
-                    .sessionToken(gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .amount(limitAmount.add(exceededBetAmount))
+            ctx.request = BetRequestBody.builder()
+                    .sessionToken(gameLaunchData.dbGameSession().getGameSessionUuid())
+                    .amount(LIMIT_AMOUNT.add(EXCEEDED_BET_AMOUNT))
                     .transactionId(UUID.randomUUID().toString())
                     .type(type)
                     .roundId(UUID.randomUUID().toString())
                     .roundClosed(false)
                     .build();
 
-            var thrownException = assertThrows(
-                    FeignException.class,
+            ctx.error = executeExpectingError(
                     () -> managerClient.bet(
                             casinoId,
-                            utils.createSignature(ApiEndpoints.BET, request),
-                            request
+                            utils.createSignature(ApiEndpoints.BET, ctx.request),
+                            ctx.request
                     ),
-                    "manager_api.bet.exception"
-            );
-
-            var error = utils.parseFeignExceptionContent(thrownException, GamblingError.class);
-
-            assertAll("Проверка деталей ошибки",
-                    () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.error.status_code"),
-                    () -> assertEquals(expectedErrorCode.getCode(), error.getCode(), "manager_api.error.code"),
-                    () -> assertEquals(expectedMessage, error.getMessage(), "manager_api.error.message")
+                    "manager_api.bet.expected_exception",
+                    GamblingError.class
             );
         });
+
+        assertValidationError(
+                ctx.error,
+                expectedErrorCode.getCode(),
+                expectedMessage
+        );
     }
 }

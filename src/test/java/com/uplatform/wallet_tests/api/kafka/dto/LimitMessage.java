@@ -2,41 +2,17 @@ package com.uplatform.wallet_tests.api.kafka.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
-@NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class LimitMessage {
-
-    @JsonProperty("limitType")
-    private String limitType;
-
-    @JsonProperty("intervalType")
-    private String intervalType;
-
-    @JsonProperty("amount")
-    private String amount;
-
-    @JsonProperty("currencyCode")
-    private String currencyCode;
-
-    @JsonProperty("id")
-    private String id;
-
-    @JsonProperty("playerId")
-    private String playerId;
-
-    @JsonProperty("status")
-    private Boolean status;
-
-    @JsonProperty("startedAt")
-    private Long startedAt;
-
-    @JsonProperty("expiresAt")
-    private Long expiresAt;
-
-    @JsonProperty("eventType")
-    private String eventType;
-}
+public record LimitMessage(
+        @JsonProperty("limitType") String limitType,
+        @JsonProperty("intervalType") String intervalType,
+        @JsonProperty("amount") String amount,
+        @JsonProperty("currencyCode") String currencyCode,
+        @JsonProperty("id") String id,
+        @JsonProperty("playerId") String playerId,
+        @JsonProperty("status") Boolean status,
+        @JsonProperty("startedAt") Long startedAt,
+        @JsonProperty("expiresAt") Long expiresAt,
+        @JsonProperty("eventType") String eventType
+) {}

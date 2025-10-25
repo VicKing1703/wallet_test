@@ -1,33 +1,67 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
-import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsPreventGambleSettedPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import io.qameta.allure.*;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Интеграционный параметризованный тест, проверяющий позитивные сценарии обновления блокировок на гемблинг и беттинг для игрока через CAP API:
+ * {@code PATCH /_cap/api/v1/players/{playerUUID}/blockers}.
+
+ * <p><b>Идея теста:</b> Гарантировать абсолютную надежность и консистентность одной из ключевых административных функций — управления
+ * доступом игрока к активностям. Тест проверяет, что изменение статуса блокировки через единую точку входа (CAP API)
+ * надежно и корректно распространяется по всей распределенной системе. Это подтверждает, что состояние игрока синхронизировано
+ * во всех компонентах (NATS, Kafka, DB, Redis), и блокировка будет работать так, как ожидается, без расхождений в данных.</p>
+ *
+ * <p><b>Сценарии тестирования:</b></p>
+ * <p>Тестируются все четыре возможные комбинации флагов {@code gamblingEnabled} и {@code bettingEnabled} (true/true, true/false, false/true, false/false),
+ * чтобы убедиться в корректной обработке каждого состояния.</p>
+ *
+ * <p><b>Последовательность действий для каждого набора параметров:</b></p>
+ * <ol>
+ *   <li>Регистрация нового игрока.</li>
+ *   <li>Отправка запроса в CAP API для обновления флагов {@code gamblingEnabled} и {@code bettingEnabled}.</li>
+ *   <li>Прослушивание и валидация NATS-события типа {@link com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType#SETTING_PREVENT_GAMBLE_SETTED},
+ *       подтверждающего изменение настроек.</li>
+ *   <li>Проверка того, что NATS-событие было успешно спроецировано в Kafka-топик {@code wallet.v8.projectionSource}.</li>
+ *   <li>Проверка прямого изменения флагов в основной базе данных кошелька (таблица wallet).</li>
+ *   <li>Проверка обновления состояния кошелька в Redis.</li>
+ *   <li>Отправка запроса в CAP API для получения текущих блокировок и проверка их соответствия установленным значениям.</li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Запрос на обновление блокировок успешно обрабатывается (HTTP 204 NO CONTENT).</li>
+ *   <li>В NATS публикуется событие {@code setting_prevent_gamble_setted} с корректными флагами.</li>
+ *   <li>Событие из NATS полностью и корректно дублируется в проекционный топик Kafka {@code wallet.v8.projectionSource}.</li>
+ *   <li>Флаги {@code is_gambling_active} и {@code is_betting_active} в базе данных обновляются в соответствии с запросом.</li>
+ *   <li>Состояние кошелька в Redis отражает новые настройки блокировок.</li>
+ *   <li>Повторный запрос на получение блокировок через CAP API возвращает актуальные, только что установленные значения.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
-@Feature("PlayerBlockers")
-@Suite("Позитивные сценарии: PlayerBlockers")
-@Tag("Wallet") @Tag("СAP")
+@Feature("Управление игроком")
+@Suite("Ручные блокировки гемблинга и беттинга: Позитивные сценарии")
+@Tag("Wallet") @Tag("CAP")
 class BlockersParametrizedTest extends BaseParameterizedTest {
 
     private String platformNodeId;
@@ -39,40 +73,41 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
 
     static Stream<Arguments> blockersProvider() {
         return Stream.of(
-                Arguments.of(true,  true,  "Гэмблинг и беттинг включены"),
-                Arguments.of(true,  false, "Гэмблинг включен, беттинг выключен"),
-                Arguments.of(false, true,  "Гэмблинг выключен, беттинг включен"),
-                Arguments.of(false, false, "Гэмблинг и беттинг выключены")
+                Arguments.of(true, true),
+                Arguments.of(true, false),
+                Arguments.of(false, true),
+                Arguments.of(false, false)
         );
     }
 
-    @ParameterizedTest(name = "{2}")
+    @ParameterizedTest(name = "Gambling={0}, Betting={1}")
     @MethodSource("blockersProvider")
-    @DisplayName("Позитивный сценарий совершения блокировки игрока:")
-    void shouldRegisterPlayerAndUpdateBlockers(
+    @DisplayName("Обновление блокировок гемблинга и беттинга:")
+    void shouldUpdatePlayerBlockersAndVerifyEvents(
             boolean gamblingEnabled,
-            boolean bettingEnabled,
-            String description) {
+            boolean bettingEnabled
+    ) {
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             UpdateBlockersRequest updateBlockersRequest;
             NatsMessage<NatsPreventGambleSettedPayload> updateBlockersEvent;
+            WalletProjectionMessage walletProjectionMessage;
         }
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer();
-            assertNotNull(ctx.registeredPlayer, "default_step.registration");
+            assertNotNull(ctx.registeredPlayer.walletData(), "default_step.registration.wallet_data");
         });
 
-        step("CAP API: Обновление блокировок", () -> {
+        step("CAP API: Обновление блокировок гемблинга и беттинга", () -> {
             ctx.updateBlockersRequest = UpdateBlockersRequest.builder()
                     .gamblingEnabled(gamblingEnabled)
                     .bettingEnabled(bettingEnabled)
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     ctx.updateBlockersRequest
@@ -80,68 +115,81 @@ class BlockersParametrizedTest extends BaseParameterizedTest {
             assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.update_blockers.status_code");
         });
 
-        step("NATS: Проверка поступления события setting_prevent_gamble_setted", () -> {
+        step("NATS: Проверка события setting_prevent_gamble_setted", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID()
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID()
             );
-
-            var filter = (BiPredicate<NatsPreventGambleSettedPayload, String>) (payload, typeHeader) ->
-                    NatsEventType.SETTING_PREVENT_GAMBLE_SETTED.getHeaderValue().equals(typeHeader)
-                            && payload.isGamblingActive() == gamblingEnabled
-                            && payload.isBettingActive() == bettingEnabled;
 
             ctx.updateBlockersEvent = natsClient.expect(NatsPreventGambleSettedPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.SETTING_PREVENT_GAMBLE_SETTED.getHeaderValue())
+                    .with("is_gambling_active", gamblingEnabled)
+                    .with("is_betting_active", bettingEnabled)
+                    .unique()
                     .fetch();
 
-            assertAll(
-                    () -> assertEquals(gamblingEnabled, ctx.updateBlockersEvent.getPayload().isGamblingActive(), "nats.update_blockers.gambling_enabled"),
-                    () -> assertEquals(bettingEnabled, ctx.updateBlockersEvent.getPayload().isBettingActive(), "nats.update_blockers.betting_enabled"),
-                    () -> assertNotNull(ctx.updateBlockersEvent.getPayload().getCreatedAt(), "nats.update_blockers.created_at")
+            var payload = ctx.updateBlockersEvent.getPayload();
+            assertAll("Проверка полей NATS-события",
+                    () -> assertEquals(gamblingEnabled, payload.gamblingActive(), "nats.setting_prevent_gamble_setted.is_gambling_active"),
+                    () -> assertEquals(bettingEnabled, payload.bettingActive(), "nats.setting_prevent_gamble_setted.is_betting_active"),
+                    () -> assertNotNull(payload.createdAt(), "nats.setting_prevent_gamble_setted.created_at")
             );
         });
 
-        step("DB Wallet: Проверка флагов в таблице wallet", () -> {
+        step("Kafka: Проверка события setting_prevent_gamble_setted в топике wallet.v8.projectionSource", () -> {
+            ctx.walletProjectionMessage = kafkaClient.expect(WalletProjectionMessage.class)
+                    .with("type", ctx.updateBlockersEvent.getType())
+                    .with("seq_number", ctx.updateBlockersEvent.getSequence())
+                    .unique()
+                    .fetch();
+
+            var kafkaMessage = ctx.walletProjectionMessage;
+            var expectedPayload = assertDoesNotThrow(() ->
+                    objectMapper.writeValueAsString(ctx.updateBlockersEvent.getPayload()));
+
+            assertAll("Проверка полей Kafka-сообщения, спроецированного из NATS",
+                    () -> assertEquals(ctx.updateBlockersEvent.getType(), kafkaMessage.type(), "kafka.setting_prevent_gamble_setted.type"),
+                    () -> assertEquals(ctx.updateBlockersEvent.getSequence(), kafkaMessage.seqNumber(), "kafka.setting_prevent_gamble_setted.seq_number"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().walletUUID(), kafkaMessage.walletUuid(), "kafka.setting_prevent_gamble_setted.wallet_uuid"),
+                    () -> assertEquals(expectedPayload, kafkaMessage.payload(), "kafka.setting_prevent_gamble_setted.payload")
+            );
+        });
+
+        step("DB (Wallet): Проверка флагов в таблице wallet", () -> {
             var wallet = walletDatabaseClient.findWalletByUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID()
+                    ctx.registeredPlayer.walletData().walletUUID()
             );
-            assertAll(
-                    () -> assertEquals(gamblingEnabled, wallet.isGamblingActive(), "db.wallet.gambling_active"),
-                    () -> assertEquals(bettingEnabled, wallet.isBettingActive(), "db.wallet.betting_active")
-            );
-        });
-
-        step("Redis(Wallet): Проверка флагов активности в Redis", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.updateBlockersEvent.getSequence()
-            );
-            assertAll(
-                    () -> assertEquals(gamblingEnabled, aggregate.isGamblingActive(), "redis.wallet.gambling_active"),
-                    () -> assertEquals(bettingEnabled, aggregate.isBettingActive(), "redis.wallet.betting_active")
+            assertAll("Проверка состояния флагов в основной БД",
+                    () -> assertEquals(gamblingEnabled, wallet.isGamblingActive(), "db.wallet.is_gambling_active"),
+                    () -> assertEquals(bettingEnabled, wallet.isBettingActive(), "db.wallet.is_betting_active")
             );
         });
 
-        step("CAP API: Проверка получения блокировок", () -> {
+        step("Redis (Wallet): Проверка состояния кошелька", () -> {
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", ctx.updateBlockersEvent.getSequence())
+                    .fetch();
+            assertAll("Проверка флагов в агрегате Redis",
+                    () -> assertEquals(gamblingEnabled, aggregate.isGamblingActive(), "redis.wallet.is_gambling_active"),
+                    () -> assertEquals(bettingEnabled, aggregate.isBettingActive(), "redis.wallet.is_betting_active")
+            );
+        });
+
+        step("CAP API: Проверка получения обновленных блокировок", () -> {
             var response = capAdminClient.getBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId);
-            assertNotNull(response.getBody(), "cap_api.get_blockers.body_not_null");
-            assertAll(
-                    () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.get_blockers.status_code"),
-                    () -> assertEquals(gamblingEnabled, response.getBody().isGamblingEnabled(), "cap_api.get_blockers.gambling_enabled"),
-                    () -> assertEquals(bettingEnabled, response.getBody().isBettingEnabled(), "cap_api.get_blockers.betting_enabled")
-            );
-        });
 
-        step("Kafka: Проверка поступления сообщения setting_prevent_gamble_setted в топик wallet.v8.projectionSource", () -> {
-            var kafkaMsg = kafkaClient.expect(WalletProjectionMessage.class)
-                    .with("seq_number", ctx.updateBlockersEvent.getSequence())
-                    .fetch();
-            assertTrue(utils.areEquivalent(kafkaMsg, ctx.updateBlockersEvent), "kafka.payload");
+            assertEquals(HttpStatus.OK, response.getStatusCode(), "cap_api.get_blockers.status_code");
+            assertNotNull(response.getBody(), "cap_api.get_blockers.response_body");
+
+            assertAll("Проверка данных в ответе getBlockers",
+                    () -> assertEquals(gamblingEnabled, response.getBody().gamblingEnabled(), "cap_api.get_blockers.gambling_enabled"),
+                    () -> assertEquals(bettingEnabled, response.getBody().bettingEnabled(), "cap_api.get_blockers.betting_enabled")
+            );
         });
     }
 }

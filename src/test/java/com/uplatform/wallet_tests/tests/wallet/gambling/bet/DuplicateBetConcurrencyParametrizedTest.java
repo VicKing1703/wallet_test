@@ -1,6 +1,7 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingResponseBody;
@@ -31,29 +32,46 @@ import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Интеграционный параметризованный тест, проверяющий идемпотентную обработку дублирующихся ставок
- * при одновременной отправке для различных типов операций (BET, TIPS, FREESPIN) и сумм (включая нулевую).
+ * Интеграционный тест, верифицирующий идемпотентную обработку дублирующихся транзакций в условиях конкурентного доступа (race condition).
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что при отправке двух абсолютно идентичных запросов на ставку одновременно, система корректно
- * обработает только один из них, а второй обработает идемпотентно. Тест ожидает, что оба запроса вернут
- * статус {@link HttpStatus#OK}, но с разными телами ответа: один с актуальным балансом после списания,
- * а второй — с нулевым балансом, подтверждая, что повторного списания не произошло.</p>
+ * <p><b>Идея теста:</b>
+ * Подтвердить абсолютную надежность механизма идемпотентности при обработке конкурирующих, идентичных запросов.
+ * Тест эмулирует критический сценарий "гонки состояний" (race condition), когда два потока одновременно пытаются обработать
+ * одну и ту же транзакцию. Система обязана гарантировать, что только один запрос выполнит финансовую операцию (списание средств),
+ * в то время как второй будет обработан идемпотентно, предотвращая двойное списание и обеспечивая атомарность операции.</p>
  *
- * <p><b>Сценарий теста (для каждой комбинации типа операции и суммы):</b></p>
- * <ol>
- *   <li><b>Подготовка:</b> Для каждого набора параметров создается новый игрок и игровая сессия.</li>
- *   <li><b>Одновременная отправка запросов:</b> Создается два идентичных `Callable`, выполняющих запрос {@code /bet}.
- *       Оба `Callable` отправляются на выполнение одновременно в пуле из двух потоков.</li>
- *   <li><b>Проверка ответов:</b>
- *       <ul>
- *           <li>Оба ответа должны вернуться со статусом {@link HttpStatus#OK}.</li>
- *           <li>{@code transactionId} в обоих ответах должен быть одинаковым.</li>
- *           <li>Баланс в одном из ответов должен соответствовать ожидаемому балансу после списания.</li>
- *           <li>Баланс во втором ответе должен быть равен {@link BigDecimal#ZERO}.</li>
- *       </ul>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+ * <ul>
+ *   <li><b>Атомарность финансовой операции:</b>
+ *     <p><b>Что проверяем:</b> Результат выполнения двух идентичных запросов, отправленных практически одновременно.
+ *     <p><b>Почему это важно:</b> Это фундаментальная проверка для любой распределенной финансовой системы. Сетевые задержки,
+ *     клиентские повторы (retries) или ошибки могут привести к отправке дубликатов. Система должна быть спроектирована так,
+ *     чтобы гарантировать семантику обработки "exactly-once" для финансовых транзакций, предотвращая потерю или дублирование средств.
  *   </li>
+ *   <li><b>Корректность ответов при идемпотентной обработке:</b>
+ *     <p><b>Что проверяем:</b> Статус-коды и тела ответов для обоих конкурирующих запросов.
+ *     <p><b>Почему это важно:</b> Успешный статус (200 OK) для обоих запросов подтверждает, что с точки зрения клиента (игрового провайдера)
+ *     операция завершилась корректно, даже если она была дубликатом. Различие в телах ответа (один с актуальным балансом,
+ *     другой — с нулевым) является ключевым индикатором того, что идемпотентный механизм сработал: повторное списание не произошло,
+ *     и был возвращен результат уже завершенной транзакции (в данном случае, представленный нулевым балансом как признак идемпотентной обработки).
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Сценарий тестирования:</b></p>
+ * <ol>
+ *   <li>Для каждой комбинации параметров (тип операции, сумма) создается изолированная среда (новый игрок, новая сессия).</li>
+ *   <li>Формируются два абсолютно идентичных запроса на ставку.</li>
+ *   <li>С помощью пула из двух потоков оба запроса отправляются на выполнение одновременно, создавая условия для race condition.</li>
+ *   <li>Анализируются оба полученных ответа.</li>
  * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Оба ответа имеют статус {@link HttpStatus#OK}.</li>
+ *   <li>Идентификаторы транзакций ({@code transactionId}) в обоих ответах идентичны.</li>
+ *   <li>Набор балансов из двух ответов содержит ровно два значения: ожидаемый баланс после одного списания и {@link BigDecimal#ZERO}.</li>
+ *   <li>Финальный баланс игрока в системе соответствует результату одного единственного списания.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
@@ -62,29 +80,32 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("Gambling") @Tag("Wallet")
 class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
 
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("1000.00");
+    private static final BigDecimal DEFAULT_BET_AMOUNT = new BigDecimal("1.00");
+
     private RegisteredPlayerData registeredPlayer;
     private GameLaunchData gameLaunchData;
-
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("1000.00");
-    private static final BigDecimal defaultBetAmount = new BigDecimal("1.00");
+    private String casinoId;
 
     static Stream<Arguments> betOperationAndAmountProvider() {
         return Stream.of(
-                Arguments.of(NatsGamblingTransactionOperation.BET, defaultBetAmount),
+                Arguments.of(NatsGamblingTransactionOperation.BET, DEFAULT_BET_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.BET, BigDecimal.ZERO),
 
-                Arguments.of(NatsGamblingTransactionOperation.TIPS, defaultBetAmount),
+                Arguments.of(NatsGamblingTransactionOperation.TIPS, DEFAULT_BET_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.TIPS, BigDecimal.ZERO),
 
-                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, defaultBetAmount),
+                Arguments.of(NatsGamblingTransactionOperation.FREESPIN, DEFAULT_BET_AMOUNT),
                 Arguments.of(NatsGamblingTransactionOperation.FREESPIN, BigDecimal.ZERO)
         );
     }
 
     @BeforeEach
-    void setupForEachTest() {
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+
         step("Default Step: Регистрация нового пользователя для теста", () -> {
-            this.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            this.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(this.registeredPlayer, "default_step.registration");
         });
 
@@ -98,13 +119,12 @@ class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
     @MethodSource("betOperationAndAmountProvider")
     @DisplayName("Идемпотентная обработка дублей ставок при одновременной отправке")
     void testConcurrentDuplicateBetsHandledIdempotently(NatsGamblingTransactionOperation operationParam, BigDecimal betAmountParam) throws InterruptedException {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
-        BigDecimal expectedBalanceAfterSuccessfulBet = initialAdjustmentAmount.subtract(betAmountParam);
+        BigDecimal expectedBalanceAfterSuccessfulBet = INITIAL_ADJUSTMENT_AMOUNT.subtract(betAmountParam);
 
         step(String.format("Manager API: Одновременная отправка дублирующихся ставок (тип: %s, сумма: %s)", operationParam, betAmountParam), () -> {
 
             var request = BetRequestBody.builder()
-                    .sessionToken(this.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(this.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
@@ -141,13 +161,13 @@ class DuplicateBetConcurrencyParametrizedTest extends BaseParameterizedTest {
             assertNotNull(body1, "manager_api.response1.body_is_null");
             assertNotNull(body2, "manager_api.response2.body_is_null");
 
-            Set<BigDecimal> actualBalances = Set.of(body1.getBalance(), body2.getBalance());
+            Set<BigDecimal> actualBalances = Set.of(body1.balance(), body2.balance());
 
             assertAll("Проверка ответов на одновременные ставки",
                     () -> assertEquals(HttpStatus.OK, response1.getStatusCode(), "manager_api.response1.status_code"),
                     () -> assertEquals(HttpStatus.OK, response2.getStatusCode(), "manager_api.response2.status_code"),
-                    () -> assertEquals(request.getTransactionId(), body1.getTransactionId(), "manager_api.response1.transaction_id"),
-                    () -> assertEquals(request.getTransactionId(), body2.getTransactionId(), "manager_api.response2.transaction_id"),
+                    () -> assertEquals(request.getTransactionId(), body1.transactionId(), "manager_api.response1.transaction_id"),
+                    () -> assertEquals(request.getTransactionId(), body2.transactionId(), "manager_api.response2.transaction_id"),
                     () -> assertTrue(
                             actualBalances.stream().anyMatch(b -> b.compareTo(expectedBalanceAfterSuccessfulBet) == 0),
                             "manager_api.responses.balances.no_expected_balance"

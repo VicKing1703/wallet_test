@@ -80,10 +80,10 @@ class RefundAfterLossParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки на спорт", () -> {
             ctx.betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(couponType)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -92,9 +92,9 @@ class RefundAfterLossParameterizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.body_not_null"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.body.description")
+                    () -> assertTrue(response.getBody().success(), "manager_api.body.success"),
+                    () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode"),
+                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().description(), "manager_api.body.description")
             );
         });
 
@@ -106,9 +106,9 @@ class RefundAfterLossParameterizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.body_not_null"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.body.description")
+                    () -> assertTrue(response.getBody().success(), "manager_api.body.success"),
+                    () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode"),
+                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().description(), "manager_api.body.description")
             );
         });
 

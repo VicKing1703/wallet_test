@@ -34,13 +34,13 @@ public class LimitChangedV2PayloadComparator implements PayloadComparatorStrateg
         NatsLimitChangedV2Payload kafka = (NatsLimitChangedV2Payload) deserializedKafkaPayload;
         NatsLimitChangedV2Payload nats  = (NatsLimitChangedV2Payload) natsPayload;
 
-        if (!Objects.equals(kafka.getEventType(), nats.getEventType())) {
+        if (!Objects.equals(kafka.eventType(), nats.eventType())) {
             logMismatch(seqNum, "event_type",
-                    kafka.getEventType(), nats.getEventType(), actualEventType);
+                    kafka.eventType(), nats.eventType(), actualEventType);
             return false;
         }
 
-        return limitsEqual(kafka.getLimits(), nats.getLimits(), seqNum, actualEventType);
+        return limitsEqual(kafka.limits(), nats.limits(), seqNum, actualEventType);
     }
 
     private boolean limitsEqual(List<NatsLimitChangedV2Payload.LimitDetail> kLimits,
@@ -59,14 +59,14 @@ public class LimitChangedV2PayloadComparator implements PayloadComparatorStrateg
 
         Map<String, NatsLimitChangedV2Payload.LimitDetail> kafkaById =
                 kLimits.stream()
-                        .collect(Collectors.toMap(NatsLimitChangedV2Payload.LimitDetail::getExternalId, d -> d));
+                        .collect(Collectors.toMap(NatsLimitChangedV2Payload.LimitDetail::externalId, d -> d));
 
         boolean ok = true;
         for (NatsLimitChangedV2Payload.LimitDetail natsDetail : nLimits) {
-            NatsLimitChangedV2Payload.LimitDetail kafkaDetail = kafkaById.get(natsDetail.getExternalId());
+            NatsLimitChangedV2Payload.LimitDetail kafkaDetail = kafkaById.get(natsDetail.externalId());
             if (kafkaDetail == null) {
                 logMismatch(seqNum, "limits.external_id(not found)",
-                        null, natsDetail.getExternalId(), eventType);
+                        null, natsDetail.externalId(), eventType);
                 ok = false;
                 continue;
             }
@@ -83,12 +83,12 @@ public class LimitChangedV2PayloadComparator implements PayloadComparatorStrateg
         boolean matched = true;
 
         matched &= objectsEqual(seqNum, "limit_type",
-                k.getLimitType(), n.getLimitType(), eventType);
+                k.limitType(), n.limitType(), eventType);
         matched &= objectsEqual(seqNum, "interval_type",
-                k.getIntervalType(), n.getIntervalType(), eventType);
+                k.intervalType(), n.intervalType(), eventType);
 
-        BigDecimal kAmt = k.getAmount();
-        BigDecimal nAmt = n.getAmount();
+        BigDecimal kAmt = k.amount();
+        BigDecimal nAmt = n.amount();
         if (PayloadComparatorStrategy.compareBigDecimals(kAmt, nAmt) != 0) {
             logMismatch(seqNum, "amount(value)", kAmt, nAmt, eventType);
             matched = false;
@@ -97,13 +97,13 @@ public class LimitChangedV2PayloadComparator implements PayloadComparatorStrateg
         }
 
         matched &= objectsEqual(seqNum, "currency_code",
-                k.getCurrencyCode(), n.getCurrencyCode(), eventType);
+                k.currencyCode(), n.currencyCode(), eventType);
         matched &= objectsEqual(seqNum, "started_at",
-                k.getStartedAt(), n.getStartedAt(), eventType);
+                k.startedAt(), n.startedAt(), eventType);
         matched &= objectsEqual(seqNum, "expires_at",
-                k.getExpiresAt(), n.getExpiresAt(), eventType);
+                k.expiresAt(), n.expiresAt(), eventType);
         matched &= objectsEqual(seqNum, "status",
-                k.getStatus(), n.getStatus(), eventType);
+                k.status(), n.status(), eventType);
 
         return matched;
     }

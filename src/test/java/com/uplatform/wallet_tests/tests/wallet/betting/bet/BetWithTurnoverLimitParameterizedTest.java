@@ -3,11 +3,15 @@ package com.uplatform.wallet_tests.tests.wallet.betting.bet;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitRequest;
+import com.uplatform.wallet_tests.api.kafka.dto.LimitMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitEventType;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitType;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
 import io.qameta.allure.*;
@@ -18,7 +22,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.TURNOVER_LIMIT_REACHED;
@@ -74,6 +77,8 @@ class BetWithTurnoverLimitParameterizedTest extends BaseParameterizedTest {
         final BigDecimal betAmount = new BigDecimal("170.15");
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
+            LimitMessage kafkaLimitMessage;
+            NatsMessage<NatsLimitChangedV2Payload> limitCreateEvent;
         }
         final TestContext ctx = new TestContext();
 
@@ -84,41 +89,72 @@ class BetWithTurnoverLimitParameterizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(NatsLimitIntervalType.DAILY)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setTurnoverLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "public_api.status_code");
 
+            step("Sub-step Kafka: получение события limit_changed_v2", () -> {
+                var expectedAmount = limitAmount.stripTrailingZeros().toPlainString();
+                ctx.kafkaLimitMessage = kafkaClient.expect(LimitMessage.class)
+                        .with("playerId", ctx.registeredPlayer.walletData().playerUUID())
+                        .with("limitType", NatsLimitType.TURNOVER_FUNDS.getValue())
+                        .with("currencyCode", ctx.registeredPlayer.walletData().currency())
+                        .with("amount", expectedAmount)
+                        .fetch();
+
+                assertNotNull(ctx.kafkaLimitMessage, "kafka.limit_changed_v2.message_not_found");
+            });
+
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader);
+                ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
+                        .from(subject)
+                        .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                        .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                        .with("$.limits[0].external_id", ctx.kafkaLimitMessage.id())
+                        .with("$.limits[0].limit_type", ctx.kafkaLimitMessage.limitType())
+                        .with("$.limits[0].interval_type", NatsLimitIntervalType.DAILY.getValue())
+                        .with("$.limits[0].amount", ctx.kafkaLimitMessage.amount())
+                        .with("$.limits[0].currency_code", ctx.kafkaLimitMessage.currencyCode())
+                        .with("$.limits[0].expires_at", ctx.kafkaLimitMessage.expiresAt())
+                        .with("$.limits[0].status", true)
+                        .fetch();
 
-                var limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
-                    .from(subject)
-                    .matching(filter)
-                    .fetch();
-                assertNotNull(limitCreateEvent, "nats.event.limit_changed_v2");
+                assertNotNull(ctx.limitCreateEvent, "nats.event.limit_changed_v2");
+
+                var limit = ctx.limitCreateEvent.getPayload().limits().get(0);
+                assertAll("nats.limit_changed_v2_event.content_validation",
+                        () -> assertEquals(NatsLimitEventType.CREATED.getValue(), ctx.limitCreateEvent.getPayload().eventType(), "nats.limit_changed_v2_event.payload.eventType"),
+                        () -> assertEquals(ctx.kafkaLimitMessage.id(), limit.externalId(), "nats.limit_changed_v2_event.limit.externalId"),
+                        () -> assertEquals(NatsLimitType.TURNOVER_FUNDS.getValue(), limit.limitType(), "nats.limit_changed_v2_event.limit.limitType"),
+                        () -> assertEquals(NatsLimitIntervalType.DAILY.getValue(), limit.intervalType(), "nats.limit_changed_v2_event.limit.intervalType"),
+                        () -> assertEquals(0, new BigDecimal(ctx.kafkaLimitMessage.amount()).compareTo(limit.amount()), "nats.limit_changed_v2_event.limit.amount"),
+                        () -> assertEquals(ctx.kafkaLimitMessage.currencyCode(), limit.currencyCode(), "nats.limit_changed_v2_event.limit.currencyCode"),
+                        () -> assertNotNull(limit.startedAt(), "nats.limit_changed_v2_event.limit.startedAt"),
+                        () -> assertEquals(ctx.kafkaLimitMessage.expiresAt(), limit.expiresAt(), "nats.limit_changed_v2_event.limit.expiresAt"),
+                        () -> assertTrue(limit.status(), "nats.limit_changed_v2_event.limit.status")
+                );
             });
         });
 
         step("Manager API: Совершение ставки на спорт", () -> {
             var data = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(couponType)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             var request = generateRequest(data);
@@ -126,9 +162,9 @@ class BetWithTurnoverLimitParameterizedTest extends BaseParameterizedTest {
 
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                    () -> assertFalse(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(TURNOVER_LIMIT_REACHED.getDescription(), response.getBody().getDescription(), "manager_api.body.description"),
-                    () -> assertEquals(TURNOVER_LIMIT_REACHED.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode")
+                    () -> assertFalse(response.getBody().success(), "manager_api.body.success"),
+                    () -> assertEquals(TURNOVER_LIMIT_REACHED.getDescription(), response.getBody().description(), "manager_api.body.description"),
+                    () -> assertEquals(TURNOVER_LIMIT_REACHED.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode")
             );
         });
     }

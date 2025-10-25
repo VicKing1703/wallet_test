@@ -1,0 +1,24 @@
+package com.testing.multisource.config.modules.kafka;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.time.Duration;
+
+public record KafkaConfig(
+        @JsonProperty("bootstrapServer") String bootstrapServers,
+        String groupId,
+        int bufferSize,
+        Duration findMessageTimeout,
+        Duration findMessageSleepInterval,
+        Duration pollDuration,
+        Duration shutdownTimeout,
+        String autoOffsetReset,
+        boolean enableAutoCommit,
+        long uniqueDuplicateWindowMs
+) {
+    public KafkaConfig {
+        if (uniqueDuplicateWindowMs == 0) {
+            uniqueDuplicateWindowMs = 400;
+        }
+    }
+}

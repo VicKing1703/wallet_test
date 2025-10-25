@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.turnover;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -7,7 +8,7 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.*;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -20,8 +21,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -39,6 +40,23 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
     private static final BigDecimal initialAdjustmentAmount = new BigDecimal("2000.00");
     private static final BigDecimal limitAmount = new BigDecimal("150.12");
     private static final BigDecimal winAmount = new BigDecimal("10.15");
+    private static final String ZERO_UUID = new UUID(0L, 0L).toString();
+
+    private static final EnumSet<NatsGamblingTransactionOperation> WIN_OPERATIONS = EnumSet.of(
+            NatsGamblingTransactionOperation.WIN,
+            NatsGamblingTransactionOperation.JACKPOT,
+            NatsGamblingTransactionOperation.FREESPIN
+    );
+
+    private static String resolveTransactionTypeValue(NatsGamblingTransactionOperation operation) {
+        return NatsGamblingTransactionType.valueOf("TYPE_" + operation.name()).getValue();
+    }
+
+    private static String expectedWinOperation(NatsGamblingTransactionOperation operation) {
+        return WIN_OPERATIONS.contains(operation)
+                ? NatsGamblingTransactionOperation.WIN.getValue()
+                : operation.getValue();
+    }
 
     static Stream<Arguments> operationAndPeriodProvider() {
         return Stream.of(
@@ -61,7 +79,7 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
             NatsGamblingTransactionOperation operationParam,
             NatsLimitIntervalType periodType
     ) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext extends BaseParameterizedTest {
             RegisteredPlayerData registeredPlayer;
@@ -93,40 +111,42 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(ctx.limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setTurnoverLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.set_turnover_limit.status_code");
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                                payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                                NatsLimitType.TURNOVER_FUNDS.getValue().equals(payload.getLimits().get(0).getLimitType()) &&
-                                periodType.getValue().equals(payload.getLimits().get(0).getIntervalType());
+                var expectedAmount = new BigDecimal(request.amount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
-                    .from(subject)
-                    .matching(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                        .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                        .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                        .with("$.limits[0].interval_type", periodType.getValue())
+                        .with("$.limits[0].currency_code", request.currency())
+                        .with("$.limits[0].amount", expectedAmount)
+                        .with("$.limits[0].status", true)
+                        .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
 
         step("Manager API: Начисление выигрыша", () -> {
             ctx.winRequestBody = WinRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(operationParam)
@@ -141,46 +161,47 @@ class TurnoverLimitWhenWinParameterizedTest extends BaseParameterizedTest {
 
             assertAll("manager_api.response_validation",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                    () -> assertEquals(ctx.winRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterWin.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                    () -> assertEquals(ctx.winRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterWin.compareTo(response.getBody().balance()), "manager_api.body.balance")
             );
 
             step("Sub-step NATS: Проверка поступления события won_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.winRequestBody.getTransactionId().equals(payload.getUuid());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.winEvent = natsClient.expect(NatsGamblingEventPayload.class)
-                    .from(subject)
-                    .matching(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.WON_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.winRequestBody.getTransactionId())
+                        .with("$.bet_uuid", ZERO_UUID)
+                        .with("$.operation", expectedWinOperation(operationParam))
+                        .with("$.type", resolveTransactionTypeValue(operationParam))
+                        .fetch();
                 assertNotNull(ctx.winEvent, "nats.won_from_gamble");
             });
         });
 
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.winEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.winEvent.getSequence())
+                    .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
-                    () -> assertEquals((int) ctx.winEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
-                    () -> assertFalse(aggregate.getLimits().isEmpty(), "redis.wallet.limits"),
+                    () -> assertEquals((int) ctx.winEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits"),
                     () -> {
-                        var turnoverLimitOpt = aggregate.getLimits().stream()
+                        var turnoverLimitOpt = aggregate.limits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
                                         periodType.getValue().equals(l.getIntervalType()))
                                 .findFirst();
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit");
                         var turnoverLimit = turnoverLimitOpt.get();
 
-                        assertEquals(0, ctx.expectedRestAmountAfterWin.compareTo(turnoverLimit.getRest()), "redis.wallet.limit.rest");
-                        assertEquals(0, ctx.expectedSpentAmountAfterWin.compareTo(turnoverLimit.getSpent()), "redis.wallet.limit.spent");
-                        assertEquals(0, ctx.limitAmount.compareTo(turnoverLimit.getAmount()), "redis.wallet.limit.amount");
+                        assertEquals(0, ctx.expectedRestAmountAfterWin.compareTo(turnoverLimit.rest()), "redis.wallet.limit.rest");
+                        assertEquals(0, ctx.expectedSpentAmountAfterWin.compareTo(turnoverLimit.spent()), "redis.wallet.limit.spent");
+                        assertEquals(0, ctx.limitAmount.compareTo(turnoverLimit.amount()), "redis.wallet.limit.amount");
                     }
             );
         });

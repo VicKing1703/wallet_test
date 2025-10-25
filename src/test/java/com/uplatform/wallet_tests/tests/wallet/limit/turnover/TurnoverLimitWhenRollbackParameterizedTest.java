@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.limit.turnover;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -8,9 +9,10 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RollbackRequestB
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitType;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
@@ -25,7 +27,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -71,6 +72,7 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
     private static final BigDecimal limitAmountBase = generateBigDecimalAmount(initialAdjustmentAmount);
     private static final BigDecimal betAmount = generateBigDecimalAmount(limitAmountBase);
     private static final BigDecimal rollbackAmount = betAmount;
+    private static final String ZERO_UUID = new UUID(0L, 0L).toString();
 
     static Stream<Arguments> periodProvider() {
         return Stream.of(
@@ -84,7 +86,7 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
     @MethodSource("periodProvider")
     @DisplayName("Изменение остатка TurnoverLimit при получении полного роллбэка на ставку в казино")
     void testTurnoverLimitChangeOnFullRollback(NatsLimitIntervalType periodType) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -119,41 +121,42 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
 
         step("Public API: Установка лимита на оборот средств", () -> {
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(limitAmountBase.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setTurnoverLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.set_turnover_limit.status_code");
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                                payload.getLimits().stream().anyMatch(l ->
-                                        NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
-                                                periodType.getValue().equals(l.getIntervalType())
-                                );
+                var expectedAmount = new BigDecimal(request.amount()).stripTrailingZeros().toPlainString();
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
-                    .from(subject)
-                    .matching(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                        .with("$.event_type", NatsLimitEventType.CREATED.getValue())
+                        .with("$.limits[0].limit_type", NatsLimitType.TURNOVER_FUNDS.getValue())
+                        .with("$.limits[0].interval_type", periodType.getValue())
+                        .with("$.limits[0].currency_code", request.currency())
+                        .with("$.limits[0].amount", expectedAmount)
+                        .with("$.limits[0].status", true)
+                        .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
         });
 
         step("Manager API: Совершение ставки", () -> {
             ctx.betRequestBody = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .type(NatsGamblingTransactionOperation.BET)
@@ -169,37 +172,36 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
             assertAll("manager_api.bet.response_validation",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.bet.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.bet.body_not_null"),
-                    () -> assertEquals(ctx.betRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.bet.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterBet.compareTo(response.getBody().getBalance()), "manager_api.bet.body.balance")
+                    () -> assertEquals(ctx.betRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.bet.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterBet.compareTo(response.getBody().balance()), "manager_api.bet.body.balance")
             );
 
             step("Sub-step NATS: Проверка поступления события betted_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.betRequestBody.getTransactionId().equals(payload.getUuid());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.betEvent = natsClient.expect(NatsGamblingEventPayload.class)
-                    .from(subject)
-                    .matching(filter)
-                    .fetch();
+                        .from(subject)
+                        .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.betRequestBody.getTransactionId())
+                        .with("$.bet_uuid", ZERO_UUID)
+                        .with("$.operation", NatsGamblingTransactionOperation.BET.getValue())
+                        .fetch();
                 assertNotNull(ctx.betEvent, "nats.betted_from_gamble_event");
             });
         });
 
         step("Manager API: Получение роллбэка", () -> {
             ctx.rollbackRequestBody = RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .amount(rollbackAmount)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
                     .roundId(ctx.betRequestBody.getRoundId())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .roundClosed(true)
                     .build();
 
@@ -211,22 +213,21 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
             assertAll("manager_api.rollback.response_validation",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.rollback.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.rollback.body_not_null"),
-                    () -> assertEquals(ctx.rollbackRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.rollback.body.transactionId"),
-                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterRollback.compareTo(response.getBody().getBalance()), "manager_api.rollback.body.balance")
+                    () -> assertEquals(ctx.rollbackRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.rollback.body.transactionId"),
+                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterRollback.compareTo(response.getBody().balance()), "manager_api.rollback.body.balance")
             );
 
             step("Sub-step NATS: Проверка поступления события rollbacked_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.rollbackRequestBody.getTransactionId().equals(payload.getUuid());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.rollbackEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.ROLLBACKED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.rollbackRequestBody.getTransactionId())
+                    .with("$.bet_uuid", ctx.betRequestBody.getTransactionId())
+                    .with("$.operation", NatsGamblingTransactionOperation.ROLLBACK.getValue())
                     .fetch();
                 assertNotNull(ctx.rollbackEvent, "nats.rollbacked_from_gamble_event");
             });
@@ -234,25 +235,26 @@ class TurnoverLimitWhenRollbackParameterizedTest extends BaseParameterizedTest {
 
         step("Redis(Wallet): Проверка изменений лимита и баланса в агрегате ПОСЛЕ РОЛЛБЭКА", () -> {
             var expectedSequence = (int) ctx.rollbackEvent.getSequence();
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    expectedSequence);
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", expectedSequence)
+                    .fetch();
 
             assertAll("redis.wallet.limit_balance_after_rollback",
-                    () -> assertEquals(expectedSequence, aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
-                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterRollback.compareTo(aggregate.getBalance()), "redis.wallet.balance"),
-                    () -> assertFalse(aggregate.getLimits().isEmpty(), "redis.wallet.limits_not_empty"),
+                    () -> assertEquals(expectedSequence, aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertEquals(0, ctx.expectedPlayerBalanceAfterRollback.compareTo(aggregate.balance()), "redis.wallet.balance"),
+                    () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_not_empty"),
                     () -> {
-                        var turnoverLimitOpt = aggregate.getLimits().stream()
+                        var turnoverLimitOpt = aggregate.limits().stream()
                                 .filter(l -> NatsLimitType.TURNOVER_FUNDS.getValue().equals(l.getLimitType()) &&
                                         periodType.getValue().equals(l.getIntervalType()))
                                 .findFirst();
                         assertTrue(turnoverLimitOpt.isPresent(), "redis.wallet.turnover_limit_present");
                         var turnoverLimit = turnoverLimitOpt.get();
 
-                        assertEquals(0, ctx.expectedRestAmountAfterRollback.compareTo(turnoverLimit.getRest()), "redis.wallet.limit.rest");
-                        assertEquals(0, ctx.expectedSpentAmountAfterRollback.compareTo(turnoverLimit.getSpent()), "redis.wallet.limit.spent");
-                        assertEquals(0, limitAmountBase.compareTo(turnoverLimit.getAmount()), "redis.wallet.limit.amount");
+                        assertEquals(0, ctx.expectedRestAmountAfterRollback.compareTo(turnoverLimit.rest()), "redis.wallet.limit.rest");
+                        assertEquals(0, ctx.expectedSpentAmountAfterRollback.compareTo(turnoverLimit.spent()), "redis.wallet.limit.spent");
+                        assertEquals(0, limitAmountBase.compareTo(turnoverLimit.amount()), "redis.wallet.limit.amount");
                     }
             );
         });

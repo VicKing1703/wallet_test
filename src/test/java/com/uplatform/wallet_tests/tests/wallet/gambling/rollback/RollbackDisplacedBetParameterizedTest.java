@@ -1,17 +1,22 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.testing.multisource.api.nats.dto.NatsMessage;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RollbackRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,73 +29,71 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Интеграционный параметризованный тест, проверяющий API ответ при роллбэке ставки (исходной транзакции),
- * которая была вытеснена из кэша Redis. Тест проверяет различные типы и суммы исходных транзакций,
- * включая нулевые. Определение вытесненной транзакции происходит динамически.
+ * Проверяет роллбэк ставки, вытесненной из Redis после переполнения кеша.
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что API Manager успешно обрабатывает запрос на роллбэк исходной транзакции
- * (различных типов {@link NatsGamblingTransactionOperation#BET}, {@link NatsGamblingTransactionOperation#TIPS},
- * {@link NatsGamblingTransactionOperation#FREESPIN} и сумм), даже если информация о данной транзакции
- * отсутствует в Redis, предполагая, что система найдет ее в "холодном хранилище".
- * Основное внимание уделяется корректности ответа API.</p>
+ * <p><b>Идея теста:</b>
+ * Совершить набор ставок, вытеснить одну из них из Redis и убедиться, что API корректно обрабатывает роллбэк
+ * по данным «холодного» хранилища.</p>
  *
- * <p><b>Сценарий теста (для каждой комбинации параметров):</b></p>
- * <ol>
- *   <li><b>Регистрация игрока:</b> Создается новый игрок. Начальный баланс фиксируется.</li>
- *   <li><b>Создание игровой сессии.</b></li>
- *   <li><b>Совершение исходных транзакций:</b> Через API совершается {@code maxGamblingCountInRedis + 1} транзакций
- *       с параметризованной суммой и типом (BET, TIPS, FREESPIN). Сохраняются запросы этих транзакций.
- *       Ожидаемый баланс рассчитывается после каждой транзакции.
- *       Баланс после всех транзакций (подтвержденный API последней транзакции) запоминается.</li>
- *   <li><b>Получение Sequence последней транзакции:</b> Через NATS ожидается событие от последней сделанной транзакции
- *       для получения ее {@code sequence number}. Это необходимо для корректного запроса к Redis.</li>
- *   <li><b>Определение вытесненной транзакции:</b> Запрашиваются данные из Redis.
- *       Сравнивается список ID всех сделанных транзакций с ID транзакций в Redis.
- *       Определяется ID транзакции, которая отсутствует в Redis (вытесненная).
- *       Проверяется, что вытеснена ровно одна транзакция.</li>
- *   <li><b>Роллбэк вытесненной транзакции:</b> Через API выполняется роллбэк на определенную вытесненную транзакцию
- *       (с ее исходной суммой и типом).</li>
- *   <li><b>Проверка ответа API роллбэка:</b> Проверяется статус-код, ID транзакции роллбэка и итоговый баланс в ответе.</li>
- * </ol>
- *
- * <p><b>Параметры теста:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>Сумма исходной транзакции ({@code betAmountParam}): Может быть ненулевой или нулевой.</li>
- *   <li>Тип исходной транзакции ({@code typeParam}): {@link NatsGamblingTransactionOperation#BET},
- *       {@link NatsGamblingTransactionOperation#TIPS}, {@link NatsGamblingTransactionOperation#FREESPIN}.</li>
+ *   <li><b>Массовые ставки:</b>
+ *     <p><b>Что проверяем:</b> корректность ответов {@code /bet} при достижении лимита кеша.</p>
+ *     <p><b>Почему это важно:</b> гарантирует стабильность при высоких нагрузках.</p>
+ *   </li>
+ *   <li><b>Роллбэк вытесненной ставки:</b>
+ *     <p><b>Что проверяем:</b> успешный ответ {@code /rollback} и восстановление баланса.</p>
+ *     <p><b>Почему это важно:</b> подтверждает доступность данных вне Redis.</p>
+ *   </li>
+ * </ul>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Каждая ставка завершается статусом {@code 200 OK} и уменьшает баланс.</li>
+ *   <li>Роллбэк вытесненной ставки завершается статусом {@code 200 OK}.</li>
+ *   <li>Баланс в ответе на роллбэк соответствует расчётному значению.</li>
  * </ul>
  */
-@Severity(SeverityLevel.CRITICAL)
+@Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/rollback")
 @Suite("Позитивные сценарии: /rollback")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("1000.00");
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("1000.00");
+    private static final BigDecimal BET_AMOUNT_BASE = new BigDecimal("1.00");
+    private static final int MAX_GAMBLING_COUNT_IN_REDIS = 50;
+
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> transactionTypeAndAmountProvider() {
         return Stream.of(
                 Arguments.of(
-                        generateBigDecimalAmount(new BigDecimal("1.00")),
+                        generateBigDecimalAmount(BET_AMOUNT_BASE),
                         NatsGamblingTransactionOperation.BET
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(new BigDecimal("1.00")),
+                        generateBigDecimalAmount(BET_AMOUNT_BASE),
                         NatsGamblingTransactionOperation.TIPS
                 ),
                 Arguments.of(
-                        generateBigDecimalAmount(new BigDecimal("1.00")),
+                        generateBigDecimalAmount(BET_AMOUNT_BASE),
                         NatsGamblingTransactionOperation.FREESPIN
                 ),
                 Arguments.of(
@@ -108,15 +111,20 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
         );
     }
 
+    /**
+     * Выполняет роллбэк ставки, вытесненной из Redis, и проверяет корректность ответа.
+     *
+     * @param betAmountParam сумма исходной ставки
+     * @param typeParam тип исходной операции
+     */
     @ParameterizedTest(name = "тип исходной транзакции = {1}, сумма = {0}")
     @MethodSource("transactionTypeAndAmountProvider")
     @DisplayName("Роллбэк транзакции, вытесненной из Redis")
     void testApiRollbackForDynamicallyIdentifiedDisplacedBet(
-            BigDecimal betAmountParam, NatsGamblingTransactionOperation typeParam) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
-        final int maxGamblingCountInRedis = 50;
-
-        final int currentTransactionCountToMake = maxGamblingCountInRedis + 1;
+            BigDecimal betAmountParam,
+            NatsGamblingTransactionOperation typeParam
+    ) {
+        final int requiredBetCount = MAX_GAMBLING_COUNT_IN_REDIS + 1;
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -131,8 +139,8 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            ctx.currentCalculatedBalance = ctx.registeredPlayer.getWalletData().getBalance();
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
+            ctx.currentCalculatedBalance = ctx.registeredPlayer.walletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -141,15 +149,15 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
             assertNotNull(ctx.gameLaunchData, "default_step.game_session");
         });
 
-        step("Manager API: Совершение " + currentTransactionCountToMake + " исходных транзакций типа " + typeParam + " на сумму " + betAmountParam, () -> {
-            for (int i = 0; i < currentTransactionCountToMake; i++) {
+        step("Manager API: Совершение " + requiredBetCount + " исходных транзакций", () -> {
+            for (int i = 0; i < requiredBetCount; i++) {
                 var transactionId = UUID.randomUUID().toString();
-                if (i == currentTransactionCountToMake - 1) {
+                if (i == requiredBetCount - 1) {
                     ctx.lastMadeBetTransactionId = transactionId;
                 }
 
                 var betRequestBody = BetRequestBody.builder()
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                         .amount(betAmountParam)
                         .transactionId(transactionId)
                         .type(typeParam)
@@ -168,47 +176,45 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
                             betRequestBody);
 
                     ctx.currentCalculatedBalance = ctx.currentCalculatedBalance.subtract(betAmountParam);
-                    assertAll("Проверка ответа API для транзакции #" + currentBetNumber,
+                    assertAll(
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                            () -> assertEquals(currentTxId, response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                            () -> assertEquals(0, ctx.currentCalculatedBalance.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                            () -> assertEquals(currentTxId, response.getBody().transactionId(), "manager_api.body.transactionId"),
+                            () -> assertEquals(0, ctx.currentCalculatedBalance.compareTo(response.getBody().balance()), "manager_api.body.balance")
                     );
 
-                    if (currentBetNumber == currentTransactionCountToMake) {
-                        ctx.balanceFromApiAfterAllBets = response.getBody().getBalance();
+                    if (currentBetNumber == requiredBetCount) {
+                        ctx.balanceFromApiAfterAllBets = response.getBody().balance();
                     }
                 });
             }
 
-            assertEquals(currentTransactionCountToMake, ctx.madeBetsRequests.size(), "bet.list.size");
+            assertEquals(requiredBetCount, ctx.madeBetsRequests.size(), "bet.list.size");
         });
 
-        step("NATS: Ожидание NATS-события betted_from_gamble для последней транзакции", () -> {
+        step("NATS: Ожидание события betted_from_gamble", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, natsTypeHeader) ->
-                    NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(natsTypeHeader) &&
-                            ctx.lastMadeBetTransactionId.equals(payload.getUuid());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.lastBetNatsEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                    .with("$.uuid", ctx.lastMadeBetTransactionId)
                     .fetch();
 
             assertNotNull(ctx.lastBetNatsEvent, "nats.betted_from_gamble");
         });
 
         step("Redis: Определение вытесненной транзакции", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.lastBetNatsEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
+                    .fetch();
 
-            var gamblingTransactionsInRedis = aggregate.getGambling();
-            var transactionIdsCurrentlyInRedis = gamblingTransactionsInRedis.keySet();
+            var transactionIdsCurrentlyInRedis = aggregate.gambling().keySet();
             var displacedTransactionIds = ctx.madeBetsRequests.stream()
-                    .map(BetRequestBody::getTransactionId).collect(Collectors.toCollection(HashSet::new));
+                    .map(BetRequestBody::getTransactionId)
+                    .collect(Collectors.toCollection(HashSet::new));
             displacedTransactionIds.removeAll(transactionIdsCurrentlyInRedis);
 
             assertEquals(1, displacedTransactionIds.size(), "redis.displaced_transaction.expected_single");
@@ -224,17 +230,16 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
         });
 
         step("Manager API: Роллбэк вытесненной транзакции", () -> {
-
-            RollbackRequestBody rollbackRequestBody = RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+            var rollbackRequestBody = RollbackRequestBody.builder()
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(ctx.betToRollbackRequest.getAmount())
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betToRollbackRequest.getTransactionId())
                     .roundId(ctx.betToRollbackRequest.getRoundId())
                     .roundClosed(true)
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .build();
 
             var expectedBalanceInApiResponse = ctx.balanceFromApiAfterAllBets.add(rollbackRequestBody.getAmount());
@@ -244,10 +249,10 @@ class RollbackDisplacedBetParameterizedTest extends BaseParameterizedTest {
                     utils.createSignature(ApiEndpoints.ROLLBACK, rollbackRequestBody),
                     rollbackRequestBody);
 
-            assertAll("Проверка ответа API на роллбэк вытесненной транзакции",
+            assertAll(
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.rollback.status_code"),
-                    () -> assertEquals(rollbackRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.rollback.body.transactionId"),
-                    () -> assertEquals(0, expectedBalanceInApiResponse.compareTo(response.getBody().getBalance()), "manager_api.rollback.body.balance")
+                    () -> assertEquals(rollbackRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.rollback.body.transactionId"),
+                    () -> assertEquals(0, expectedBalanceInApiResponse.compareTo(response.getBody().balance()), "manager_api.rollback.body.balance")
             );
         });
     }

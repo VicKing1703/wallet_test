@@ -6,88 +6,46 @@ import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOper
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsMessageName;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsTransactionDirection;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Data
-@NoArgsConstructor
-public class NatsGamblingEventPayload {
-
-    private String uuid;
-
-    @JsonProperty("bet_uuid")
-    private String betUuid;
-
-    @JsonProperty("game_session_uuid")
-    private String gameSessionUuid;
-
-    @JsonProperty("provider_round_id")
-    private String providerRoundId;
-
-    private String currency;
-
-    private BigDecimal amount;
-
-    private NatsGamblingTransactionType type;
-
-    @JsonProperty("provider_round_closed")
-    private boolean providerRoundClosed;
-
-    private NatsMessageName message;
-
-    @JsonProperty("created_at")
-    private Long createdAt;
-
-    private NatsTransactionDirection direction;
-
-    private NatsGamblingTransactionOperation operation;
-
-    @JsonProperty("node_uuid")
-    private String nodeUuid;
-
-    @JsonProperty("game_uuid")
-    private String gameUuid;
-
-    @JsonProperty("provider_uuid")
-    private String providerUuid;
-
-    @JsonProperty("wagered_deposit_info")
-    private List<Map<String, Object>> wageredDepositInfo;
-
-    @JsonProperty("currency_conversion_info")
-    private CurrencyConversionInfo currencyConversionInfo;
+public record NatsGamblingEventPayload(
+        String uuid,
+        @JsonProperty("bet_uuid") String betUuid,
+        @JsonProperty("game_session_uuid") String gameSessionUuid,
+        @JsonProperty("provider_round_id") String providerRoundId,
+        String currency,
+        BigDecimal amount,
+        NatsGamblingTransactionType type,
+        @JsonProperty("provider_round_closed") boolean providerRoundClosed,
+        NatsMessageName message,
+        @JsonProperty("created_at") Long createdAt,
+        NatsTransactionDirection direction,
+        NatsGamblingTransactionOperation operation,
+        @JsonProperty("node_uuid") String nodeUuid,
+        @JsonProperty("game_uuid") String gameUuid,
+        @JsonProperty("provider_uuid") String providerUuid,
+        @JsonProperty("wagered_deposit_info") List<Map<String, Object>> wageredDepositInfo,
+        @JsonProperty("currency_conversion_info") CurrencyConversionInfo currencyConversionInfo
+) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    @Data
-    @NoArgsConstructor
-    public static class CurrencyConversionInfo {
-        @JsonProperty("game_amount")
-        private BigDecimal gameAmount;
-
-        @JsonProperty("game_currency")
-        private String gameCurrency;
-
-        @JsonProperty("currency_rates")
-        private List<CurrencyRate> currencyRates;
+    public record CurrencyConversionInfo(
+            @JsonProperty("game_amount") BigDecimal gameAmount,
+            @JsonProperty("game_currency") String gameCurrency,
+            @JsonProperty("currency_rates") List<CurrencyRate> currencyRates
+    ) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    @Data
-    @NoArgsConstructor
-    public static class CurrencyRate {
-        @JsonProperty("base_currency")
-        private String baseCurrency;
-
-        @JsonProperty("quote_currency")
-        private String quoteCurrency;
-
-        private String value;
-
-        @JsonProperty("updated_at")
-        private Long updatedAt;
+    public record CurrencyRate(
+            @JsonProperty("base_currency") String baseCurrency,
+            @JsonProperty("quote_currency") String quoteCurrency,
+            String value,
+            @JsonProperty("updated_at") Long updatedAt
+    ) {
     }
 }

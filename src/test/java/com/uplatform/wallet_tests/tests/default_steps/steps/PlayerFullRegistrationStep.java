@@ -1,5 +1,7 @@
 package com.uplatform.wallet_tests.tests.default_steps.steps;
 
+import static org.awaitility.Awaitility.await;
+
 import com.uplatform.wallet_tests.api.http.cap.client.CapAdminClient;
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_verification_status.UpdateVerificationStatusRequest;
@@ -18,24 +20,27 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.turnover.SetTurnoverLimitReq
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactRequest;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactResponse;
 import com.uplatform.wallet_tests.api.http.fapi.dto.verify_contact.VerifyContactTypedRequest;
-import com.uplatform.wallet_tests.api.kafka.client.KafkaClient;
+import com.testing.multisource.api.kafka.client.KafkaClient;
 import com.uplatform.wallet_tests.api.kafka.dto.PlayerAccountMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
-import com.uplatform.wallet_tests.api.redis.client.PlayerRedisClient;
-import com.uplatform.wallet_tests.api.redis.client.WalletRedisClient;
+import com.testing.multisource.api.redis.GenericRedisClient;
 import com.uplatform.wallet_tests.api.redis.model.WalletData;
-import com.uplatform.wallet_tests.api.redis.model.WalletFilterCriteria;
 import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.CapAdminTokenStorage;
+import com.uplatform.wallet_tests.api.db.PlayerDatabaseClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -50,29 +55,33 @@ public class PlayerFullRegistrationStep {
     private final FapiClient publicClient;
     private final CapAdminClient capAdminClient;
     private final KafkaClient kafkaClient;
-    private final PlayerRedisClient playerRedisClient;
-    private final WalletRedisClient walletRedisClient;
+    private final GenericRedisClient<Map<String, WalletData>> redisPlayerClient;
+    private final GenericRedisClient<WalletFullData> redisWalletClient;
     private final CapAdminTokenStorage tokenStorage;
+    private final PlayerDatabaseClient playerDatabaseClient;
     private final String defaultCurrency;
     private final String defaultCountry;
     private final String platformNodeId;
 
     @Autowired
-    public PlayerFullRegistrationStep(FapiClient publicClient,
-                                  CapAdminClient capAdminClient,
-                                  KafkaClient kafkaClient,
-                                  PlayerRedisClient playerRedisClient,
-                                  WalletRedisClient walletRedisClient,
-                                  CapAdminTokenStorage tokenStorage,
-                                  @Value("${app.settings.default.currency}") String defaultCurrency,
-                                  @Value("${app.settings.default.country}") String defaultCountry,
-                                  @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
+    public PlayerFullRegistrationStep(
+            FapiClient publicClient,
+            CapAdminClient capAdminClient,
+            KafkaClient kafkaClient,
+            @Qualifier("redisPlayerClient") GenericRedisClient<Map<String, WalletData>> redisPlayerClient,
+            @Qualifier("redisWalletClient") GenericRedisClient<WalletFullData> redisWalletClient,
+            CapAdminTokenStorage tokenStorage,
+            PlayerDatabaseClient playerDatabaseClient,
+            @Value("${app.settings.default.currency}") String defaultCurrency,
+            @Value("${app.settings.default.country}") String defaultCountry,
+            @Value("${app.settings.default.platform-node-id}") String platformNodeId) {
         this.publicClient = Objects.requireNonNull(publicClient);
         this.capAdminClient = Objects.requireNonNull(capAdminClient);
         this.kafkaClient = Objects.requireNonNull(kafkaClient);
-        this.playerRedisClient = Objects.requireNonNull(playerRedisClient);
-        this.walletRedisClient = Objects.requireNonNull(walletRedisClient);
+        this.redisPlayerClient = Objects.requireNonNull(redisPlayerClient);
+        this.redisWalletClient = Objects.requireNonNull(redisWalletClient);
         this.tokenStorage = Objects.requireNonNull(tokenStorage);
+        this.playerDatabaseClient = Objects.requireNonNull(playerDatabaseClient);
         this.defaultCurrency = Objects.requireNonNull(defaultCurrency);
         this.defaultCountry = Objects.requireNonNull(defaultCountry);
         this.platformNodeId = Objects.requireNonNull(platformNodeId);
@@ -113,19 +122,19 @@ public class PlayerFullRegistrationStep {
                     .with("player.phone", ctx.verificationRequest.getContact().substring(1))
                     .fetch();
             assertNotNull(ctx.confirmationMessage, "kafka.phone_confirmation.message");
-            assertNotNull(ctx.confirmationMessage.getContext(), "kafka.phone_confirmation.context");
-            assertNotNull(ctx.confirmationMessage.getContext().getConfirmationCode(), "kafka.phone_confirmation.code");
+            assertNotNull(ctx.confirmationMessage.context(), "kafka.phone_confirmation.context");
+            assertNotNull(ctx.confirmationMessage.context().confirmationCode(), "kafka.phone_confirmation.code");
         });
 
         step("Public API: Подтверждение номера телефона", () -> {
             var request = VerifyContactRequest.builder()
                     .contact(ctx.verificationRequest.getContact().substring(1))
-                    .code(ctx.confirmationMessage.getContext().getConfirmationCode())
+                    .code(ctx.confirmationMessage.context().confirmationCode())
                     .build();
             ctx.verifyContactResponse = this.publicClient.verifyContact(request);
             assertEquals(HttpStatus.OK, ctx.verifyContactResponse.getStatusCode(), "fapi.verify_contact.status_code");
             assertNotNull(ctx.verifyContactResponse.getBody(), "fapi.verify_contact.body_not_null");
-            assertNotNull(ctx.verifyContactResponse.getBody().getHash(), "fapi.verify_contact.hash");
+            assertNotNull(ctx.verifyContactResponse.getBody().hash(), "fapi.verify_contact.hash");
         });
 
         step("Public API: Выполнение полной регистрации пользователя", () -> {
@@ -134,7 +143,7 @@ public class PlayerFullRegistrationStep {
                     .country(this.defaultCountry)
                     .bonusChoice(BonusChoiceType.NONE)
                     .phone(ctx.verificationRequest.getContact().substring(1))
-                    .phoneConfirmation(ctx.verifyContactResponse.getBody().getHash())
+                    .phoneConfirmation(ctx.verifyContactResponse.getBody().hash())
                     .firstName(get(NAME))
                     .lastName(get(NAME))
                     .birthday("1991-05-15")
@@ -145,6 +154,11 @@ public class PlayerFullRegistrationStep {
                     .permanentAddress("Brivibas iela 1")
                     .postalCode("LV-1010")
                     .profession("Developer")
+                    .placeOfWork("asdasdas")
+                    .avgMonthlySalaryEURAlias("from2001To3000")
+                    .activitySectorAlias("realEstate")
+                    .jobAlias("worker")
+                    .isPoliticallyInvolved(false)
                     .password(get(PASSWORD))
                     .rulesAgreement(true)
                     .context(Collections.emptyMap())
@@ -159,13 +173,13 @@ public class PlayerFullRegistrationStep {
                     .with("player.phone", ctx.verificationRequest.getContact().substring(1))
                     .fetch();
             assertNotNull(ctx.fullRegistrationMessage, "kafka.player_signup.message");
-            assertNotNull(ctx.fullRegistrationMessage.getPlayer(), "kafka.player_signup.player");
-            assertNotNull(ctx.fullRegistrationMessage.getPlayer().getExternalId(), "kafka.player_signup.player_external_id");
+            assertNotNull(ctx.fullRegistrationMessage.player(), "kafka.player_signup.player");
+            assertNotNull(ctx.fullRegistrationMessage.player().externalId(), "kafka.player_signup.player_external_id");
         });
 
         step("Public API: Авторизация", () -> {
             var tokenRequest = TokenCheckRequest.builder()
-                    .username(ctx.fullRegistrationMessage.getPlayer().getAccountId())
+                    .username(ctx.fullRegistrationMessage.player().accountId())
                     .password(ctx.fullRegistrationRequest.getPassword())
                     .build();
             ctx.authorizationResponse = this.publicClient.tokenCheck(tokenRequest);
@@ -175,17 +189,23 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Redis (Player): Получение основного кошелька игрока", () -> {
-            var criteria = WalletFilterCriteria.builder()
-                    .type(Optional.of(1))
-                    .status(Optional.of(1))
-                    .currency(Optional.of(this.defaultCurrency))
-                    .build();
-            ctx.playerWalletData = this.playerRedisClient.getPlayerWalletByCriteria(
-                    ctx.fullRegistrationMessage.getPlayer().getExternalId(),
-                    criteria);
-            assertNotNull(ctx.playerWalletData, "redis.player.wallet.not_found");
-            assertNotNull(ctx.playerWalletData.getWalletUUID(), "redis.player.wallet.uuid");
-            assertNotNull(ctx.playerWalletData.getCurrency(), "redis.player.wallet.currency");
+            Map<String, WalletData> wallets = this.redisPlayerClient
+                    .key(ctx.fullRegistrationMessage.player().externalId())
+                    .within(Duration.ofSeconds(30))
+                    .fetch();
+
+            Optional<WalletData> playerWallet = wallets.values().stream()
+                    .filter(wallet -> wallet != null
+                            && Objects.equals(wallet.currency(), this.defaultCurrency)
+                            && Objects.equals(wallet.type(), 1)
+                            && Objects.equals(wallet.status(), 1))
+                    .findFirst();
+
+            assertTrue(playerWallet.isPresent(), "redis.player.wallet.not_found");
+
+            ctx.playerWalletData = playerWallet.orElseThrow();
+            assertNotNull(ctx.playerWalletData.walletUUID(), "redis.player.wallet.uuid");
+            assertNotNull(ctx.playerWalletData.currency(), "redis.player.wallet.currency");
         });
 
         step("Public API: Создание запроса на подтверждение личности", () -> {
@@ -251,15 +271,15 @@ public class PlayerFullRegistrationStep {
                     .with("player.email", ctx.emailVerificationRequest.getContact())
                     .fetch();
             assertNotNull(ctx.emailConfirmationMessage, "kafka.email_confirmation.message");
-            assertNotNull(ctx.emailConfirmationMessage.getContext(), "kafka.email_confirmation.context");
-            assertNotNull(ctx.emailConfirmationMessage.getContext().getConfirmationCode(), "kafka.email_confirmation.code");
+            assertNotNull(ctx.emailConfirmationMessage.context(), "kafka.email_confirmation.context");
+            assertNotNull(ctx.emailConfirmationMessage.context().confirmationCode(), "kafka.email_confirmation.code");
         });
 
         step("Public API: Подтверждение email", () -> {
             var request = VerifyContactTypedRequest.builder()
                     .contact(ctx.emailVerificationRequest.getContact())
                     .type(ContactType.EMAIL)
-                    .code(ctx.emailConfirmationMessage.getContext().getConfirmationCode())
+                    .code(ctx.emailConfirmationMessage.context().confirmationCode())
                     .build();
             var response = publicClient.verifyContactWithAuth(
                     ctx.authorizationResponse.getBody().getToken(),
@@ -268,10 +288,9 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Public API: Установка лимита на одиночную ставку", () -> {
-            Thread.sleep(15000);
             var amount = new BigDecimal("100000.00");
             var request = SetSingleBetLimitRequest.builder()
-                    .currency(ctx.playerWalletData.getCurrency())
+                    .currency(ctx.playerWalletData.currency())
                     .amount(amount.toString())
                     .build();
             var response = publicClient.setSingleBetLimit(
@@ -281,10 +300,9 @@ public class PlayerFullRegistrationStep {
         });
 
         step("Public API: Установка лимита на оборот средств", () -> {
-            Thread.sleep(15000);
             var amount = new BigDecimal("100000.00");
             var request = SetTurnoverLimitRequest.builder()
-                    .currency(ctx.playerWalletData.getCurrency())
+                    .currency(ctx.playerWalletData.currency())
                     .type(NatsLimitIntervalType.DAILY)
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .amount(amount.toString())
@@ -295,28 +313,45 @@ public class PlayerFullRegistrationStep {
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.set_turnover_limit.status_code");
         });
 
+        step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
+            ctx.updatedWalletData = this.redisWalletClient
+                    .key(ctx.playerWalletData.walletUUID())
+                    .fetch();
+            assertNotNull(ctx.updatedWalletData, "redis.wallet.full_data_not_found");
+            assertNotNull(ctx.updatedWalletData.playerUUID(), "redis.wallet.player_uuid");
+        });
+
+        step("DB (Player): Получение статусов свойств аккаунта", () -> {
+            var property = playerDatabaseClient.waitForAccountPropertyStatus(
+                    ctx.updatedWalletData.playerUUID(),
+                    "REQUIRED_LIMITS_SET",
+                    1,
+                    Duration.ofMinutes(2));
+            assertEquals(Integer.valueOf(1), property.get("status"),
+                    "db.player.account_properties.required_limits_set");
+        });
+
         step("CAP API: Отмена KYC проверки", () -> {
             var request = CancelKycCheckRequest.builder()
                     .kycCheckProceed(false)
                     .build();
             var response = capAdminClient.cancelKycCheck(
-                    ctx.fullRegistrationMessage.getPlayer().getExternalId(),
+                    ctx.fullRegistrationMessage.player().externalId(),
                     tokenStorage.getAuthorizationHeader(),
                     platformNodeId,
                     request);
             assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap.cancel_kyc_check.status_code");
         });
 
-        step("Redis (Wallet): Получение и проверка полных данных кошелька", () -> {
-            Thread.sleep(15000);
-            ctx.updatedWalletData = this.walletRedisClient.getWithRetry(
-                    ctx.playerWalletData.getWalletUUID());
-            assertNotNull(ctx.updatedWalletData, "redis.wallet.full_data_not_found");
-            assertNotNull(ctx.updatedWalletData.getPlayerUUID(), "redis.wallet.player_uuid");
+        step("WAIT: ожидание обработки отмены KYC", () -> {
+            await().pollDelay(Duration.ofSeconds(10))
+                    .atMost(Duration.ofSeconds(20))
+                    .until(() -> true);
         });
 
         return new RegisteredPlayerData(
                 ctx.authorizationResponse,
                 ctx.updatedWalletData);
     }
+
 }

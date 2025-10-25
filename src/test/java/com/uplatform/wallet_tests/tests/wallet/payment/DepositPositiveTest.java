@@ -5,7 +5,7 @@ import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.DepositRequestBody;
 import com.uplatform.wallet_tests.api.nats.dto.NatsDepositedMoneyPayload;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsDepositStatus;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.kafka.dto.PaymentTransactionMessage;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -75,7 +74,7 @@ class DepositPositiveTest extends BaseTest {
             ctx.depositRequest = DepositRequestBody.builder()
                     .amount(amount.toPlainString())
                     .paymentMethodId(PaymentMethodId.FAKE)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .redirect(DepositRequestBody.RedirectUrls.builder()
                             .failed(DepositRedirect.FAILED.url())
@@ -85,7 +84,7 @@ class DepositPositiveTest extends BaseTest {
                     .build();
 
             var response = publicClient.deposit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.depositRequest);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "front_api.response.status_code");
@@ -93,7 +92,7 @@ class DepositPositiveTest extends BaseTest {
 
         step("THEN: payment-service отправляет сообщение о транзакции в Kafka", () -> {
             ctx.paymentTransactionMessage = kafkaClient.expect(PaymentTransactionMessage.class)
-                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("playerId", ctx.registeredPlayer.walletData().playerUUID())
                     .with("nodeId", configProvider.getEnvironmentConfig().getPlatform().getNodeId())
                     .fetch();
 
@@ -102,33 +101,31 @@ class DepositPositiveTest extends BaseTest {
 
         step("THEN: wallet-manager обрабатывает депозит и отправляет событие в NATS", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
-            BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
-
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
+                    .with("$.uuid", ctx.paymentTransactionMessage.transaction().transactionId())
                     .fetch();
 
             var actualPayload = ctx.depositEvent.getPayload();
             assertAll("Проверка полей события 'deposited_money' в NATS",
-                    () -> assertEquals(ctx.paymentTransactionMessage.getTransaction().getTransactionId(), actualPayload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(ctx.depositRequest.getCurrency(), actualPayload.getCurrencyCode(), "nats.payload.currencyCode"),
-                    () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(actualPayload.getAmount()), "nats.payload.amount"),
-                    () -> assertEquals(NatsDepositStatus.SUCCESS, actualPayload.getStatus(), "nats.payload.status"),
-                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), actualPayload.getNodeUuid(), "nats.payload.nodeUuid"),
-                    () -> assertEquals("", actualPayload.getBonusId(), "nats.payload.bonusId")
+                    () -> assertEquals(ctx.paymentTransactionMessage.transaction().transactionId(), actualPayload.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(ctx.depositRequest.getCurrency(), actualPayload.currencyCode(), "nats.payload.currencyCode"),
+                    () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(actualPayload.amount()), "nats.payload.amount"),
+                    () -> assertEquals(NatsDepositStatus.SUCCESS, actualPayload.status(), "nats.payload.status"),
+                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), actualPayload.nodeUuid(), "nats.payload.nodeUuid"),
+                    () -> assertEquals("", actualPayload.bonusId(), "nats.payload.bonusId")
             );
         });
 
         step("THEN: wallet_player_threshold_deposit_projections обновляет порог депозитов", () -> {
             var threshold = walletDatabaseClient.findDepositThresholdByPlayerUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID());
+                    ctx.registeredPlayer.walletData().playerUUID());
 
             assertAll("Проверка записи в таблице 'player_threshold_deposit'",
-                    () -> assertEquals(ctx.registeredPlayer.getWalletData().getPlayerUUID(), threshold.getPlayerUuid(), "db.player_threshold_deposit.playerUuid"),
+                    () -> assertEquals(ctx.registeredPlayer.walletData().playerUUID(), threshold.getPlayerUuid(), "db.player_threshold_deposit.playerUuid"),
                     () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(threshold.getAmount()), "db.player_threshold_deposit.amount"),
                     () -> assertNotNull(threshold.getUpdatedAt(), "db.player_threshold_deposit.updatedAt")
             );
@@ -143,23 +140,24 @@ class DepositPositiveTest extends BaseTest {
         });
 
         step("THEN: wallet_wallet_redis обновляет агрегат кошелька в Redis", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.depositEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.getSequence())
+                    .fetch();
 
-            var deposit = aggregate.getDeposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.paymentTransactionMessage.getTransaction().getTransactionId()))
+            var deposit = aggregate.deposits().stream()
+                    .filter(d -> d.uuid().equals(ctx.paymentTransactionMessage.transaction().transactionId()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка данных депозита в агрегате кошелька Redis",
                     () -> assertNotNull(deposit, "redis.wallet_aggregate.deposit.not_null"),
-                    () -> assertEquals((int) ctx.depositEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet_aggregate.lastSeqNumber"),
-                    () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(deposit.getAmount()), "redis.wallet_aggregate.deposit.amount"),
-                    () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), deposit.getStatus(), "redis.wallet_aggregate.deposit.status"),
-                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), deposit.getNodeUUID(), "redis.wallet_aggregate.deposit.nodeUUID"),
-                    () -> assertEquals("", deposit.getBonusID(), "redis.wallet_aggregate.deposit.bonusID"),
-                    () -> assertEquals(ctx.depositRequest.getCurrency(), deposit.getCurrencyCode(), "redis.wallet_aggregate.deposit.currencyCode"),
-                    () -> assertEquals(0, deposit.getWageringAmount().compareTo(BigDecimal.ZERO), "redis.wallet_aggregate.deposit.wageringAmount")
+                    () -> assertEquals((int) ctx.depositEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet_aggregate.lastSeqNumber"),
+                    () -> assertEquals(0, new BigDecimal(ctx.depositRequest.getAmount()).compareTo(deposit.amount()), "redis.wallet_aggregate.deposit.amount"),
+                    () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), deposit.status(), "redis.wallet_aggregate.deposit.status"),
+                    () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), deposit.nodeUUID(), "redis.wallet_aggregate.deposit.nodeUUID"),
+                    () -> assertEquals("", deposit.bonusID(), "redis.wallet_aggregate.deposit.bonusID"),
+                    () -> assertEquals(ctx.depositRequest.getCurrency(), deposit.currencyCode(), "redis.wallet_aggregate.deposit.currencyCode"),
+                    () -> assertEquals(0, deposit.wageringAmount().compareTo(BigDecimal.ZERO), "redis.wallet_aggregate.deposit.wageringAmount")
             );
         });
     }

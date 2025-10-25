@@ -11,7 +11,7 @@ import com.uplatform.wallet_tests.api.db.entity.wallet.enums.CouponType;
 import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
@@ -28,8 +28,6 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Objects;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
@@ -105,10 +103,10 @@ class WinFromIframeParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Совершение ставки на спорт", () -> {
             ctx.betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(couponType)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -117,9 +115,9 @@ class WinFromIframeParameterizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.body_not_null"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.body.description")
+                    () -> assertTrue(response.getBody().success(), "manager_api.body.success"),
+                    () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode"),
+                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().description(), "manager_api.body.description")
             );
         });
 
@@ -131,55 +129,53 @@ class WinFromIframeParameterizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.body_not_null"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.body.description")
+                    () -> assertTrue(response.getBody().success(), "manager_api.body.success"),
+                    () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode"),
+                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().description(), "manager_api.body.description")
             );
         });
 
         step("NATS: Проверка поступления события won_from_iframe", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.WON_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                            Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
-
-            ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
-                    .from(subject)
-                    .matching(filter)
-                    .fetch();
-
-            var actualPayload = ctx.winEvent.getPayload();
             var expectedBetInfoList = objectMapper.readValue(
                     ctx.betRequestBody.getBetInfo(),
                     new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
+            var expectedBetInfo = expectedBetInfoList.get(0);
+
+            ctx.winEvent = natsClient.expect(NatsBettingEventPayload.class)
+                    .from(subject)
+                    .withType(NatsEventType.WON_FROM_IFRAME.getHeaderValue())
+                    .with("$.bet_id", ctx.betRequestBody.getBetId())
+                    .fetch();
+
+            var actualPayload = ctx.winEvent.getPayload();
             assertAll("Проверка основных полей NATS payload",
-                    () -> assertNotNull(actualPayload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(ctx.betRequestBody.getType(), actualPayload.getType(), "nats.payload.type"),
-                    () -> assertEquals(ctx.betRequestBody.getBetId(), actualPayload.getBetId(), "nats.payload.bet_id"),
-                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getSumm()).compareTo(actualPayload.getAmount()), "nats.payload.amount"),
-                    () -> assertNotNull(actualPayload.getRawAmount(), "nats.payload.raw_amount"),
-                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getSumm()).compareTo(actualPayload.getRawAmount()), "nats.payload.raw_amount"),
-                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getTotalCoef()).compareTo(actualPayload.getTotalCoeff()), "nats.payload.total_coeff"),
-                    () -> assertTrue(Math.abs(ctx.betRequestBody.getTime() - actualPayload.getTime()) <= 10, "nats.payload.time"),
-                    () -> assertNotNull(actualPayload.getCreatedAt(), "nats.payload.created_at"),
-                    () -> assertTrue(actualPayload.getWageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info")
+                    () -> assertNotNull(actualPayload.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(ctx.betRequestBody.getType(), actualPayload.type(), "nats.payload.type"),
+                    () -> assertEquals(ctx.betRequestBody.getBetId(), actualPayload.betId(), "nats.payload.bet_id"),
+                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getSumm()).compareTo(actualPayload.amount()), "nats.payload.amount"),
+                    () -> assertNotNull(actualPayload.rawAmount(), "nats.payload.raw_amount"),
+                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getSumm()).compareTo(actualPayload.rawAmount()), "nats.payload.raw_amount"),
+                    () -> assertEquals(0, new BigDecimal(ctx.betRequestBody.getTotalCoef()).compareTo(actualPayload.totalCoeff()), "nats.payload.total_coeff"),
+                    () -> assertTrue(Math.abs(ctx.betRequestBody.getTime() - actualPayload.time()) <= 10, "nats.payload.time"),
+                    () -> assertNotNull(actualPayload.createdAt(), "nats.payload.created_at"),
+                    () -> assertTrue(actualPayload.wageredDepositInfo().isEmpty(), "nats.payload.wagered_deposit_info")
             );
 
-            var expectedBetInfo = expectedBetInfoList.get(0);
-            var actualBetInfo = actualPayload.getBetInfo().get(0);
+            var actualBetInfo = actualPayload.betInfo().get(0);
             assertAll("Проверка полей внутри bet_info NATS payload",
-                    () -> assertEquals(expectedBetInfo.getChampId(), actualBetInfo.getChampId(), "nats.payload.bet_info.champId"),
-                    () -> assertEquals(expectedBetInfo.getChampName(), actualBetInfo.getChampName(), "nats.payload.bet_info.champ_name"),
-                    () -> assertEquals(0, expectedBetInfo.getCoef().compareTo(actualBetInfo.getCoef()), "nats.payload.bet_info.coef"),
-                    () -> assertEquals(expectedBetInfo.getCouponType(), actualBetInfo.getCouponType(), "nats.payload.bet_info.coupon_type"),
-                    () -> assertEquals(expectedBetInfo.getDateStart(), actualBetInfo.getDateStart(), "nats.payload.bet_info.date_start"),
-                    () -> assertEquals(expectedBetInfo.getEvent(), actualBetInfo.getEvent(), "nats.payload.bet_info.event"),
-                    () -> assertEquals(expectedBetInfo.getGameName(), actualBetInfo.getGameName(), "nats.payload.bet_info.game_name"),
-                    () -> assertEquals(expectedBetInfo.getScore(), actualBetInfo.getScore(), "nats.payload.bet_info.score"),
-                    () -> assertEquals(expectedBetInfo.getSportName(), actualBetInfo.getSportName(), "nats.payload.bet_info.sport_name")
+                    () -> assertEquals(expectedBetInfo.champId(), actualBetInfo.champId(), "nats.payload.bet_info.champId"),
+                    () -> assertEquals(expectedBetInfo.champName(), actualBetInfo.champName(), "nats.payload.bet_info.champ_name"),
+                    () -> assertEquals(0, expectedBetInfo.coef().compareTo(actualBetInfo.coef()), "nats.payload.bet_info.coef"),
+                    () -> assertEquals(expectedBetInfo.couponType(), actualBetInfo.couponType(), "nats.payload.bet_info.coupon_type"),
+                    () -> assertEquals(expectedBetInfo.dateStart(), actualBetInfo.dateStart(), "nats.payload.bet_info.date_start"),
+                    () -> assertEquals(expectedBetInfo.event(), actualBetInfo.event(), "nats.payload.bet_info.event"),
+                    () -> assertEquals(expectedBetInfo.gameName(), actualBetInfo.gameName(), "nats.payload.bet_info.game_name"),
+                    () -> assertEquals(expectedBetInfo.score(), actualBetInfo.score(), "nats.payload.bet_info.score"),
+                    () -> assertEquals(expectedBetInfo.sportName(), actualBetInfo.sportName(), "nats.payload.bet_info.sport_name")
             );
         });
 
@@ -192,11 +188,11 @@ class WinFromIframeParameterizedTest extends BaseParameterizedTest {
 
         step("DB Wallet: Проверка записи порога выигрыша в player_threshold_win", () -> {
             var threshold = walletDatabaseClient.findThresholdByPlayerUuidOrFail(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID());
-            var player = ctx.registeredPlayer.getWalletData();
+                    ctx.registeredPlayer.walletData().playerUUID());
+            var player = ctx.registeredPlayer.walletData();
             var expectedAmount = betAmount.negate().add(winAmount);
             assertAll("Проверка трешхолда после совершения ставки на спорт",
-                    () -> assertEquals(player.getPlayerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
+                    () -> assertEquals(player.playerUUID(), threshold.getPlayerUuid(), "db.threshold.player_uuid"),
                     () -> assertEquals(0, expectedAmount.compareTo(threshold.getAmount()), "db.threshold.amount"),
                     () -> assertNotNull(threshold.getUpdatedAt(), "db.threshold.updated_at")
             );
@@ -204,25 +200,25 @@ class WinFromIframeParameterizedTest extends BaseParameterizedTest {
 
         step("DB Wallet: Проверка записи в таблице betting_projection_iframe_history", () -> {
             var dbTransaction = walletDatabaseClient.findLatestIframeHistoryByUuidOrFail(
-                    ctx.winEvent.getPayload().getUuid());
+                    ctx.winEvent.getPayload().uuid());
 
             var winEventPayload = ctx.winEvent.getPayload();
-            var player = ctx.registeredPlayer.getWalletData();
-            var betInfo = winEventPayload.getBetInfo().get(0);
+            var player = ctx.registeredPlayer.walletData();
+            var betInfo = winEventPayload.betInfo().get(0);
 
             var actualDbBetInfoList = objectMapper
                     .readValue(dbTransaction.getBetInfo(),
                             new TypeReference<List<NatsBettingEventPayload.BetInfoDetail>>() {});
 
             assertAll("Проверка записанной строки в таблицу с историей ставок на спорт",
-                    () -> assertEquals(winEventPayload.getUuid(), dbTransaction.getUuid(), "db.iframe_history.uuid"),
-                    () -> assertEquals(player.getWalletUUID(), dbTransaction.getWalletUuid(), "db.iframe_history.wallet_uuid"),
-                    () -> assertEquals(player.getPlayerUUID(), dbTransaction.getPlayerUuid(), "db.iframe_history.player_uuid"),
+                    () -> assertEquals(winEventPayload.uuid(), dbTransaction.getUuid(), "db.iframe_history.uuid"),
+                    () -> assertEquals(player.walletUUID(), dbTransaction.getWalletUuid(), "db.iframe_history.wallet_uuid"),
+                    () -> assertEquals(player.playerUUID(), dbTransaction.getPlayerUuid(), "db.iframe_history.player_uuid"),
                     () -> assertEquals(CouponType.valueOf(couponType.name()), dbTransaction.getCouponType(), "db.iframe_history.coupon_type"),
                     () -> assertEquals(CouponStatus.WIN, dbTransaction.getCouponStatus(),  "db.iframe_history.coupon_status"),
                     () -> assertEquals(CouponCalcStatus.CALCULATED, dbTransaction.getCouponCalcStatus(),  "db.iframe_history.coupon_calc_status"),
-                    () -> assertEquals(winEventPayload.getBetId(), dbTransaction.getBetId(), "db.iframe_history.bet_id"),
-                    () -> assertEquals(winEventPayload.getBetInfo(), actualDbBetInfoList, "db.iframe_history.bet_info"),
+                    () -> assertEquals(winEventPayload.betId(), dbTransaction.getBetId(), "db.iframe_history.bet_id"),
+                    () -> assertEquals(winEventPayload.betInfo(), actualDbBetInfoList, "db.iframe_history.bet_info"),
                     () -> assertEquals(0, betAmount.compareTo(dbTransaction.getAmount()), "db.iframe_history.amount"),
                     () -> {
                         var expectedCoeff = new BigDecimal(ctx.betRequestBody.getTotalCoef());
@@ -240,27 +236,28 @@ class WinFromIframeParameterizedTest extends BaseParameterizedTest {
                         var expectedCoeff = new BigDecimal(ctx.betRequestBody.getTotalCoef());
                         assertEquals(0, expectedCoeff.compareTo(dbTransaction.getSourceCoeff()), "db.iframe_history.source_coeff");
                     },
-                    () -> assertEquals(0, winEventPayload.getAmount().compareTo(dbTransaction.getAmountDelta()), "db.iframe_history.amount_delta"),
+                    () -> assertEquals(0, winEventPayload.amount().compareTo(dbTransaction.getAmountDelta()), "db.iframe_history.amount_delta"),
                     () -> assertEquals(0, winAmount.compareTo(dbTransaction.getWinSum()), "db.iframe_history.win_sum"),
                     () -> assertNotNull(dbTransaction.getCouponCreatedAt(), "db.iframe_history.coupon_created_at")
             );
         });
 
         step("Redis(Wallet): Получение и проверка полных данных кошелька", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.winEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.winEvent.getSequence())
+                    .fetch();
 
-            var actualBetInfo = aggregate.getIFrameRecords().get(1);
+            var actualBetInfo = aggregate.iFrameRecords().get(1);
             var expectedBetInfo = ctx.winEvent.getPayload();
 
             assertAll("Проверка изменения агрегата, после обработки ставки",
-                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
-                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.getAvailableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
-                    () -> assertEquals(expectedBetInfo.getUuid(), actualBetInfo.getUuid(), "redis.aggregate.iframe.uuid"),
-                    () -> assertEquals(expectedBetInfo.getBetId(), actualBetInfo.getBetID(), "redis.aggregate.iframe.bet_id"),
-                    () -> assertEquals(expectedBetInfo.getAmount(), actualBetInfo.getAmount(), "redis.aggregate.iframe.amount"),
-                    () -> assertEquals(0, expectedBetInfo.getTotalCoeff().compareTo(actualBetInfo.getTotalCoeff()), "redis.aggregate.iframe.total_coeff"),
+                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.balance()), "redis.aggregate.balance"),
+                    () -> assertEquals(0, ctx.expectedBalance.compareTo(aggregate.availableWithdrawalBalance()), "redis.aggregate.available_withdrawal_balance"),
+                    () -> assertEquals(expectedBetInfo.uuid(), actualBetInfo.uuid(), "redis.aggregate.iframe.uuid"),
+                    () -> assertEquals(expectedBetInfo.betId(), actualBetInfo.getBetID(), "redis.aggregate.iframe.bet_id"),
+                    () -> assertEquals(expectedBetInfo.amount(), actualBetInfo.getAmount(), "redis.aggregate.iframe.amount"),
+                    () -> assertEquals(0, expectedBetInfo.totalCoeff().compareTo(actualBetInfo.getTotalCoeff()), "redis.aggregate.iframe.total_coeff"),
                     () -> assertNotNull(actualBetInfo.getTime(), "redis.aggregate.iframe.time"),
                     () -> assertNotNull(actualBetInfo.getCreatedAt(), "redis.aggregate.iframe.created_at"),
                     () -> assertEquals(IFrameRecordType.WIN, actualBetInfo.getType(), "redis.aggregate.iframe.type")

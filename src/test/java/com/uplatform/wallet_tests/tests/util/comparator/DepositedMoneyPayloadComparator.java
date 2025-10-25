@@ -35,28 +35,28 @@ public class DepositedMoneyPayloadComparator implements PayloadComparatorStrateg
         NatsDepositedMoneyPayload kafka = (NatsDepositedMoneyPayload) deserializedKafkaPayload;
         NatsDepositedMoneyPayload nats = (NatsDepositedMoneyPayload) natsPayload;
 
-        if (!Objects.equals(kafka.getUuid(), nats.getUuid())) {
-            logMismatch(seqNum, "uuid", kafka.getUuid(), nats.getUuid(), actualEventType);
+        if (!Objects.equals(kafka.uuid(), nats.uuid())) {
+            logMismatch(seqNum, "uuid", kafka.uuid(), nats.uuid(), actualEventType);
             return false;
         }
-        if (!Objects.equals(kafka.getCurrencyCode(), nats.getCurrencyCode())) {
-            logMismatch(seqNum, "currency_code", kafka.getCurrencyCode(), nats.getCurrencyCode(), actualEventType);
+        if (!Objects.equals(kafka.currencyCode(), nats.currencyCode())) {
+            logMismatch(seqNum, "currency_code", kafka.currencyCode(), nats.currencyCode(), actualEventType);
             return false;
         }
-        if (PayloadComparatorStrategy.compareBigDecimals(kafka.getAmount(), nats.getAmount()) != 0) {
-            logMismatch(seqNum, "amount", kafka.getAmount(), nats.getAmount(), actualEventType);
+        if (PayloadComparatorStrategy.compareBigDecimals(kafka.amount(), nats.amount()) != 0) {
+            logMismatch(seqNum, "amount", kafka.amount(), nats.amount(), actualEventType);
             return false;
         }
-        if (!Objects.equals(kafka.getStatus(), nats.getStatus())) {
-            logMismatch(seqNum, "status", kafka.getStatus(), nats.getStatus(), actualEventType);
+        if (!Objects.equals(kafka.status(), nats.status())) {
+            logMismatch(seqNum, "status", kafka.status(), nats.status(), actualEventType);
             return false;
         }
-        if (!Objects.equals(kafka.getNodeUuid(), nats.getNodeUuid())) {
-            logMismatch(seqNum, "node_uuid", kafka.getNodeUuid(), nats.getNodeUuid(), actualEventType);
+        if (!Objects.equals(kafka.nodeUuid(), nats.nodeUuid())) {
+            logMismatch(seqNum, "node_uuid", kafka.nodeUuid(), nats.nodeUuid(), actualEventType);
             return false;
         }
-        if (!Objects.equals(kafka.getBonusId(), nats.getBonusId())) {
-            logMismatch(seqNum, "bonus_id", kafka.getBonusId(), nats.getBonusId(), actualEventType);
+        if (!Objects.equals(kafka.bonusId(), nats.bonusId())) {
+            logMismatch(seqNum, "bonus_id", kafka.bonusId(), nats.bonusId(), actualEventType);
             return false;
         }
         return true;

@@ -9,7 +9,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.DepositRedirec
 import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.PaymentMethodId;
 import com.uplatform.wallet_tests.api.http.cap.dto.errors.ValidationErrorResponse;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitType;
@@ -24,7 +24,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -95,14 +94,14 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
 
         step("Public API: Установка лимита на депозит", () -> {
             ctx.limitRequest = SetDepositLimitRequest.builder()
-                    .currency(ctx.player.getWalletData().getCurrency())
+                    .currency(ctx.player.walletData().currency())
                     .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setDepositLimit(
-                    ctx.player.getAuthorizationResponse().getBody().getToken(),
+                    ctx.player.authorizationResponse().getBody().getToken(),
                     ctx.limitRequest
             );
 
@@ -111,17 +110,13 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().getPlayerUUID(),
-                    ctx.player.getWalletData().getWalletUUID());
-
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, header) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(header) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            NatsLimitType.DEPOSIT.getValue().equals(payload.getLimits().get(0).getLimitType());
+                    ctx.player.walletData().playerUUID(),
+                    ctx.player.walletData().walletUUID());
 
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.DEPOSIT.getValue())
                     .fetch();
 
             assertNotNull(ctx.limitEvent, "nats.limit_changed_v2_event.message_not_null");
@@ -131,7 +126,7 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
             ctx.depositRequest = DepositRequestBody.builder()
                     .amount(exceedAmount.toPlainString())
                     .paymentMethodId(PaymentMethodId.FAKE)
-                    .currency(ctx.player.getWalletData().getCurrency())
+                    .currency(ctx.player.walletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .redirect(DepositRequestBody.RedirectUrls.builder()
                             .failed(DepositRedirect.FAILED.url())
@@ -143,7 +138,7 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
             ctx.depositException = assertThrows(
                     FeignException.class,
                     () -> publicClient.deposit(
-                            ctx.player.getAuthorizationResponse().getBody().getToken(),
+                            ctx.player.authorizationResponse().getBody().getToken(),
                             ctx.depositRequest
                     ),
                     "fapi.deposit.exception"
@@ -152,11 +147,11 @@ public class DepositLimitExceedNegativeParametrizedTest extends BaseParameterize
             var error = utils.parseFeignExceptionContent(ctx.depositException, ValidationErrorResponse.class);
 
             assertAll("fapi.deposit.error_response",
-                    () -> assertEquals(HttpStatus.BAD_REQUEST.value(), error.getCode(), "api.error.code"),
-                    () -> assertEquals("field:[amount] msg:[deposit limit: limit is exceeded]", error.getMessage(), "api.error.message"),
+                    () -> assertEquals(HttpStatus.BAD_REQUEST.value(), error.code(), "api.error.code"),
+                    () -> assertEquals("field:[amount] msg:[deposit limit: limit is exceeded]", error.message(), "api.error.message"),
                     () -> {
-                        assertNotNull(error.getErrors(), "api.error.errors_not_null");
-                        assertTrue(error.getErrors().get("amount").contains("Deposit limit: limit is exceeded."), "api.error.errors.value");
+                        assertNotNull(error.errors(), "api.error.errors_not_null");
+                        assertTrue(error.errors().get("amount").contains("Deposit limit: limit is exceeded."), "api.error.errors.value");
                     }
             );
         });

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.tests.util.utils.CapAdminTokenStorage;
 import com.uplatform.wallet_tests.tests.util.utils.ConcurrencyRequestExecutor;
 import com.uplatform.wallet_tests.tests.util.utils.HttpSignatureUtil;

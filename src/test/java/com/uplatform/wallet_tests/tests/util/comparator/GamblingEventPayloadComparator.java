@@ -40,32 +40,32 @@ public class GamblingEventPayloadComparator implements PayloadComparatorStrategy
     }
 
     private void logDetailedDifference(NatsGamblingEventPayload kafka, NatsGamblingEventPayload nats, long seqNum, String actualEventType) {
-        checkAndLogMismatch(seqNum, "Payload Transaction UUID", kafka.getUuid(), nats.getUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Bet UUID", kafka.getBetUuid(), nats.getBetUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Game Session UUID", kafka.getGameSessionUuid(), nats.getGameSessionUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Provider Round ID", kafka.getProviderRoundId(), nats.getProviderRoundId(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Currency", kafka.getCurrency(), nats.getCurrency(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Transaction UUID", kafka.uuid(), nats.uuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Bet UUID", kafka.betUuid(), nats.betUuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Game Session UUID", kafka.gameSessionUuid(), nats.gameSessionUuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Provider Round ID", kafka.providerRoundId(), nats.providerRoundId(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Currency", kafka.currency(), nats.currency(), actualEventType);
 
-        if (PayloadComparatorStrategy.compareBigDecimals(kafka.getAmount(), nats.getAmount()) != 0) {
-            logMismatch(seqNum, "Payload Amount (value)", kafka.getAmount(), nats.getAmount(), actualEventType);
-        } else if (!Objects.equals(kafka.getAmount(), nats.getAmount())) {
-            logMismatch(seqNum, "Payload Amount (scale differs)", kafka.getAmount(), nats.getAmount(), actualEventType);
+        if (PayloadComparatorStrategy.compareBigDecimals(kafka.amount(), nats.amount()) != 0) {
+            logMismatch(seqNum, "Payload Amount (value)", kafka.amount(), nats.amount(), actualEventType);
+        } else if (!Objects.equals(kafka.amount(), nats.amount())) {
+            logMismatch(seqNum, "Payload Amount (scale differs)", kafka.amount(), nats.amount(), actualEventType);
         }
 
-        checkAndLogMismatch(seqNum, "Payload Type (internal)", kafka.getType(), nats.getType(), actualEventType);
-        if (kafka.isProviderRoundClosed() != nats.isProviderRoundClosed()) {
-            logMismatch(seqNum, "Payload Provider Round Closed", kafka.isProviderRoundClosed(), nats.isProviderRoundClosed(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Type (internal)", kafka.type(), nats.type(), actualEventType);
+        if (kafka.providerRoundClosed() != nats.providerRoundClosed()) {
+            logMismatch(seqNum, "Payload Provider Round Closed", kafka.providerRoundClosed(), nats.providerRoundClosed(), actualEventType);
         }
-        checkAndLogMismatch(seqNum, "Payload Message", kafka.getMessage(), nats.getMessage(), actualEventType);
-        if (kafka.getCreatedAt() != nats.getCreatedAt()) {
-            logMismatch(seqNum, "Payload CreatedAt Timestamp", kafka.getCreatedAt(), nats.getCreatedAt(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Message", kafka.message(), nats.message(), actualEventType);
+        if (!Objects.equals(kafka.createdAt(), nats.createdAt())) {
+            logMismatch(seqNum, "Payload CreatedAt Timestamp", kafka.createdAt(), nats.createdAt(), actualEventType);
         }
-        checkAndLogMismatch(seqNum, "Payload Direction", kafka.getDirection(), nats.getDirection(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Operation", kafka.getOperation(), nats.getOperation(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Node UUID", kafka.getNodeUuid(), nats.getNodeUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Game UUID", kafka.getGameUuid(), nats.getGameUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Provider UUID", kafka.getProviderUuid(), nats.getProviderUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Wagered Deposit Info", kafka.getWageredDepositInfo(), nats.getWageredDepositInfo(), actualEventType);
-        checkAndLogMismatch(seqNum, "Payload Currency Conversion Info", kafka.getCurrencyConversionInfo(), nats.getCurrencyConversionInfo(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Direction", kafka.direction(), nats.direction(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Operation", kafka.operation(), nats.operation(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Node UUID", kafka.nodeUuid(), nats.nodeUuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Game UUID", kafka.gameUuid(), nats.gameUuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Provider UUID", kafka.providerUuid(), nats.providerUuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Wagered Deposit Info", kafka.wageredDepositInfo(), nats.wageredDepositInfo(), actualEventType);
+        checkAndLogMismatch(seqNum, "Payload Currency Conversion Info", kafka.currencyConversionInfo(), nats.currencyConversionInfo(), actualEventType);
     }
 }

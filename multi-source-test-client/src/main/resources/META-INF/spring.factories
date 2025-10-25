@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.testing.multisource.api.redis.config.RedisApiAutoConfiguration,\
+com.testing.multisource.api.http.config.HttpApiAutoConfiguration

@@ -40,28 +40,28 @@ public class BalanceAdjustedPayloadComparator implements PayloadComparatorStrate
     private void logDetailedDifference(NatsBalanceAdjustedPayload kafka, NatsBalanceAdjustedPayload nats, long seqNum, String actualEventType) {
         log.debug("Detailed payload comparison for {} (SeqNum: {})", actualEventType, seqNum);
 
-        checkAndLogMismatch(seqNum, "UUID", kafka.getUuid(), nats.getUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "Currency", kafka.getCurrency(), nats.getCurrency(), actualEventType);
+        checkAndLogMismatch(seqNum, "UUID", kafka.uuid(), nats.uuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "Currency", kafka.currency(), nats.currency(), actualEventType);
 
-        if (PayloadComparatorStrategy.compareBigDecimals(kafka.getAmount(), nats.getAmount()) != 0) {
-            logMismatch(seqNum, "Amount (value)", kafka.getAmount(), nats.getAmount(), actualEventType);
-        } else if (!Objects.equals(kafka.getAmount(), nats.getAmount())) {
+        if (PayloadComparatorStrategy.compareBigDecimals(kafka.amount(), nats.amount()) != 0) {
+            logMismatch(seqNum, "Amount (value)", kafka.amount(), nats.amount(), actualEventType);
+        } else if (!Objects.equals(kafka.amount(), nats.amount())) {
             log.trace("Amount values equal via compareTo but differ in scale (SeqNum: {}). Kafka: {}, Nats: {}",
-                    seqNum, kafka.getAmount(), nats.getAmount());
-            logMismatch(seqNum, "Amount (scale differs)", kafka.getAmount(), nats.getAmount(), actualEventType);
+                    seqNum, kafka.amount(), nats.amount());
+            logMismatch(seqNum, "Amount (scale differs)", kafka.amount(), nats.amount(), actualEventType);
         }
 
-        if (kafka.getOperationType() != nats.getOperationType()) {
-            logMismatch(seqNum, "Operation Type", kafka.getOperationType(), nats.getOperationType(), actualEventType);
+        if (kafka.operationType() != nats.operationType()) {
+            logMismatch(seqNum, "Operation Type", kafka.operationType(), nats.operationType(), actualEventType);
         }
-        if (kafka.getDirection() != nats.getDirection()) {
-            logMismatch(seqNum, "Direction", kafka.getDirection(), nats.getDirection(), actualEventType);
+        if (kafka.direction() != nats.direction()) {
+            logMismatch(seqNum, "Direction", kafka.direction(), nats.direction(), actualEventType);
         }
-        if (kafka.getReason() != nats.getReason()) {
-            logMismatch(seqNum, "Reason", kafka.getReason(), nats.getReason(), actualEventType);
+        if (kafka.reason() != nats.reason()) {
+            logMismatch(seqNum, "Reason", kafka.reason(), nats.reason(), actualEventType);
         }
-        checkAndLogMismatch(seqNum, "Comment", kafka.getComment(), nats.getComment(), actualEventType);
-        checkAndLogMismatch(seqNum, "User UUID", kafka.getUserUuid(), nats.getUserUuid(), actualEventType);
-        checkAndLogMismatch(seqNum, "User Name", kafka.getUserName(), nats.getUserName(), actualEventType);
+        checkAndLogMismatch(seqNum, "Comment", kafka.comment(), nats.comment(), actualEventType);
+        checkAndLogMismatch(seqNum, "User UUID", kafka.userUuid(), nats.userUuid(), actualEventType);
+        checkAndLogMismatch(seqNum, "User Name", kafka.userName(), nats.userName(), actualEventType);
     }
 }

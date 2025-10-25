@@ -112,12 +112,12 @@ public class CapAdminTokenStorage {
 
         CapTokenCheckResponse tokenResponse = responseEntity.getBody();
 
-        if (tokenResponse.getToken() == null || tokenResponse.getToken().trim().isEmpty()) {
+        if (tokenResponse.token() == null || tokenResponse.token().trim().isEmpty()) {
             log.error("Received empty token from CAP API.");
             throw new RuntimeException("Received empty token from CAP API.");
         }
 
-        this.accessToken = tokenResponse.getToken();
+        this.accessToken = tokenResponse.token();
 
         try {
             this.expiresAt = parseExpiryFromJwt(this.accessToken);

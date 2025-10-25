@@ -68,7 +68,7 @@ class BetWhenCoolingOffTest extends BaseTest {
         step("FAPI: Установка самоограничения игрока", () -> {
             var request = new PlayerRestrictionsRequest(RestrictionExpireType.DAY);
             var response = publicClient.getPlayerRestrictions(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request
             );
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.restrictions.status_code");
@@ -84,10 +84,10 @@ class BetWhenCoolingOffTest extends BaseTest {
 
             var data = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             var request = generateRequest(data);
@@ -95,9 +95,9 @@ class BetWhenCoolingOffTest extends BaseTest {
 
             assertAll("Проверка статус-кода и тела ответа",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                    () -> assertFalse(response.getBody().isSuccess(), "manager_api.body.success"),
-                    () -> assertEquals(COOLING_OFF_LIMIT_REACHED.getDescription(), response.getBody().getDescription(), "manager_api.body.description"),
-                    () -> assertEquals(COOLING_OFF_LIMIT_REACHED.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode")
+                    () -> assertFalse(response.getBody().success(), "manager_api.body.success"),
+                    () -> assertEquals(COOLING_OFF_LIMIT_REACHED.getDescription(), response.getBody().description(), "manager_api.body.description"),
+                    () -> assertEquals(COOLING_OFF_LIMIT_REACHED.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode")
             );
         });
     }

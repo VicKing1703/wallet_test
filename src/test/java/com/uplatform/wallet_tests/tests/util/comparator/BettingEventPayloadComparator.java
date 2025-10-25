@@ -42,57 +42,57 @@ public class BettingEventPayloadComparator implements PayloadComparatorStrategy 
 
         boolean areEqual = true;
 
-        if (!Objects.equals(kafka.getUuid(), nats.getUuid())) {
-            logMismatch(seqNum, "uuid", kafka.getUuid(), nats.getUuid(), actualEventType);
+        if (!Objects.equals(kafka.uuid(), nats.uuid())) {
+            logMismatch(seqNum, "uuid", kafka.uuid(), nats.uuid(), actualEventType);
             areEqual = false;
         }
-        if (!Objects.equals(kafka.getType(), nats.getType())) {
-            logMismatch(seqNum, "payload.type", kafka.getType(), nats.getType(), actualEventType);
+        if (!Objects.equals(kafka.type(), nats.type())) {
+            logMismatch(seqNum, "payload.type", kafka.type(), nats.type(), actualEventType);
             areEqual = false;
         }
-        if (kafka.getBetId() != nats.getBetId()) {
-            logMismatch(seqNum, "bet_id", kafka.getBetId(), nats.getBetId(), actualEventType);
-            areEqual = false;
-        }
-
-        if (PayloadComparatorStrategy.compareBigDecimals(kafka.getAmount(), nats.getAmount()) != 0) {
-            logMismatch(seqNum, "amount", kafka.getAmount(), nats.getAmount(), actualEventType);
-            areEqual = false;
-        }
-        if (PayloadComparatorStrategy.compareBigDecimals(kafka.getRawAmount(), nats.getRawAmount()) != 0) {
-            logMismatch(seqNum, "raw_amount", kafka.getRawAmount(), nats.getRawAmount(), actualEventType);
+        if (kafka.betId() != nats.betId()) {
+            logMismatch(seqNum, "bet_id", kafka.betId(), nats.betId(), actualEventType);
             areEqual = false;
         }
 
-        if (PayloadComparatorStrategy.compareBigDecimals(kafka.getTotalCoeff(), nats.getTotalCoeff()) != 0) {
-            logMismatch(seqNum, "total_coeff", kafka.getTotalCoeff(), nats.getTotalCoeff(), actualEventType);
+        if (PayloadComparatorStrategy.compareBigDecimals(kafka.amount(), nats.amount()) != 0) {
+            logMismatch(seqNum, "amount", kafka.amount(), nats.amount(), actualEventType);
+            areEqual = false;
+        }
+        if (PayloadComparatorStrategy.compareBigDecimals(kafka.rawAmount(), nats.rawAmount()) != 0) {
+            logMismatch(seqNum, "raw_amount", kafka.rawAmount(), nats.rawAmount(), actualEventType);
             areEqual = false;
         }
 
-        if (kafka.getTime() != nats.getTime()) {
-            logMismatch(seqNum, "time", kafka.getTime(), nats.getTime(), actualEventType);
-            areEqual = false;
-        }
-        if (!Objects.equals(kafka.getCreatedAt(), nats.getCreatedAt())) {
-            logMismatch(seqNum, "created_at", kafka.getCreatedAt(), nats.getCreatedAt(), actualEventType);
+        if (PayloadComparatorStrategy.compareBigDecimals(kafka.totalCoeff(), nats.totalCoeff()) != 0) {
+            logMismatch(seqNum, "total_coeff", kafka.totalCoeff(), nats.totalCoeff(), actualEventType);
             areEqual = false;
         }
 
-        boolean kafkaWageredEmpty = kafka.getWageredDepositInfo() == null || kafka.getWageredDepositInfo().isEmpty();
-        boolean natsWageredEmpty = nats.getWageredDepositInfo() == null || nats.getWageredDepositInfo().isEmpty();
+        if (kafka.time() != nats.time()) {
+            logMismatch(seqNum, "time", kafka.time(), nats.time(), actualEventType);
+            areEqual = false;
+        }
+        if (!Objects.equals(kafka.createdAt(), nats.createdAt())) {
+            logMismatch(seqNum, "created_at", kafka.createdAt(), nats.createdAt(), actualEventType);
+            areEqual = false;
+        }
+
+        boolean kafkaWageredEmpty = kafka.wageredDepositInfo() == null || kafka.wageredDepositInfo().isEmpty();
+        boolean natsWageredEmpty = nats.wageredDepositInfo() == null || nats.wageredDepositInfo().isEmpty();
         if (kafkaWageredEmpty != natsWageredEmpty) {
             logMismatch(seqNum, "wagered_deposit_info (emptiness)",
                     kafkaWageredEmpty ? "empty/null" : "not empty",
                     natsWageredEmpty ? "empty/null" : "not empty",
                     actualEventType);
             areEqual = false;
-        } else if (!kafkaWageredEmpty && !Objects.equals(kafka.getWageredDepositInfo(), nats.getWageredDepositInfo())) {
+        } else if (!kafkaWageredEmpty && !Objects.equals(kafka.wageredDepositInfo(), nats.wageredDepositInfo())) {
             logMismatch(seqNum, "wagered_deposit_info (content)",
-                    kafka.getWageredDepositInfo(), nats.getWageredDepositInfo(), actualEventType);
+                    kafka.wageredDepositInfo(), nats.wageredDepositInfo(), actualEventType);
             areEqual = false;
         }
 
-        boolean betInfoCompared = compareBetInfoLists(kafka.getBetInfo(), nats.getBetInfo(), seqNum, actualEventType);
+        boolean betInfoCompared = compareBetInfoLists(kafka.betInfo(), nats.betInfo(), seqNum, actualEventType);
         if (!betInfoCompared) {
             areEqual = false;
         }
@@ -154,40 +154,40 @@ public class BettingEventPayloadComparator implements PayloadComparatorStrategy 
         boolean areEqual = true;
         String prefix = "bet_info[" + index + "].";
 
-        if (!Objects.equals(kafka.getChampId(), nats.getChampId())) {
-            logMismatch(seqNum, prefix + "ChampId", kafka.getChampId(), nats.getChampId(), actualEventType);
+        if (!Objects.equals(kafka.champId(), nats.champId())) {
+            logMismatch(seqNum, prefix + "ChampId", kafka.champId(), nats.champId(), actualEventType);
             areEqual = false;
         }
-        if (!Objects.equals(kafka.getChampName(), nats.getChampName())) {
-            logMismatch(seqNum, prefix + "ChampName", kafka.getChampName(), nats.getChampName(), actualEventType);
+        if (!Objects.equals(kafka.champName(), nats.champName())) {
+            logMismatch(seqNum, prefix + "ChampName", kafka.champName(), nats.champName(), actualEventType);
             areEqual = false;
         }
-        if (PayloadComparatorStrategy.compareBigDecimals(kafka.getCoef(), nats.getCoef()) != 0) {
-            logMismatch(seqNum, prefix + "Coef", kafka.getCoef(), nats.getCoef(), actualEventType);
+        if (PayloadComparatorStrategy.compareBigDecimals(kafka.coef(), nats.coef()) != 0) {
+            logMismatch(seqNum, prefix + "Coef", kafka.coef(), nats.coef(), actualEventType);
             areEqual = false;
         }
-        if (!Objects.equals(kafka.getCouponType(), nats.getCouponType())) {
-            logMismatch(seqNum, prefix + "CouponType", kafka.getCouponType(), nats.getCouponType(), actualEventType);
+        if (!Objects.equals(kafka.couponType(), nats.couponType())) {
+            logMismatch(seqNum, prefix + "CouponType", kafka.couponType(), nats.couponType(), actualEventType);
             areEqual = false;
         }
-        if (!Objects.equals(kafka.getDateStart(), nats.getDateStart())) {
-            logMismatch(seqNum, prefix + "DateStart", kafka.getDateStart(), nats.getDateStart(), actualEventType);
+        if (!Objects.equals(kafka.dateStart(), nats.dateStart())) {
+            logMismatch(seqNum, prefix + "DateStart", kafka.dateStart(), nats.dateStart(), actualEventType);
             areEqual = false;
         }
-        if (!Objects.equals(kafka.getEvent(), nats.getEvent())) {
-            logMismatch(seqNum, prefix + "Event", kafka.getEvent(), nats.getEvent(), actualEventType);
+        if (!Objects.equals(kafka.event(), nats.event())) {
+            logMismatch(seqNum, prefix + "Event", kafka.event(), nats.event(), actualEventType);
             areEqual = false;
         }
-        if (!Objects.equals(kafka.getGameName(), nats.getGameName())) {
-            logMismatch(seqNum, prefix + "GameName", kafka.getGameName(), nats.getGameName(), actualEventType);
+        if (!Objects.equals(kafka.gameName(), nats.gameName())) {
+            logMismatch(seqNum, prefix + "GameName", kafka.gameName(), nats.gameName(), actualEventType);
             areEqual = false;
         }
-        if (!Objects.equals(kafka.getScore(), nats.getScore())) {
-            logMismatch(seqNum, prefix + "Score", kafka.getScore(), nats.getScore(), actualEventType);
+        if (!Objects.equals(kafka.score(), nats.score())) {
+            logMismatch(seqNum, prefix + "Score", kafka.score(), nats.score(), actualEventType);
             areEqual = false;
         }
-        if (!Objects.equals(kafka.getSportName(), nats.getSportName())) {
-            logMismatch(seqNum, prefix + "SportName", kafka.getSportName(), nats.getSportName(), actualEventType);
+        if (!Objects.equals(kafka.sportName(), nats.sportName())) {
+            logMismatch(seqNum, prefix + "SportName", kafka.sportName(), nats.sportName(), actualEventType);
             areEqual = false;
         }
 

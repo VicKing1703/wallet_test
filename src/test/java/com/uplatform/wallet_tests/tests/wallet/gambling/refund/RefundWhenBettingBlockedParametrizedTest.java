@@ -1,14 +1,20 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
+import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,67 +28,73 @@ import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Интеграционный тест, проверяющий функциональность возврата ставок (рефанда), включая ставки с нулевой суммой,
- * для игрока с заблокированным беттингом в системе Wallet.
+ * Проверяет возможность рефанда при заблокированном беттинге.
  *
- * <p>Данный параметризованный тест проверяет сценарий, когда игрок, у которого заблокирован
- * беттинг (bettingEnabled=false), но разрешен гемблинг (gamblingEnabled=true),
- * пытается получить возврат ставки различных типов (BET, TIPS, FREESPIN) и различных сумм, включая нулевые.
- * В данном сценарии возврат ставок должен успешно проходить, так как блокировка беттинга
- * относится только к спортивным ставкам и не должна влиять на операции в казино.</p>
+ * <p><b>Идея теста:</b>
+ * Убедиться, что запрет беттинга не мешает возврату казино-ставок.</p>
  *
- * <p>Тест создает для каждого тестового сценария нового игрока, выполняет исходную ставку (в том числе нулевую),
- * затем блокирует беттинг через CAP API, и проверяет возможность получения возврата ставки
- * при заблокированном беттинге. Рефанд нулевой ставки, по сути, не изменяет баланс, но сама операция
- * должна быть обработана успешно, если исходная "ставка" была нулевой.</p>
- *
- * <p><b>Проверяемые типы исходных ставок:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>{@code BET} - обычная ставка.</li>
- *   <li>{@code TIPS} - чаевые.</li>
- *   <li>{@code FREESPIN} - бесплатное вращение.</li>
+ *   <li><b>CAP блокировки:</b>
+ *     <p><b>Что проверяем:</b> установка флагов {@code bettingEnabled=false}, {@code gamblingEnabled=true}.</p>
+ *     <p><b>Почему это важно:</b> корректность настройки блокировок влияет на бизнес-логику.</p>
+ *   </li>
+ *   <li><b>Refund API:</b>
+ *     <p><b>Что проверяем:</b> статус {@code 200 OK} и расчет баланса.</p>
+ *     <p><b>Почему это важно:</b> игрок должен получить средства независимо от блокировки беттинга.</p>
+ *   </li>
  * </ul>
  *
- * <p><b>Ожидаемый результат:</b> Система должна успешно обрабатывать возврат всех видов ставок в казино,
- * включая ставки с нулевой суммой, несмотря на блокировку беттинга у игрока. Баланс игрока
- * после ставки и последующего рефанда должен вернуться к исходному значению.</p>
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>CAP API успешно блокирует беттинг.</li>
+ *   <li>Рефанд завершается успешно для всех типов ставок.</li>
+ *   <li>Баланс после рефанда возвращается к исходному.</li>
+ * </ul>
  */
-@Severity(SeverityLevel.CRITICAL)
+@Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/refund")
 @Suite("Позитивные сценарии: /refund")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> refundTypeProvider() {
         return Stream.of(
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.BET
                 ),
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.TIPS
                 ),
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.FREESPIN
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.BET
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.TIPS
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.FREESPIN
                 )
@@ -90,17 +102,38 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
     }
 
     /**
-     * Тестирует рефанд ставки игроком с заблокированным беттингом.
+     * Проверяет рефанд при заблокированном беттинге.
      *
-     * @param betAmountParam Сумма ставки (может быть 0).
-     * @param typeParam Тип исходной операции ставки (BET, TIPS, FREESPIN).
+     * <p><b>Идея теста:</b>
+     * Совершить ставку, заблокировать беттинг через CAP и выполнить рефанд.</p>
+     *
+     * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+     * <ul>
+     *   <li><b>CAP API:</b>
+     *     <p><b>Что проверяем:</b> успешное применение блокировки.</p>
+     *     <p><b>Почему это важно:</b> гарантирует корректный сценарий ограничения.</p>
+     *   </li>
+     *   <li><b>Refund API:</b>
+     *     <p><b>Что проверяем:</b> статус {@code 200 OK} и баланс.</p>
+     *     <p><b>Почему это важно:</b> возврат должен работать независимо от запрета беттинга.</p>
+     *   </li>
+     * </ul>
+     *
+     * <p><b>Ожидаемые результаты:</b></p>
+     * <ul>
+     *   <li>Блокировка применяется успешно.</li>
+     *   <li>Рефанд возвращает статус {@code 200 OK}.</li>
+     *   <li>Баланс после рефанда совпадает с исходным.</li>
+     * </ul>
+     *
+     * @param betAmountParam сумма ставки (может быть {@code 0})
+     * @param typeParam тип исходной операции ставки ({@link NatsGamblingTransactionOperation})
      */
     @ParameterizedTest(name = "тип = {1}, сумма {0}")
     @MethodSource("refundTypeProvider")
     @DisplayName("Получение рефанда игроком с заблокированным беттингом (гемблинг разрешен):")
     void test(BigDecimal betAmountParam, NatsGamblingTransactionOperation typeParam) {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -109,10 +142,10 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
             BigDecimal expectedBalanceAfterRefund;
         }
         final TestContext ctx = new TestContext();
-        ctx.expectedBalanceAfterRefund = initialAdjustmentAmount;
+        ctx.expectedBalanceAfterRefund = INITIAL_ADJUSTMENT_AMOUNT;
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -123,7 +156,7 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение исходной транзакции (ставки)", () -> {
             ctx.betRequestBody = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(typeParam)
@@ -146,7 +179,7 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
@@ -155,16 +188,16 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
         });
 
         step("Manager API: Выполнение рефанда транзакции", () -> {
-            var refundRequestBody = com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+            var refundRequestBody = RefundRequestBody.builder()
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .betTransactionId(ctx.betRequestBody.getTransactionId())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .build();
 
             var response = managerClient.refund(
@@ -175,8 +208,8 @@ class RefundWhenBettingBlockedParametrizedTest extends BaseParameterizedTest {
             assertNotNull(response.getBody(), "manager_api.refund.body_not_null");
             assertAll("Проверка статус-кода и тела ответа при рефанде",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.refund.status_code"),
-                    () -> assertEquals(refundRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.refund.transaction_id"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().getBalance()), "manager_api.refund.balance")
+                    () -> assertEquals(refundRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.refund.transaction_id"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRefund.compareTo(response.getBody().balance()), "manager_api.refund.balance")
             );
         });
     }

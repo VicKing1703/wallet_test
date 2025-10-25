@@ -10,7 +10,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.PaymentMethodI
 import com.uplatform.wallet_tests.api.kafka.dto.PaymentTransactionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsDepositedMoneyPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsDepositStatus;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsLimitIntervalType;
@@ -25,7 +25,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
@@ -108,14 +107,14 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("Public API: Установка лимита на депозит", () -> {
             ctx.limitRequest = SetDepositLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(limitAmount.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setDepositLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.limitRequest
             );
 
@@ -124,19 +123,14 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("NATS: получение события limit_changed_v2", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-            BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, header) ->
-                    NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(header) &&
-                            payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                            NatsLimitType.DEPOSIT.getValue().equals(payload.getLimits().get(0).getLimitType()) &&
-                            payload.getLimits().get(0).getAmount() != null &&
-                            limitAmount.compareTo(payload.getLimits().get(0).getAmount()) == 0;
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.limitEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.DEPOSIT.getValue())
+                    .with("$.limits[0].amount", limitAmount)
                     .fetch();
 
             assertNotNull(ctx.limitEvent, "nats.limit_changed_v2_event.message_not_null");
@@ -148,7 +142,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
             ctx.depositRequest = DepositRequestBody.builder()
                     .amount(depositAmount.toPlainString())
                     .paymentMethodId(PaymentMethodId.FAKE)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .redirect(DepositRequestBody.RedirectUrls.builder()
                             .failed(DepositRedirect.FAILED.url())
@@ -158,7 +152,7 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
                     .build();
 
             var response = publicClient.deposit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     ctx.depositRequest
             );
 
@@ -167,56 +161,54 @@ public class DepositLimitRestAfterDepositParameterizedTest extends BaseParameter
 
         step("Kafka: Получение transactionId", () -> {
             ctx.kafkaPaymentMessage = kafkaClient.expect(PaymentTransactionMessage.class)
-                    .with("playerId", ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .with("playerId", ctx.registeredPlayer.walletData().playerUUID())
                     .with("nodeId", nodeId)
                     .fetch();
 
-            ctx.transactionId = ctx.kafkaPaymentMessage.getTransaction().getTransactionId();
+            ctx.transactionId = ctx.kafkaPaymentMessage.transaction().transactionId();
 
             assertNotNull(ctx.transactionId, "kafka.transaction.id");
         });
 
         step("NATS: Проверка события deposited_money", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-            BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, header) ->
-                    NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(header);
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                     .fetch();
 
             assertNotNull(ctx.depositEvent, "nats.deposited_money_event.message_not_null");
 
             assertAll("nats.deposited_money_event.payload_validation",
-                    () -> assertEquals(ctx.transactionId, ctx.depositEvent.getPayload().getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(ctx.depositRequest.getCurrency(), ctx.depositEvent.getPayload().getCurrencyCode(), "nats.payload.currency_code"),
-                    () -> assertEquals(0, depositAmount.compareTo(ctx.depositEvent.getPayload().getAmount()), "nats.payload.amount"),
-                    () -> assertEquals(NatsDepositStatus.SUCCESS, ctx.depositEvent.getPayload().getStatus(), "nats.payload.status"),
-                    () -> assertEquals(nodeId, ctx.depositEvent.getPayload().getNodeUuid(), "nats.payload.node_uuid"),
-                    () -> assertEquals("", ctx.depositEvent.getPayload().getBonusId(), "nats.payload.bonus_id")
+                    () -> assertEquals(ctx.transactionId, ctx.depositEvent.getPayload().uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(ctx.depositRequest.currency(), ctx.depositEvent.getPayload().currencyCode(), "nats.payload.currency_code"),
+                    () -> assertEquals(0, depositAmount.compareTo(ctx.depositEvent.getPayload().amount()), "nats.payload.amount"),
+                    () -> assertEquals(NatsDepositStatus.SUCCESS, ctx.depositEvent.getPayload().status(), "nats.payload.status"),
+                    () -> assertEquals(nodeId, ctx.depositEvent.getPayload().nodeUuid(), "nats.payload.node_uuid"),
+                    () -> assertEquals("", ctx.depositEvent.getPayload().bonusId(), "nats.payload.bonus_id")
             );
         });
 
         step("Redis(Wallet): Проверка изменений лимита", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.depositEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.depositEvent.getSequence())
+                    .fetch();
 
-            var redisLimit = aggregate.getLimits().stream()
+            var redisLimit = aggregate.limits().stream()
                     .filter(l -> NatsLimitType.DEPOSIT.getValue().equals(l.getLimitType()) &&
-                            ctx.limitEvent.getPayload().getLimits().get(0).getExternalId().equals(l.getExternalID()))
+                            ctx.limitEvent.getPayload().limits().get(0).externalId().equals(l.getExternalID()))
                     .findFirst().orElse(null);
 
             assertNotNull(redisLimit, "redis.wallet.limit_found");
 
             assertAll("redis.wallet.limit_content_validation",
-                    () -> assertEquals(0, limitAmount.compareTo(redisLimit.getAmount()), "redis.wallet.limit.amount"),
-                    () -> assertEquals(0, depositAmount.compareTo(redisLimit.getSpent()), "redis.wallet.limit.spent"),
-                    () -> assertEquals(0, ctx.expectedRest.compareTo(redisLimit.getRest()), "redis.wallet.limit.rest")
+                    () -> assertEquals(0, limitAmount.compareTo(redisLimit.amount()), "redis.wallet.limit.amount"),
+                    () -> assertEquals(0, depositAmount.compareTo(redisLimit.spent()), "redis.wallet.limit.spent"),
+                    () -> assertEquals(0, ctx.expectedRest.compareTo(redisLimit.rest()), "redis.wallet.limit.rest")
             );
         });
     }

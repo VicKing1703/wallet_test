@@ -1,13 +1,11 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.uplatform.wallet_tests.tests.base.BaseNegativeParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.errors.ValidationErrorResponse;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import feign.FeignException;
 import io.qameta.allure.*;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -19,268 +17,278 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+/**
+ * Интеграционный тест, проверяющий негативные сценарии для эндпоинта создания ручной блокировки средств:
+ * {@code POST /_cap/api/v1/wallet/{playerUuid}/create-block-amount}.
+ *
+ * <p><b>Идея теста:</b> Гарантировать, что система строго контролирует операции, влияющие на баланс игрока.
+ * API должен отклонять любые запросы на блокировку средств, которые являются невалидными, нарушают бизнес-логику
+ * (например, нехватка средств) или отправлены без должных прав. Это защищает систему от создания некорректных
+ * финансовых блокировок и сохраняет целостность данных кошелька.</p>
+ *
+ * <p><b>Сценарии тестирования сгруппированы по типу ошибки:</b></p>
+ * <ol>
+ *   <li><b>Ошибки валидации тела запроса (HTTP 400):</b>
+ *     <ul>
+ *       <li>Отправка запроса с отсутствующими (null), пустыми или некорректными значениями для полей
+ *           {@code amount} и {@code currency}.</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>Ошибки бизнес-логики (HTTP 400):</b>
+ *     <ul>
+ *       <li>Попытка заблокировать сумму, превышающую текущий доступный баланс игрока.</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>Ошибки в параметрах запроса (HTTP 404):</b>
+ *     <ul>
+ *       <li>Использование несуществующего или невалидного по формату {@code playerUUID}.</li>
+ *       <li>Указание валюты ({@code currency}), которая не соответствует валюте кошелька игрока.</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>Ошибки аутентификации (HTTP 401):</b>
+ *     <ul>
+ *       <li>Отправка запроса с отсутствующим или пустым заголовком {@code Authorization}.</li>
+ *     </ul>
+ *   </li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Система возвращает корректный HTTP-статус ошибки (400, 401, 404) для каждого сценария.</li>
+ *   <li>Тело ответа содержит понятное сообщение об ошибке.</li>
+ *   <li>Баланс игрока и список его блокировок остаются неизменными.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
-@Feature("BlockAmount")
-@Suite("Негативные сценарии: BlockAmount")
+@Feature("Управление игроком")
+@Suite("Ручная блокировка баланса игрока: Негативные сценарии")
 @Tag("Wallet") @Tag("CAP")
-class BlockAmountNegativeParametrizedTest extends BaseParameterizedTest {
+class BlockAmountNegativeParametrizedTest extends BaseNegativeParameterizedTest {
+
+    private static final BigDecimal ADJUSTMENT_AMOUNT = new BigDecimal("1000.00");
+    private static final BigDecimal VALID_BLOCK_AMOUNT = new BigDecimal("50.00");
+    private static final String REQUEST_REASON = "Test block amount negative";
 
     private RegisteredPlayerData registeredPlayer;
-    private final BigDecimal adjustmentAmount = new BigDecimal("1000.00");
-    private final BigDecimal validBlockAmount = new BigDecimal("50.00");
     private String platformNodeId;
 
-    private static class TestCase {
-        final String description;
-        final Consumer<CreateBlockAmountRequest> requestModifier;
-        final String playerUuid;
-        final String authHeader;
-        final String nodeId;
-        final Integer expectedStatus;
-        final String expectedMessageSubstring;
-        final Map<String, List<String>> expectedFieldErrors;
-
-        TestCase(String description,
-                 Consumer<CreateBlockAmountRequest> requestModifier,
-                 String playerUuid,
-                 String authHeader,
-                 String nodeId,
-                 Integer expectedStatus,
-                 String expectedMessageSubstring,
-                 Map<String, List<String>> expectedFieldErrors) {
-            this.description = description;
-            this.requestModifier = requestModifier;
-            this.playerUuid = playerUuid;
-            this.authHeader = authHeader;
-            this.nodeId = nodeId;
-            this.expectedStatus = expectedStatus;
-            this.expectedMessageSubstring = expectedMessageSubstring;
-            this.expectedFieldErrors = expectedFieldErrors;
-        }
-    }
-
-    @BeforeAll
-    void setup() {
-        this.platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+    @BeforeEach
+    void setUp() {
+        platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
         step("Default Step: Регистрация нового пользователя", () -> {
-            this.registeredPlayer = defaultTestSteps.registerNewPlayer(adjustmentAmount);
-            assertNotNull(this.registeredPlayer, "default_step.registration");
+            registeredPlayer = defaultTestSteps.registerNewPlayer(ADJUSTMENT_AMOUNT);
+            assertNotNull(registeredPlayer, "default_step.registration");
         });
     }
 
-    static Stream<Arguments> negativeBlockAmountScenariosProvider() {
-        TestCase[] testCases = new TestCase[] {
-                new TestCase(
+    static Stream<Arguments> requestBodyValidationScenarios() {
+        return Stream.of(
+                arguments(
+                        "Параметр тела amount: отсутствует",
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> builder.amount(null),
+                        "Validation error",
+                        Map.of("amount", List.of("value.not.blank"))
+                ),
+                arguments(
+                        "Параметр тела amount: отрицательный",
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> builder.amount("-50.00"),
+                        "Validation message",
+                        Map.of()
+                ),
+                arguments(
+                        "Параметр тела amount: пустая строка",
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> builder.amount(""),
+                        "Validation error",
+                        Map.of("amount", List.of("value.not.blank"))
+                ),
+                arguments(
+                        "Параметр тела currency: отсутствует",
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> builder.currency(null),
+                        "Validation error",
+                        Map.of("currency", List.of("value.not.blank"))
+                ),
+                arguments(
+                        "Параметр тела currency: пустая строка",
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> builder.currency(""),
+                        "Validation error",
+                        Map.of("currency", List.of("value.not.blank"))
+                )
+        );
+    }
+
+    static Stream<Arguments> businessRuleViolationScenarios() {
+        return Stream.of(
+                arguments(
+                        "Параметр тела amount: превышает баланс",
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> builder.amount("1150.00"),
+                        "field:[amount] msg:[wallet balance is not enough]",
+                        Map.of()
+                )
+        );
+    }
+
+    static Stream<Arguments> requestParameterValidationScenarios() {
+        return Stream.of(
+                arguments(
                         "Параметр пути playerUuid: рандомный UUID",
-                        req -> {},
-                        UUID.randomUUID().toString(),
-                        null,
-                        null,
+                        (Function<RegisteredPlayerData, String>) playerData -> UUID.randomUUID().toString(),
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> {},
                         404,
                         "field:[wallet] msg:[not found]",
-                        Map.of("wallet", List.of("Not found."))
+                        Map.of()
                 ),
-                new TestCase(
+                arguments(
                         "Параметр пути playerUuid: невалидный формат UUID",
-                        req -> {},
-                        "not-a-uuid",
-                        null,
-                        null,
+                        (Function<RegisteredPlayerData, String>) playerData -> "not-a-uuid",
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> {},
                         404,
                         "Not found",
-                        null
+                        Map.of()
                 ),
-                new TestCase(
-                        "Заголовок Authorization: отсутствие заголовка",
-                        req -> {},
-                        null,
-                        "",
-                        null,
-                        401,
-                        "Full authentication is required to access this resource.",
-                        null
-                ),
-                new TestCase(
-                        "Заголовок Authorization: пустая строка",
-                        req -> {},
-                        null,
-                        "",
-                        null,
-                        401,
-                        "Full authentication is required to access this resource.",
-                        null
-                ),
-                new TestCase(
-                        "Параметр тела amount: отсутствует",
-                        req -> req.setAmount(null),
-                        null,
-                        null,
-                        null,
-                        400,
-                        "Validation error",
-                        Map.of("amount", List.of("value.not.blank"))
-                ),
-                new TestCase(
-                        "Параметр тела amount: отрицательный",
-                        req -> req.setAmount("-50.00"),
-                        null,
-                        null,
-                        null,
-                        400,
-                        "Validation message",
-                        Map.of("amount", List.of("Must be greater than 0."))
-
-                ),
-                new TestCase(
-                        "Параметр тела amount: превышает баланс",
-                        req -> req.setAmount("1150.00"),
-                        null,
-                        null,
-                        null,
-                        400,
-                        "field:[amount] msg:[wallet balance is not enough]",
-                        Map.of("amount", List.of("Wallet balance is not enough."))
-                ),
-                new TestCase(
-                        "Параметр тела amount: пустая строка",
-                        req -> req.setAmount(""),
-                        null,
-                        null,
-                        null,
-                        400,
-                        "Validation error",
-                        Map.of("amount", List.of("value.not.blank"))
-                ),
-                new TestCase(
-                        "Параметр тела currency: отсутствует",
-                        req -> req.setCurrency(null),
-                        null,
-                        null,
-                        null,
-                        400,
-                        "Validation error",
-                        Map.of("currency", List.of("value.not.blank"))
-                ),
-                new TestCase(
-                        "Параметр тела currency: пустая строка",
-                        req -> req.setCurrency(""),
-                        null,
-                        null,
-                        null,
-                        400,
-                        "Validation error",
-                        Map.of("currency", List.of("value.not.blank"))
-                ),
-                new TestCase(
+                arguments(
                         "Параметр тела currency: не совпадает с валютой игрока",
-                        req -> req.setCurrency("BTC"),
-                        null,
-                        null,
-                        null,
+                        (Function<RegisteredPlayerData, String>) playerData -> playerData.walletData().playerUUID(),
+                        (Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder>) builder -> builder.currency("BTC"),
                         404,
                         "field:[wallet] msg:[not found]",
-                        Map.of("wallet", List.of("Not found."))
+                        Map.of()
                 )
-        };
+        );
+    }
 
-        return Stream.of(testCases)
-                .map(tc -> arguments(
-                        tc.description,
-                        tc.requestModifier,
-                        tc.playerUuid,
-                        tc.authHeader,
-                        tc.nodeId,
-                        tc.expectedStatus,
-                        tc.expectedMessageSubstring,
-                        tc.expectedFieldErrors
-                ));
+    static Stream<Arguments> authorizationErrorScenarios() {
+        return Stream.of(
+                arguments("Заголовок Authorization: отсутствие заголовка", null),
+                arguments("Заголовок Authorization: пустая строка", "")
+        );
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("negativeBlockAmountScenariosProvider")
-    @DisplayName("Создание блокировки: негативные сценарии")
-    void createBlockAmountNegativeTest(
+    @MethodSource("requestBodyValidationScenarios")
+    @DisplayName("Создание блокировки: ошибки валидации тела запроса")
+    void shouldReturnBadRequestWhenRequestBodyInvalid(
             String description,
-            Consumer<CreateBlockAmountRequest> requestModifier,
-            String customPlayerUuid,
-            String customAuthHeader,
-            String customNodeId,
-            Integer expectedStatus,
+            Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder> requestCustomizer,
             String expectedMessage,
-            Map<String, List<String>> expectedFieldErrors)
-    {
-        final class TestContext {
-            CreateBlockAmountRequest request;
-            String playerUuid;
-            String authHeader;
-            String nodeId;
-        }
+            Map<String, List<String>> expectedFieldErrors
+    ) {
+        var requestBuilder = baseRequestBuilder();
+        requestCustomizer.accept(requestBuilder);
+        var request = requestBuilder.build();
 
-        final TestContext ctx = new TestContext();
+        var error = step(
+                "CAP API: Попытка создания блокировки с некорректным телом запроса - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.createBlockAmount(
+                                registeredPlayer.walletData().playerUUID(),
+                                utils.getAuthorizationHeader(),
+                                platformNodeId,
+                                request
+                        ),
+                        "cap_api.create_block_amount.expected_exception"
+                )
+        );
 
-        step("Подготовка параметров запроса", () -> {
-            ctx.request = CreateBlockAmountRequest.builder()
-                    .reason("Test block amount negative")
-                    .amount(validBlockAmount.toString())
-                    .currency(registeredPlayer.getWalletData().getCurrency())
-                    .build();
+        assertValidationError(error, 400, expectedMessage, expectedFieldErrors);
+    }
 
-            requestModifier.accept(ctx.request);
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("businessRuleViolationScenarios")
+    @DisplayName("Создание блокировки: ошибки бизнес-логики")
+    void shouldReturnBadRequestWhenBusinessRulesViolated(
+            String description,
+            Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder> requestCustomizer,
+            String expectedMessage,
+            Map<String, List<String>> expectedFieldErrors
+    ) {
+        var requestBuilder = baseRequestBuilder();
+        requestCustomizer.accept(requestBuilder);
+        var request = requestBuilder.build();
 
-            ctx.playerUuid = (customPlayerUuid != null)
-                    ? customPlayerUuid
-                    : registeredPlayer.getWalletData().getPlayerUUID();
+        var error = step(
+                "CAP API: Попытка создания блокировки с нарушением бизнес-правил - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.createBlockAmount(
+                                registeredPlayer.walletData().playerUUID(),
+                                utils.getAuthorizationHeader(),
+                                platformNodeId,
+                                request
+                        ),
+                        "cap_api.create_block_amount.expected_exception"
+                )
+        );
 
-            ctx.authHeader = (customAuthHeader != null)
-                    ? customAuthHeader
-                    : utils.getAuthorizationHeader();
+        assertValidationError(error, 400, expectedMessage, expectedFieldErrors);
+    }
 
-            ctx.nodeId = (customNodeId != null)
-                    ? customNodeId
-                    : platformNodeId;
-        });
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("requestParameterValidationScenarios")
+    @DisplayName("Создание блокировки: ошибки в параметрах запроса")
+    void shouldReturnClientErrorWhenRequestParametersInvalid(
+            String description,
+            Function<RegisteredPlayerData, String> playerUuidProvider,
+            Consumer<CreateBlockAmountRequest.CreateBlockAmountRequestBuilder> requestCustomizer,
+            int expectedStatus,
+            String expectedMessage,
+            Map<String, List<String>> expectedFieldErrors
+    ) {
+        var requestBuilder = baseRequestBuilder();
+        requestCustomizer.accept(requestBuilder);
+        var request = requestBuilder.build();
 
-        step("CAP API: Попытка создания блокировки с некорректными параметрами - " + description, () -> {
-            var exception = assertThrows(
-                    FeignException.class,
-                    () -> capAdminClient.createBlockAmount(
-                            ctx.playerUuid,
-                            ctx.authHeader,
-                            ctx.nodeId,
-                            ctx.request
-                    ),
-                    "cap_api.create_block_amount.expected_exception"
-            );
+        var error = step(
+                "CAP API: Попытка создания блокировки с некорректными параметрами запроса - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.createBlockAmount(
+                                playerUuidProvider.apply(registeredPlayer),
+                                utils.getAuthorizationHeader(),
+                                platformNodeId,
+                                request
+                        ),
+                        "cap_api.create_block_amount.expected_exception"
+                )
+        );
 
-            var error = utils.parseFeignExceptionContent(exception, ValidationErrorResponse.class);
+        assertValidationError(error, expectedStatus, expectedMessage, expectedFieldErrors);
+    }
 
-            assertAll("cap_api.error.validation_structure",
-                    () -> assertEquals(expectedStatus, error.getCode(), "cap_api.error.code"),
-                    () -> assertEquals(expectedMessage, error.getMessage(), "cap_api.error.message"),
-                    () -> {
-                        if (expectedFieldErrors != null && !expectedFieldErrors.isEmpty()) {
-                            expectedFieldErrors.forEach((expectedField, expectedErrorMessagesList) -> {
-                                assertTrue(error.getErrors().containsKey(expectedField), "cap_api.error.errors.key");
-                                var actualErrorMessagesList = error.getErrors().get(expectedField);
-                                if (expectedErrorMessagesList != null && !expectedErrorMessagesList.isEmpty()) {
-                                    var expectedFirstMessage = expectedErrorMessagesList.get(0);
-                                    assertTrue(actualErrorMessagesList.contains(expectedFirstMessage), "cap_api.error.errors.value");
-                                }
-                            });
-                        } else if (expectedFieldErrors == null) {
-                            if (error.getErrors() != null) {
-                                assertTrue(error.getErrors().isEmpty(), "cap_api.error.errors");
-                            }
-                        }
-                    }
-            );
-        });
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("authorizationErrorScenarios")
+    @DisplayName("Создание блокировки: ошибки авторизации")
+    void shouldReturnUnauthorizedWhenAuthorizationHeaderInvalid(
+            String description,
+            String authorizationHeader
+    ) {
+        var request = baseRequestBuilder().build();
+
+        var error = step(
+                "CAP API: Попытка создания блокировки без корректного заголовка авторизации - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.createBlockAmount(
+                                registeredPlayer.walletData().playerUUID(),
+                                authorizationHeader,
+                                platformNodeId,
+                                request
+                        ),
+                        "cap_api.create_block_amount.expected_exception"
+                )
+        );
+
+        assertValidationError(error, 401, "Full authentication is required to access this resource.", Map.of());
+    }
+
+    private CreateBlockAmountRequest.CreateBlockAmountRequestBuilder baseRequestBuilder() {
+        return CreateBlockAmountRequest.builder()
+                .reason(REQUEST_REASON)
+                .amount(VALID_BLOCK_AMOUNT.toString())
+                .currency(registeredPlayer.walletData().currency());
     }
 }

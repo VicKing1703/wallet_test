@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.payment;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
@@ -9,7 +10,7 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.TournamentReques
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsDepositedMoneyPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsDepositStatus;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
@@ -25,7 +26,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
@@ -119,7 +119,7 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
                 ctx.depositRequest = DepositRequestBody.builder()
                         .amount(depositAmount.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().getCurrency())
+                        .currency(ctx.player.walletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -129,7 +129,7 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
                         .build();
 
                 var response = publicClient.deposit(
-                        ctx.player.getAuthorizationResponse().getBody().getToken(),
+                        ctx.player.authorizationResponse().getBody().getToken(),
                         ctx.depositRequest);
 
                 assertEquals(HttpStatus.CREATED, response.getStatusCode(), "given.fapi.deposit.status_code");
@@ -137,24 +137,21 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
 
             step("NATS: Проверка события deposited_money", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
-
-                BiPredicate<NatsDepositedMoneyPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(typeHeader);
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
-                        .matching(filter)
+                        .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                         .fetch();
 
                 var payload = ctx.depositEvent.getPayload();
                 assertAll("Проверка полей NATS-события о депозите",
                         () -> assertNotNull(ctx.depositEvent, "given.nats.deposit_event.not_null"),
-                        () -> assertEquals(ctx.depositRequest.getCurrency(), payload.getCurrencyCode(), "given.nats.deposit.currency_code"),
-                        () -> assertEquals(0, depositAmount.compareTo(payload.getAmount()), "given.nats.deposit.amount"),
-                        () -> assertEquals(NatsDepositStatus.SUCCESS, payload.getStatus(), "given.nats.deposit.status"),
-                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.getNodeUuid(), "given.nats.deposit.node_uuid")
+                        () -> assertEquals(ctx.depositRequest.getCurrency(), payload.currencyCode(), "given.nats.deposit.currency_code"),
+                        () -> assertEquals(0, depositAmount.compareTo(payload.amount()), "given.nats.deposit.amount"),
+                        () -> assertEquals(NatsDepositStatus.SUCCESS, payload.status(), "given.nats.deposit.status"),
+                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "given.nats.deposit.node_uuid")
                 );
             });
         });
@@ -162,73 +159,71 @@ public class DepositWageringTournamentParametrizedTest extends BaseParameterized
         step("WHEN: Игроку начисляется турнирный выигрыш", () -> {
             ctx.tournamentRequest = TournamentRequestBody.builder()
                     .amount(tournamentAmountParam)
-                    .playerId(ctx.player.getWalletData().getWalletUUID())
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .playerId(ctx.player.walletData().walletUUID())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .transactionId(UUID.randomUUID().toString())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(UUID.randomUUID().toString())
-                    .providerUuid(ctx.gameLaunchData.getDbGameSession().getProviderUuid())
+                    .providerUuid(ctx.gameLaunchData.dbGameSession().getProviderUuid())
                     .build();
 
             var response = managerClient.tournament(
-                    configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId(),
+                    HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp()),
                     utils.createSignature(ApiEndpoints.TOURNAMENT, ctx.tournamentRequest),
                     ctx.tournamentRequest);
 
             assertAll("Проверка ответа на начисление турнирного выигрыша",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "when.manager_api.tournament.status_code"),
-                    () -> assertEquals(ctx.tournamentRequest.getTransactionId(), response.getBody().getTransactionId(), "when.manager_api.tournament.transaction_id"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(response.getBody().getBalance()), "when.manager_api.tournament.balance")
+                    () -> assertEquals(ctx.tournamentRequest.getTransactionId(), response.getBody().transactionId(), "when.manager_api.tournament.transaction_id"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(response.getBody().balance()), "when.manager_api.tournament.balance")
             );
         });
 
         step("THEN: Состояние систем корректно обновлено", () -> {
             step("NATS: Проверка события tournament_won_from_gamble", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
-
-                BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                                ctx.tournamentRequest.getTransactionId().equals(payload.getUuid());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.tournamentEvent = natsClient.expect(NatsGamblingEventPayload.class)
                         .from(subject)
-                        .matching(filter)
+                        .withType(NatsEventType.TOURNAMENT_WON_FROM_GAMBLE.getHeaderValue())
+                        .with("$.uuid", ctx.tournamentRequest.getTransactionId())
                         .fetch();
 
                 var payload = ctx.tournamentEvent.getPayload();
                 assertAll("Проверка полей события турнира в NATS",
                         () -> assertNotNull(ctx.tournamentEvent, "then.nats.tournament_event.not_null"),
-                        () -> assertEquals(ctx.tournamentRequest.getTransactionId(), payload.getUuid(), "then.nats.tournament.uuid"),
-                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.getNodeUuid(), "then.nats.tournament.node_uuid"),
-                        () -> assertEquals(0, tournamentAmountParam.compareTo(payload.getAmount()), "then.nats.tournament.amount"),
-                        () -> assertEquals(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid(), payload.getGameSessionUuid(), "then.nats.tournament.game_session_uuid"),
-                        () -> assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, payload.getOperation(), "then.nats.tournament.operation"),
-                        () -> assertEquals(NatsGamblingTransactionType.TYPE_TOURNAMENT, payload.getType(), "then.nats.tournament.type")
+                        () -> assertEquals(ctx.tournamentRequest.getTransactionId(), payload.uuid(), "then.nats.tournament.uuid"),
+                        () -> assertEquals(configProvider.getEnvironmentConfig().getPlatform().getNodeId(), payload.nodeUuid(), "then.nats.tournament.node_uuid"),
+                        () -> assertEquals(0, tournamentAmountParam.compareTo(payload.amount()), "then.nats.tournament.amount"),
+                        () -> assertEquals(ctx.gameLaunchData.dbGameSession().getGameSessionUuid(), payload.gameSessionUuid(), "then.nats.tournament.game_session_uuid"),
+                        () -> assertEquals(NatsGamblingTransactionOperation.TOURNAMENT, payload.operation(), "then.nats.tournament.operation"),
+                        () -> assertEquals(NatsGamblingTransactionType.TYPE_TOURNAMENT, payload.type(), "then.nats.tournament.type")
                 );
 
-                assertTrue(payload.getWageredDepositInfo().isEmpty(), "then.nats.tournament.wagered_deposit_info.is_empty");
+                assertTrue(payload.wageredDepositInfo().isEmpty(), "then.nats.tournament.wagered_deposit_info.is_empty");
             });
 
             step("Redis: Проверка агрегата кошелька после выигрыша", () -> {
-                var aggregate = redisClient.getWalletDataWithSeqCheck(
-                        ctx.player.getWalletData().getWalletUUID(),
-                        (int) ctx.tournamentEvent.getSequence());
+                var aggregate = redisWalletClient
+                        .key(ctx.player.walletData().walletUUID())
+                        .withAtLeast("LastSeqNumber", (int) ctx.tournamentEvent.getSequence())
+                        .fetch();
 
-                var depositData = aggregate.getDeposits().stream()
-                        .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+                var depositData = aggregate.deposits().stream()
+                        .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                         .findFirst().orElse(null);
 
-                var tournamentData = aggregate.getGambling().get(ctx.tournamentEvent.getPayload().getUuid());
+                var tournamentData = aggregate.gambling().get(ctx.tournamentEvent.getPayload().uuid());
 
                 assertAll("Проверка финального состояния агрегата кошелька в Redis",
-                        () -> assertEquals((int) ctx.tournamentEvent.getSequence(), aggregate.getLastSeqNumber(), "then.redis.wallet.last_seq_number"),
-                        () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.getBalance()), "then.redis.wallet.balance"),
+                        () -> assertEquals((int) ctx.tournamentEvent.getSequence(), aggregate.lastSeqNumber(), "then.redis.wallet.last_seq_number"),
+                        () -> assertEquals(0, ctx.expectedBalanceAfterTournament.compareTo(aggregate.balance()), "then.redis.wallet.balance"),
                         () -> assertNotNull(depositData, "then.redis.wallet.deposit.not_null"),
-                        () -> assertEquals(0, depositAmount.compareTo(depositData.getAmount()), "then.redis.wallet.deposit.amount"),
-                        () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.getStatus(), "then.redis.wallet.deposit.status"),
-                        () -> assertEquals(0, BigDecimal.ZERO.compareTo(depositData.getWageringAmount()), "then.redis.wallet.deposit.wagering_amount_is_zero"),
+                        () -> assertEquals(0, depositAmount.compareTo(depositData.amount()), "then.redis.wallet.deposit.amount"),
+                        () -> assertEquals(NatsDepositStatus.SUCCESS.getValue(), depositData.status(), "then.redis.wallet.deposit.status"),
+                        () -> assertEquals(0, BigDecimal.ZERO.compareTo(depositData.wageringAmount()), "then.redis.wallet.deposit.wagering_amount_is_zero"),
                         () -> assertNotNull(tournamentData, "then.redis.wallet.tournament_data.not_null"),
                         () -> assertEquals(0, tournamentAmountParam.compareTo(tournamentData.getAmount()), "then.redis.wallet.tournament_data.amount")
                 );

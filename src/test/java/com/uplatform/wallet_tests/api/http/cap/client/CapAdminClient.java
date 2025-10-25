@@ -2,6 +2,8 @@ package com.uplatform.wallet_tests.api.http.cap.client;
 
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.categories.CreateCategoryResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
@@ -17,6 +19,7 @@ import com.uplatform.wallet_tests.api.http.cap.dto.get_blockers.GetBlockersRespo
 import com.uplatform.wallet_tests.api.http.cap.dto.get_player_limits.GetPlayerLimitsResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.labels.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.update_player_properties.UpdatePlayerPropertiesRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_verification_status.UpdateVerificationStatusRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +34,16 @@ public interface CapAdminClient {
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
             @RequestBody CancelKycCheckRequest request
+    );
+
+    @PatchMapping("/_cap/player/api/v1/admin/players/{playerId}/properties")
+    ResponseEntity<Void> updatePlayerProperties(
+            @PathVariable("playerId") String playerId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestHeader("Platform-Userid") String platformUserId,
+            @RequestHeader("Platform-Username") String platformUsername,
+            @RequestBody UpdatePlayerPropertiesRequest request
     );
 
     @PostMapping("/_cap/api/token/check")
@@ -86,6 +99,22 @@ public interface CapAdminClient {
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
             @RequestBody CreateBlockAmountRequest request
+    );
+
+    @PostMapping("/_cap/api/v2/categories")
+    ResponseEntity<CreateCategoryResponse> createCategory(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-Userid") String platformUserId,
+            @RequestHeader("Platform-Username") String platformUsername,
+            @RequestBody CreateCategoryRequest request
+    );
+
+    @DeleteMapping("/_cap/api/v2/categories/{categoryUuid}")
+    ResponseEntity<Void> deleteCategory(
+            @PathVariable("categoryUuid") String categoryUuid,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-Userid") String platformUserId,
+            @RequestHeader("Platform-Username") String platformUsername
     );
 
     @GetMapping("/_cap/api/v1/wallet/{player_uuid}/block-amount-list")

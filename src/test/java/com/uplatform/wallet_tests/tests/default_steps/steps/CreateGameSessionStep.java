@@ -35,11 +35,11 @@ public class CreateGameSessionStep {
 
     public GameLaunchData createGameSession(RegisteredPlayerData playerData) {
         Objects.requireNonNull(playerData, "RegisteredPlayerData cannot be null");
-        Objects.requireNonNull(playerData.getAuthorizationResponse(), "AuthorizationResponse in RegisteredPlayerData cannot be null");
-        Objects.requireNonNull(playerData.getAuthorizationResponse().getBody(), "AuthorizationResponse body in RegisteredPlayerData cannot be null");
-        Objects.requireNonNull(playerData.getAuthorizationResponse().getBody().getToken(), "Token in RegisteredPlayerData cannot be null");
-        Objects.requireNonNull(playerData.getWalletData(), "WalletData in RegisteredPlayerData cannot be null");
-        Objects.requireNonNull(playerData.getWalletData().getPlayerUUID(), "PlayerUUID in WalletData cannot be null");
+        Objects.requireNonNull(playerData.authorizationResponse(), "AuthorizationResponse in RegisteredPlayerData cannot be null");
+        Objects.requireNonNull(playerData.authorizationResponse().getBody(), "AuthorizationResponse body in RegisteredPlayerData cannot be null");
+        Objects.requireNonNull(playerData.authorizationResponse().getBody().getToken(), "Token in RegisteredPlayerData cannot be null");
+        Objects.requireNonNull(playerData.walletData(), "WalletData in RegisteredPlayerData cannot be null");
+        Objects.requireNonNull(playerData.walletData().playerUUID(), "PlayerUUID in WalletData cannot be null");
 
         final TestContext ctx = new TestContext();
 
@@ -47,14 +47,14 @@ public class CreateGameSessionStep {
             ctx.gamesResponse = this.publicClient.getGames(1, 5);
             assertEquals(HttpStatus.OK, ctx.gamesResponse.getStatusCode(), "fapi.get_games.status_code");
             assertNotNull(ctx.gamesResponse.getBody(), "fapi.get_games.body_not_null");
-            assertNotNull(ctx.gamesResponse.getBody().getGames(), "fapi.get_games.list_not_null");
-            assertFalse(ctx.gamesResponse.getBody().getGames().isEmpty(), "fapi.get_games.list_not_empty");
+            assertNotNull(ctx.gamesResponse.getBody().games(), "fapi.get_games.list_not_null");
+            assertFalse(ctx.gamesResponse.getBody().games().isEmpty(), "fapi.get_games.list_not_empty");
         });
 
         step("2. Public API: Запуск выбранной игры", () -> {
-            var games = ctx.gamesResponse.getBody().getGames();
+            var games = ctx.gamesResponse.getBody().games();
             var selectedGame = games.get(RANDOM.nextInt(games.size()));
-            assertNotNull(selectedGame.getAlias(), "fapi.launch_game.selected_game_alias");
+            assertNotNull(selectedGame.alias(), "fapi.launch_game.selected_game_alias");
 
             var requestBody = LaunchGameRequestBody.builder()
                     .language("en")
@@ -62,17 +62,17 @@ public class CreateGameSessionStep {
                     .build();
 
             ctx.launchResponse = this.publicClient.launchGame(
-                    selectedGame.getAlias(),
-                    playerData.getAuthorizationResponse().getBody().getToken(),
+                    selectedGame.alias(),
+                    playerData.authorizationResponse().getBody().getToken(),
                     requestBody);
 
             assertEquals(HttpStatus.OK, ctx.launchResponse.getStatusCode(), "fapi.launch_game.status_code");
             assertNotNull(ctx.launchResponse.getBody(), "fapi.launch_game.body_not_null");
-            assertNotNull(ctx.launchResponse.getBody().getUrl(), "fapi.launch_game.url_not_null");
+            assertNotNull(ctx.launchResponse.getBody().url(), "fapi.launch_game.url_not_null");
         });
 
         step("3. DB Wallet: Получение данных игровой сессии из БД", () -> {
-            var playerUuid = playerData.getWalletData().getPlayerUUID();
+            var playerUuid = playerData.walletData().playerUUID();
             ctx.dbGameSession = this.walletDatabaseClient.findSingleGameSessionByPlayerUuidOrFail(playerUuid);
             assertNotNull(ctx.dbGameSession, "db.wallet.game_session.not_found");
             assertNotNull(ctx.dbGameSession.getGameSessionUuid(), "db.wallet.game_session.uuid");

@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.balance;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -26,7 +27,7 @@ class GetBalancePositiveTest extends BaseTest {
     @Test
     @DisplayName("Позитивный сценарий получения баланса игрока в игровой сессии")
     void shouldRegisterAdjustCreateSessionAndGetBalance() {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -48,18 +49,18 @@ class GetBalancePositiveTest extends BaseTest {
         });
 
         step("Manager API: Запрос баланса пользователя через /balance", () -> {
-            var sessionToken = ctx.gameLaunchData.getDbGameSession().getGameSessionUuid();
+            var sessionToken = ctx.gameLaunchData.dbGameSession().getGameSessionUuid();
             var queryString = "sessionToken=" + sessionToken;
 
             var response = managerClient.getBalance(
                     casinoId,
                     utils.createSignature(ApiEndpoints.BALANCE, queryString, null),
-                    ctx.gameLaunchData.getDbGameSession().getGameSessionUuid()
+                    ctx.gameLaunchData.dbGameSession().getGameSessionUuid()
             );
 
             assertAll(
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.balance.status_code"),
-                    () -> assertEquals(0, ctx.initialAdjustmentAmount.compareTo(response.getBody().getBalance()), "manager_api.balance.balance")
+                    () -> assertEquals(0, ctx.initialAdjustmentAmount.compareTo(response.getBody().balance()), "manager_api.balance.balance")
             );
         });
     }

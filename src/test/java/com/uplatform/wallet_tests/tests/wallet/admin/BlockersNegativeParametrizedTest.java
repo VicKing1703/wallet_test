@@ -1,231 +1,220 @@
 package com.uplatform.wallet_tests.tests.wallet.admin;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.uplatform.wallet_tests.tests.base.BaseNegativeParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.api.http.cap.dto.errors.ValidationErrorResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import feign.FeignException;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+/**
+ * Интеграционный тест, проверяющий негативные сценарии для эндпоинта обновления блокировок игрока:
+ * {@code PATCH /_cap/api/v1/players/{playerUUID}/blockers}.
+ *
+ * <p><b>Идея теста:</b> Убедиться, что API надежно защищено от некорректных данных и несанкционированного доступа.
+ * Система должна отклонять любые запросы, которые не соответствуют контракту, и возвращать клиенту понятные,
+ * структурированные ошибки. Ключевая проверка заключается в том, что ни один из невалидных запросов
+ * не должен приводить к изменению состояния блокировок игрока.</p>
+ *
+ * <p><b>Сценарии тестирования сгруппированы по типу ошибки:</b></p>
+ * <ol>
+ *   <li><b>Ошибки валидации тела запроса (HTTP 400):</b>
+ *     <ul>
+ *       <li>Отправка запроса с отсутствующими (null) обязательными полями {@code gamblingEnabled} и {@code bettingEnabled}.</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>Ошибки в параметре пути {@code playerUUID} (HTTP 400, 404):</b>
+ *     <ul>
+ *       <li>Отправка запроса с несуществующим, но валидным UUID игрока.</li>
+ *       <li>Отправка запроса с невалидным форматом UUID.</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>Ошибки аутентификации (HTTP 401):</b>
+ *     <ul>
+ *       <li>Отправка запроса с отсутствующим или пустым заголовком {@code Authorization}.</li>
+ *     </ul>
+ *   </li>
+ * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Система возвращает корректный HTTP-статус ошибки (400, 401, 404) для каждого сценария.</li>
+ *   <li>Тело ответа содержит правильное сообщение об ошибке и, при необходимости, детализированную информацию в поле {@code errors}.</li>
+ *   <li>Состояние игрока в базе данных и Redis остается неизменным.</li>
+ * </ul>
+ */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("CAP")
-@Feature("PlayerBlockers")
-@Suite("Негативные сценарии: PlayerBlockers")
+@Feature("Управление игроком")
+@Suite("Ручные блокировки гемблинга и беттинга: Негативные сценарии")
 @Tag("Wallet") @Tag("CAP")
-class BlockersNegativeParametrizedTest extends BaseParameterizedTest {
+class BlockersNegativeParametrizedTest extends BaseNegativeParameterizedTest {
 
     private RegisteredPlayerData registeredPlayer;
     private String platformNodeId;
 
-    private static class TestCase {
-        final String description;
-        final Consumer<UpdateBlockersRequest> requestModifier;
-        final String playerUuid;
-        final String authHeader;
-        final String nodeId;
-        final Integer expectedStatus;
-        final String expectedMessageSubstring;
-        final Map<String, List<String>> expectedFieldErrors;
-
-        TestCase(String description,
-                 Consumer<UpdateBlockersRequest> requestModifier,
-                 String playerUuid,
-                 String authHeader,
-                 String nodeId,
-                 Integer expectedStatus,
-                 String expectedMessageSubstring,
-                 Map<String, List<String>> expectedFieldErrors) {
-            this.description = description;
-            this.requestModifier = requestModifier;
-            this.playerUuid = playerUuid;
-            this.authHeader = authHeader;
-            this.nodeId = nodeId;
-            this.expectedStatus = expectedStatus;
-            this.expectedMessageSubstring = expectedMessageSubstring;
-            this.expectedFieldErrors = expectedFieldErrors;
-        }
-    }
-
     @BeforeAll
     void setup() {
         this.platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
+    }
+
+    @BeforeEach
+    void registerPlayer() {
         step("Default Step: Регистрация нового пользователя", () -> {
             this.registeredPlayer = defaultTestSteps.registerNewPlayer();
             assertNotNull(this.registeredPlayer, "default_step.registration");
         });
     }
 
-    static Stream<Arguments> negativeBlockersScenariosProvider() {
-        TestCase[] testCases = new TestCase[] {
-                new TestCase(
-                        "Параметр пути playerUuid: рандомный UUID",
-                        req -> {},
-                        UUID.randomUUID().toString(),
-                        null,
-                        null,
-                        404,
-                        "field:[wallet] msg:[not found]",
-                        Map.of("wallet", List.of("Not found."))
-                ),
-                new TestCase(
-                        "Параметр пути playerUuid: невалидный формат UUID",
-                        req -> {},
-                        "not-a-uuid",
-                        null,
-                        null,
-                        400,
-                        "Validation message",
-                        Map.of("playerId", List.of("Must be a valid UUID."))
-                ),
-                new TestCase(
-                        "Заголовок Authorization: отсутствие заголовка",
-                        req -> {},
-                        null,
-                        "",
-                        null,
-                        401,
-                        "Full authentication is required to access this resource.",
-                        null
-                ),
-                new TestCase(
-                        "Заголовок Authorization: пустая строка",
-                        req -> {},
-                        null,
-                        "",
-                        null,
-                        401,
-                        "Full authentication is required to access this resource.",
-                        null
-                ),
-                new TestCase(
+    static Stream<Arguments> requestBodyValidationProvider() {
+        return Stream.of(
+                arguments(
                         "Параметр тела gamblingEnabled: отсутствует",
-                        req -> req.setGamblingEnabled(null),
-                        null,
-                        null,
-                        null,
-                        400,
-                        "Validation error",
+                        UpdateBlockersRequest.builder()
+                                .gamblingEnabled(null)
+                                .bettingEnabled(true)
+                                .build(),
                         Map.of("gamblingEnabled", List.of("value.not.null"))
                 ),
-                new TestCase(
+                arguments(
                         "Параметр тела bettingEnabled: отсутствует",
-                        req -> req.setBettingEnabled(null),
-                        null,
-                        null,
-                        null,
-                        400,
-                        "Validation error",
+                        UpdateBlockersRequest.builder()
+                                .gamblingEnabled(true)
+                                .bettingEnabled(null)
+                                .build(),
                         Map.of("bettingEnabled", List.of("value.not.null"))
                 )
-        };
+        );
+    }
 
-        return Stream.of(testCases)
-                .map(tc -> arguments(
-                        tc.description,
-                        tc.requestModifier,
-                        tc.playerUuid,
-                        tc.authHeader,
-                        tc.nodeId,
-                        tc.expectedStatus,
-                        tc.expectedMessageSubstring,
-                        tc.expectedFieldErrors
-                ));
+    static Stream<Arguments> playerUuidValidationProvider() {
+        return Stream.of(
+                arguments(
+                        "Параметр пути playerUuid: рандомный UUID",
+                        UUID.randomUUID().toString(),
+                        HttpStatus.NOT_FOUND,
+                        "field:[wallet] msg:[not found]",
+                        Map.of()
+                ),
+                arguments(
+                        "Параметр пути playerUuid: невалидный формат UUID",
+                        "not-a-uuid",
+                        HttpStatus.BAD_REQUEST,
+                        "Validation message",
+                        Map.of()
+                )
+        );
+    }
+
+    static Stream<Arguments> authorizationValidationProvider() {
+        return Stream.of(
+                arguments(
+                        "Заголовок Authorization: отсутствие заголовка",
+                        null
+                ),
+                arguments(
+                        "Заголовок Authorization: пустая строка",
+                        ""
+                )
+        );
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("negativeBlockersScenariosProvider")
-    @DisplayName("Обновление блокировок игрока: негативные сценарии")
-    void updateBlockersNegativeTest(
+    @MethodSource("requestBodyValidationProvider")
+    @DisplayName("Ручные блокировки гемблинга и беттинга: валидация тела запроса")
+    void shouldReturnBadRequestWhenRequestBodyInvalid(
             String description,
-            Consumer<UpdateBlockersRequest> requestModifier,
-            String customPlayerUuid,
-            String customAuthHeader,
-            String customNodeId,
-            Integer expectedStatus,
+            UpdateBlockersRequest invalidRequest,
+            Map<String, List<String>> expectedFieldErrors
+    ) {
+        var error = step(
+                "CAP API: Попытка обновления блокировок с некорректным телом - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.updateBlockers(
+                                registeredPlayer.walletData().playerUUID(),
+                                utils.getAuthorizationHeader(),
+                                platformNodeId,
+                                invalidRequest
+                        ),
+                        "cap_api.update_blockers.expected_exception"
+                )
+        );
+
+        assertValidationError(error, HttpStatus.BAD_REQUEST.value(), "Validation error", expectedFieldErrors);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("playerUuidValidationProvider")
+    @DisplayName("Ручные блокировки гемблинга и беттинга: валидация параметра пути")
+    void shouldReturnErrorWhenPlayerUuidInvalid(
+            String description,
+            String invalidPlayerUuid,
+            HttpStatus expectedStatus,
             String expectedMessage,
-            Map<String, List<String>> expectedFieldErrors)
-    {
-        final class TestContext {
-            UpdateBlockersRequest request;
-            String playerUuid;
-            String authHeader;
-            String nodeId;
-        }
+            Map<String, List<String>> expectedFieldErrors
+    ) {
+        var request = UpdateBlockersRequest.builder()
+                .gamblingEnabled(true)
+                .bettingEnabled(true)
+                .build();
 
-        final TestContext ctx = new TestContext();
+        var error = step(
+                "CAP API: Попытка обновления блокировок с некорректным playerUUID - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.updateBlockers(
+                                invalidPlayerUuid,
+                                utils.getAuthorizationHeader(),
+                                platformNodeId,
+                                request
+                        ),
+                        "cap_api.update_blockers.expected_exception"
+                )
+        );
 
-        step("Подготовка параметров запроса", () -> {
-            ctx.request = UpdateBlockersRequest.builder()
-                    .gamblingEnabled(true)
-                    .bettingEnabled(true)
-                    .build();
+        assertValidationError(error, expectedStatus.value(), expectedMessage, expectedFieldErrors);
+    }
 
-            requestModifier.accept(ctx.request);
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("authorizationValidationProvider")
+    @DisplayName("Ручные блокировки гемблинга и беттинга: ошибки авторизации")
+    void shouldReturnUnauthorizedWhenAuthorizationHeaderInvalid(
+            String description,
+            String invalidAuthorizationHeader
+    ) {
+        var request = UpdateBlockersRequest.builder()
+                .gamblingEnabled(true)
+                .bettingEnabled(true)
+                .build();
 
-            ctx.playerUuid = (customPlayerUuid != null)
-                    ? customPlayerUuid
-                    : registeredPlayer.getWalletData().getPlayerUUID();
+        var error = step(
+                "CAP API: Попытка обновления блокировок с некорректным заголовком авторизации - " + description,
+                () -> executeExpectingError(
+                        () -> capAdminClient.updateBlockers(
+                                registeredPlayer.walletData().playerUUID(),
+                                invalidAuthorizationHeader,
+                                platformNodeId,
+                                request
+                        ),
+                        "cap_api.update_blockers.expected_exception"
+                )
+        );
 
-            ctx.authHeader = (customAuthHeader != null)
-                    ? customAuthHeader
-                    : utils.getAuthorizationHeader();
-
-            ctx.nodeId = (customNodeId != null)
-                    ? customNodeId
-                    : platformNodeId;
-        });
-
-        step("CAP API: Попытка обновления блокировок с некорректными параметрами - " + description, () -> {
-            var exception = assertThrows(
-                    FeignException.class,
-                    () -> capAdminClient.updateBlockers(
-                            ctx.playerUuid,
-                            ctx.authHeader,
-                            ctx.nodeId,
-                            ctx.request
-                    ),
-                    "cap_api.update_blockers.expected_exception"
-            );
-
-            var error = utils.parseFeignExceptionContent(exception, ValidationErrorResponse.class);
-
-            assertAll("cap_api.error.validation_structure",
-                    () -> assertEquals(expectedStatus, error.getCode(), "cap_api.error.code"),
-                    () -> assertEquals(expectedMessage, error.getMessage(), "cap_api.error.message"),
-                    () -> {
-                        if (expectedFieldErrors != null && !expectedFieldErrors.isEmpty()) {
-                            expectedFieldErrors.forEach((expectedField, expectedErrorMessagesList) -> {
-                                assertTrue(error.getErrors().containsKey(expectedField), "cap_api.error.errors.key");
-                                var actualErrorMessagesList = error.getErrors().get(expectedField);
-                                if (expectedErrorMessagesList != null && !expectedErrorMessagesList.isEmpty()) {
-                                    var expectedFirstMessage = expectedErrorMessagesList.get(0);
-                                    assertTrue(actualErrorMessagesList.contains(expectedFirstMessage), "cap_api.error.errors.value");
-                                }
-                            });
-                        } else if (expectedFieldErrors == null) {
-                            if (error.getErrors() != null) {
-                                assertTrue(error.getErrors().isEmpty(), "cap_api.error.errors");
-                            }
-                        }
-                    }
-            );
-        });
+        assertValidationError(error, HttpStatus.UNAUTHORIZED.value(), "Full authentication is required to access this resource.", Map.of());
     }
 }

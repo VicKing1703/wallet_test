@@ -5,7 +5,7 @@ import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 
 import static com.uplatform.wallet_tests.api.http.manager.dto.betting.enums.BettingErrorCode.SUCCESS;
@@ -67,7 +66,7 @@ class WinDisplacedIframeBetTest extends BaseTest {
     @Test
     @DisplayName("API выигрыш iFrame ставки вытесненной из Redis")
     void testApiWinByModifyingOriginalRequestForDisplacedIframeBet() {
-        final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().getMaxIframeCount();
+        final int maxIframeCountInRedis = configProvider.getEnvironmentConfig().getRedis().getAggregate().maxIframeCount();
         final int currentTransactionCountToMake = maxIframeCountInRedis + 1;
 
         final class TestContext {
@@ -82,7 +81,7 @@ class WinDisplacedIframeBetTest extends BaseTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
-            ctx.currentCalculatedBalance = ctx.registeredPlayer.getWalletData().getBalance();
+            ctx.currentCalculatedBalance = ctx.registeredPlayer.walletData().balance();
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -90,10 +89,10 @@ class WinDisplacedIframeBetTest extends BaseTest {
             for (int i = 0; i < currentTransactionCountToMake; i++) {
                 var betInputData = MakePaymentData.builder()
                         .type(NatsBettingTransactionOperation.BET)
-                        .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                        .playerId(ctx.registeredPlayer.walletData().playerUUID())
                         .summ(singleBetAmount.toPlainString())
                         .couponType(NatsBettingCouponType.SINGLE)
-                        .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                        .currency(ctx.registeredPlayer.walletData().currency())
                         .totalCoef(winCoefficient.toString())
                         .build();
                 var betRequestBody = MakePaymentRequestGenerator.generateRequest(betInputData);
@@ -112,8 +111,8 @@ class WinDisplacedIframeBetTest extends BaseTest {
                     assertNotNull(response.getBody(), "manager_api.make_payment.body_not_null");
                     assertAll("Проверка ответа API для iFrame ставки #" + currentBetNumber,
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                            () -> assertTrue(response.getBody().isSuccess(), "manager_api.body.success"),
-                            () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.body.errorCode")
+                            () -> assertTrue(response.getBody().success(), "manager_api.body.success"),
+                            () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.body.errorCode")
                     );
                     ctx.currentCalculatedBalance = ctx.currentCalculatedBalance.subtract(singleBetAmount);
                 });
@@ -123,26 +122,28 @@ class WinDisplacedIframeBetTest extends BaseTest {
 
         step("NATS: Ожидание NATS-события betted_from_iframe для последней ставки (для sequence)", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                            Objects.equals(ctx.lastMadeBetId, payload.getBetId());
-
+            var lastBetRequest = ctx.madeBetsRequests.stream()
+                    .filter(req -> Objects.equals(req.getBetId(), ctx.lastMadeBetId))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("nats.last_bet.request_not_found"));
             ctx.lastBetNatsEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
+                    .with("$.bet_id", ctx.lastMadeBetId)
                     .fetch();
             assertNotNull(ctx.lastBetNatsEvent, "nats.betted_from_iframe");
         });
 
         step("Определение вытесненных iFrame ставок из Redis", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.lastBetNatsEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.lastBetNatsEvent.getSequence())
+                    .fetch();
 
-            var iFrameRecordsInRedis = aggregate.getIFrameRecords();
+            var iFrameRecordsInRedis = aggregate.iFrameRecords();
             var allMadeBetIds = ctx.madeBetsRequests.stream()
                     .map(MakePaymentRequest::getBetId)
                     .collect(Collectors.toSet());
@@ -171,9 +172,9 @@ class WinDisplacedIframeBetTest extends BaseTest {
             assertNotNull(response.getBody(), "manager_api.body_not_null");
             assertAll("Проверка ответа API на выигрыш по вытесненной iFrame ставке",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.win.status_code"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.win.body.success"),
-                    () -> assertEquals(SUCCESS.getCode(), response.getBody().getErrorCode(), "manager_api.win.body.errorCode"),
-                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().getDescription(), "manager_api.win.body.description")
+                    () -> assertTrue(response.getBody().success(), "manager_api.win.body.success"),
+                    () -> assertEquals(SUCCESS.getCode(), response.getBody().errorCode(), "manager_api.win.body.errorCode"),
+                    () -> assertEquals(SUCCESS.getDescription(), response.getBody().description(), "manager_api.win.body.description")
             );
         });
     }

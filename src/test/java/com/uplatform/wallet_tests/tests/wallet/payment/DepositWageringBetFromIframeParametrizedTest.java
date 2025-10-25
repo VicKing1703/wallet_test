@@ -7,7 +7,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.PaymentMethodI
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsDepositedMoneyPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingCouponType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsBettingTransactionOperation;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
@@ -24,7 +24,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.Map;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -110,7 +109,7 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
                 var depositRequest = DepositRequestBody.builder()
                         .amount(DEPOSIT_AMOUNT.toPlainString())
                         .paymentMethodId(PaymentMethodId.FAKE)
-                        .currency(ctx.player.getWalletData().getCurrency())
+                        .currency(ctx.player.walletData().currency())
                         .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                         .redirect(DepositRequestBody.RedirectUrls.builder()
                                 .failed(DepositRedirect.FAILED.url())
@@ -119,17 +118,17 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
                                 .build())
                         .build();
 
-                publicClient.deposit(ctx.player.getAuthorizationResponse().getBody().getToken(), depositRequest);
+                publicClient.deposit(ctx.player.authorizationResponse().getBody().getToken(), depositRequest);
             });
 
             step("Проверка получения подтверждающего события о депозите в NATS", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.player.getWalletData().getPlayerUUID(),
-                        ctx.player.getWalletData().getWalletUUID());
+                        ctx.player.walletData().playerUUID(),
+                        ctx.player.walletData().walletUUID());
 
                 ctx.depositEvent = natsClient.expect(NatsDepositedMoneyPayload.class)
                         .from(subject)
-                        .matching((payload, type) -> NatsEventType.DEPOSITED_MONEY.getHeaderValue().equals(type))
+                        .withType(NatsEventType.DEPOSITED_MONEY.getHeaderValue())
                         .fetch();
 
                 assertNotNull(ctx.depositEvent, "precondition.nats.deposit_event.not_found");
@@ -144,10 +143,10 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
         step("WHEN: Игрок совершает ставку на спорт через manager_api", () -> {
             var betInput = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.player.getWalletData().getPlayerUUID())
+                    .playerId(ctx.player.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
-                    .currency(ctx.player.getWalletData().getCurrency())
+                    .currency(ctx.player.walletData().currency())
                     .build();
 
             ctx.betRequest = generateRequest(betInput);
@@ -156,59 +155,57 @@ class DepositWageringBetFromIframeParametrizedTest extends BaseParameterizedTest
 
             assertAll("Проверка ответа от manager_api",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.make_payment.status_code"),
-                    () -> assertTrue(response.getBody().isSuccess(), "manager_api.make_payment.body.success")
+                    () -> assertTrue(response.getBody().success(), "manager_api.make_payment.body.success")
             );
         });
 
         step("THEN: wallet-manager отправляет событие `betted_from_iframe` в NATS", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().getPlayerUUID(),
-                    ctx.player.getWalletData().getWalletUUID());
-
-            BiPredicate<NatsBettingEventPayload, String> filter = (payload, type) ->
-                    NatsEventType.BETTED_FROM_IFRAME.getHeaderValue().equals(type) &&
-                            ctx.betRequest.getBetId().equals(payload.getBetId());
+                    ctx.player.walletData().playerUUID(),
+                    ctx.player.walletData().walletUUID());
 
             ctx.betEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.BETTED_FROM_IFRAME.getHeaderValue())
+                    .with("$.bet_id", ctx.betRequest.getBetId())
                     .fetch();
 
             var payload = ctx.betEvent.getPayload();
             assertAll("Проверка полей события ставки в NATS",
-                    () -> assertEquals(ctx.betRequest.getBetId(), payload.getBetId(), "nats.bet.bet_id"),
-                    () -> assertEquals(0, new BigDecimal(ctx.betRequest.getSumm()).negate().compareTo(payload.getAmount()), "nats.bet.amount")
+                    () -> assertEquals(ctx.betRequest.getBetId(), payload.betId(), "nats.bet.bet_id"),
+                    () -> assertEquals(0, new BigDecimal(ctx.betRequest.getSumm()).negate().compareTo(payload.amount()), "nats.bet.amount")
             );
 
-            var wagerInfoList = payload.getWageredDepositInfo();
+            var wagerInfoList = payload.wageredDepositInfo();
             assertFalse(wagerInfoList.isEmpty(), "nats.wager_info.empty_for_bet");
             @SuppressWarnings("unchecked")
             Map<String, Object> wagerInfo = (Map<String, Object>) wagerInfoList.get(0);
 
             assertAll("Проверка wagered_deposit_info в NATS",
-                    () -> assertEquals(ctx.depositEvent.getPayload().getUuid(), wagerInfo.get("deposit_uuid"), "nats.wager_info.deposit_uuid"),
+                    () -> assertEquals(ctx.depositEvent.getPayload().uuid(), wagerInfo.get("deposit_uuid"), "nats.wager_info.deposit_uuid"),
                     () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(new BigDecimal(wagerInfo.get("updated_wagered_amount").toString())), "nats.wager_info.updated_wagered_amount")
             );
         });
 
         step("THEN: wallet_wallet_redis обновляет баланс и сумму отыгрыша в агрегате Redis", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().getWalletUUID(),
-                    (int) ctx.betEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.player.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.betEvent.getSequence())
+                    .fetch();
 
-            var depositData = aggregate.getDeposits().stream()
-                    .filter(d -> d.getUuid().equals(ctx.depositEvent.getPayload().getUuid()))
+            var depositData = aggregate.deposits().stream()
+                    .filter(d -> d.uuid().equals(ctx.depositEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
-            var iframeRecord = aggregate.getIFrameRecords().stream()
-                    .filter(r -> r.getUuid().equals(ctx.betEvent.getPayload().getUuid()))
+            var iframeRecord = aggregate.iFrameRecords().stream()
+                    .filter(r -> r.uuid().equals(ctx.betEvent.getPayload().uuid()))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после ставки",
-                    () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.aggregate.last_seq_number"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
+                    () -> assertEquals((int) ctx.betEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterBet.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertNotNull(depositData, "redis.aggregate.deposit_not_found"),
-                    () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.getWageringAmount()), "redis.aggregate.deposit.wagering_amount"),
+                    () -> assertEquals(0, ctx.expectedWageredAmount.compareTo(depositData.wageringAmount()), "redis.aggregate.deposit.wagering_amount"),
                     () -> assertNotNull(iframeRecord, "redis.aggregate.iframe_record_not_found"),
                     () -> assertEquals(IFrameRecordType.BET, iframeRecord.getType(), "redis.aggregate.iframe_record.type")
             );

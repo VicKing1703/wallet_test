@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.signature;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -61,7 +62,7 @@ class QueriesSignatureNegativeParametrizedTest extends BaseParameterizedTest {
         step("Default Step: Создание игровой сессии", () -> {
             gameLaunchData = defaultTestSteps.createGameSession(registeredPlayer);
             assertNotNull(gameLaunchData, "default_step.create_game_session");
-            validSessionToken = gameLaunchData.getDbGameSession().getGameSessionUuid();
+            validSessionToken = gameLaunchData.dbGameSession().getGameSessionUuid();
         });
 
         step("Prerequisite Step: Генерация заведомо невалидной подписи", () -> {
@@ -90,7 +91,7 @@ class QueriesSignatureNegativeParametrizedTest extends BaseParameterizedTest {
     @MethodSource("negativeHeaderProvider")
     @DisplayName("Проверка ошибок валидации заголовков гэмблинг коллбэков Queries API:")
     void balanceHeaderNegativeTest(String description, HeaderErrorType headerErrorType) {
-        final String validCasinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         var validQueryString = "sessionToken=" + this.validSessionToken;
         var validSignature = utils.createSignature(
@@ -137,8 +138,8 @@ class QueriesSignatureNegativeParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(headerErrorType.getExpectedStatus().value(), thrownException.status(), "manager_api.error.status_code"),
-                    () -> assertEquals(headerErrorType.getExpectedErrorCode(), error.getCode(), "manager_api.error.code"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(headerErrorType.getExpectedMessageSubstring().toLowerCase()), "manager_api.error.message_contains")
+                    () -> assertEquals(headerErrorType.getExpectedErrorCode(), error.code(), "manager_api.error.code"),
+                    () -> assertTrue(error.message().toLowerCase().contains(headerErrorType.getExpectedMessageSubstring().toLowerCase()), "manager_api.error.message_contains")
             );
         });
     }

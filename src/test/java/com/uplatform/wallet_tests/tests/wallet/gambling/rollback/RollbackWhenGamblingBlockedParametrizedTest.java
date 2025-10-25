@@ -1,14 +1,20 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.rollback;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.cap.dto.update_blockers.UpdateBlockersRequest;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
+import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RollbackRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,67 +28,74 @@ import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * Интеграционный тест, проверяющий функциональность отката ставок (роллбэка), включая ставки с нулевой суммой,
- * для игрока с заблокированным гемблингом в системе Wallet.
+ * Проверяет возможность роллбэка при заблокированном гемблинге и разрешённом беттинге.
  *
- * <p>Данный параметризованный тест проверяет сценарий, когда игрок, у которого заблокирован
- * гемблинг (gamblingEnabled=false), но разрешен беттинг (bettingEnabled=true),
- * пытается откатить ставку различных типов (BET, TIPS, FREESPIN) и различных сумм, включая нулевые.
- * В данном сценарии игрок должен иметь возможность откатить ставку даже при заблокированном
- * гемблинге, так как операция отката рассматривается как отмена ранее принятой операции,
- * а не как новая игровая операция. Роллбэк нулевой ставки не изменяет баланс, но сама операция должна пройти успешно.</p>
+ * <p><b>Идея теста:</b>
+ * Совершить ставку, заблокировать гемблинг и убедиться, что отмена ставки по-прежнему доступна.</p>
  *
- * <p>Тест создает для каждого тестового сценария нового игрока, выполняет исходную ставку выбранного типа и суммы,
- * затем блокирует гемблинг через CAP API, и проверяет возможность отката ставки
- * при заблокированном гемблинге.</p>
- *
- * <p><b>Проверяемые типы исходных ставок, которые будут отменены:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>{@code BET} - обычная ставка в казино.</li>
- *   <li>{@code TIPS} - чаевые в казино.</li>
- *   <li>{@code FREESPIN} - бесплатное вращение.</li>
+ *   <li><b>Блокировка через CAP:</b>
+ *     <p><b>Что проверяем:</b> корректность применения флага {@code gamblingEnabled=false}.</p>
+ *     <p><b>Почему это важно:</b> подтверждает консистентность ограничений игрока.</p>
+ *   </li>
+ *   <li><b>Роллбэк ставки:</b>
+ *     <p><b>Что проверяем:</b> успешный ответ {@code /rollback} после блокировки.</p>
+ *     <p><b>Почему это важно:</b> отмена операции должна быть доступна независимо от блокировки гемблинга.</p>
+ *   </li>
  * </ul>
  *
- * <p><b>Ожидаемый результат:</b> Система должна успешно обрабатывать откат всех видов ставок,
- * включая ставки с нулевой суммой, даже при заблокированной функциональности гемблинга.
- * Баланс игрока после ставки и последующего роллбэка должен вернуться к исходному значению.</p>
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Ставка завершается статусом {@code 200 OK}.</li>
+ *   <li>CAP возвращает статус {@code 204 NO CONTENT} при блокировке гемблинга.</li>
+ *   <li>Роллбэк завершается статусом {@code 200 OK}, баланс совпадает с исходным.</li>
+ * </ul>
  */
-@Severity(SeverityLevel.CRITICAL)
+@Severity(SeverityLevel.BLOCKER)
 @Epic("Gambling")
 @Feature("/rollback")
 @Suite("Позитивные сценарии: /rollback")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> rollbackScenarioProvider() {
         return Stream.of(
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.BET
                 ),
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.TIPS
                 ),
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.FREESPIN
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.BET
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.TIPS
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.FREESPIN
                 )
@@ -90,17 +103,19 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
     }
 
     /**
-     * Тестирует роллбэк ставки игроком с заблокированным гемблингом.
+     * Выполняет роллбэк при заблокированном гемблинге.
      *
-     * @param betAmountParam Сумма исходной ставки (может быть 0), которая будет отменена.
-     * @param betTypeParam Тип исходной операции ставки (BET, TIPS, FREESPIN), которая будет отменена.
+     * @param betAmountParam сумма исходной ставки
+     * @param betTypeParam тип операции
      */
     @ParameterizedTest(name = "тип исходной ставки = {1}, сумма = {0}")
     @MethodSource("rollbackScenarioProvider")
-    @DisplayName("Получение роллбэка игроком с заблокированным гемблингом (беттинг разрешен):")
-    void testRollbackWhenGamblingBlocked(BigDecimal betAmountParam, NatsGamblingTransactionOperation betTypeParam) {
+    @DisplayName("Роллбэк при заблокированном гемблинге")
+    void testRollbackWhenGamblingBlocked(
+            BigDecimal betAmountParam,
+            NatsGamblingTransactionOperation betTypeParam
+    ) {
         final String platformNodeId = configProvider.getEnvironmentConfig().getPlatform().getNodeId();
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
 
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
@@ -109,10 +124,10 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
             BigDecimal expectedBalanceAfterRollback;
         }
         final TestContext ctx = new TestContext();
-        ctx.expectedBalanceAfterRollback = initialAdjustmentAmount;
+        ctx.expectedBalanceAfterRollback = INITIAL_ADJUSTMENT_AMOUNT;
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -121,9 +136,9 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
             assertNotNull(ctx.gameLaunchData, "default_step.game_session");
         });
 
-        step("Manager API: Совершение исходной транзакции (ставки)", () -> {
+        step("Manager API: Совершение исходной ставки", () -> {
             ctx.betRequestBody = BetRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(betTypeParam)
@@ -146,23 +161,24 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
                     .build();
 
             var response = capAdminClient.updateBlockers(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
+                    ctx.registeredPlayer.walletData().playerUUID(),
                     utils.getAuthorizationHeader(),
                     platformNodeId,
                     request
             );
+
             assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "cap_api.update_blockers.status_code");
         });
 
-        step("Manager API: Выполнение роллбэка транзакции", () -> {
-            var rollbackRequestBody = com.uplatform.wallet_tests.api.http.manager.dto.gambling.RollbackRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+        step("Manager API: Роллбэк исходной ставки", () -> {
+            var rollbackRequestBody = RollbackRequestBody.builder()
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(betAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .rollbackTransactionId(ctx.betRequestBody.getTransactionId())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
-                    .playerId(ctx.registeredPlayer.getWalletData().getWalletUUID())
-                    .gameUuid(ctx.gameLaunchData.getDbGameSession().getGameUuid())
+                    .currency(ctx.registeredPlayer.walletData().currency())
+                    .playerId(ctx.registeredPlayer.walletData().walletUUID())
+                    .gameUuid(ctx.gameLaunchData.dbGameSession().getGameUuid())
                     .roundId(ctx.betRequestBody.getRoundId())
                     .roundClosed(true)
                     .build();
@@ -173,10 +189,10 @@ class RollbackWhenGamblingBlockedParametrizedTest extends BaseParameterizedTest 
                     rollbackRequestBody);
 
             assertNotNull(response.getBody(), "manager_api.rollback.body_not_null");
-            assertAll("Проверка статус-кода и тела ответа при роллбэке",
+            assertAll(
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.rollback.status_code"),
-                    () -> assertEquals(rollbackRequestBody.getTransactionId(), response.getBody().getTransactionId(), "manager_api.rollback.transaction_id"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(response.getBody().getBalance()), "manager_api.rollback.balance")
+                    () -> assertEquals(rollbackRequestBody.getTransactionId(), response.getBody().transactionId(), "manager_api.rollback.transaction_id"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterRollback.compareTo(response.getBody().balance()), "manager_api.rollback.balance")
             );
         });
     }

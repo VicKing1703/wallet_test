@@ -1,11 +1,12 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.bet;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.BetRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.nats.dto.NatsGamblingEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
@@ -20,50 +21,44 @@ import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Интеграционный тест, проверяющий лимит хранения истории гэмблинг-операций в агрегированных данных кошелька в Redis
- * для различных типов операций (BET, TIPS, FREESPIN).
+ * Интеграционный тест, который проверяет механизм ротации и ограничения истории гэмблинг-транзакций в кэше Redis.
  *
- * <p><b>Цель теста:</b></p>
- * <p>Убедиться, что система Wallet корректно обрабатывает большое количество операций
- * и в кэше Redis (в поле {@code Gambling} объекта {@code WalletFullData}, которое является {@link java.util.Map Map})
- * хранится ограниченное количество последних транзакций.
- * Лимит определяется параметром конфигурации {@code app.redis.aggregate.max-gambling.count}.
- * Это важно для оптимизации производительности и управления объемом данных в кэше.</p>
+ * <p><b>Идея теста:</b>
+ * Гарантировать стабильность и производительность системы при высокой интенсивности игровых
+ * операций. Бесконечное накопление истории транзакций в кэше Redis может привести к исчерпанию памяти и замедлению
+ * отклика. Этот тест подтверждает, что в системе реализован надежный механизм ротации (FIFO - First-In, First-Out),
+ * который автоматически удаляет самые старые записи при достижении лимита, сохраняя в памяти только N последних
+ * транзакций. Это обеспечивает предсказуемое потребление ресурсов и высокую производительность даже под большой нагрузкой.</p>
  *
- * <p><b>Сценарий теста для каждой операции (BET, TIPS, FREESPIN):</b></p>
+ * <p><b>Сценарий тестирования:</b></p>
+ * <p>Тест эмулирует сценарий интенсивной игровой активности, при котором игрок совершает количество транзакций,
+ * превышающее установленный лимит хранения в Redis (N+1). Проверяется, что после выполнения всех операций в кэше
+ * останется ровно N самых последних транзакций, а самая первая будет вытеснена. Сценарий повторяется для всех
+ * ключевых типов игровых операций (BET, TIPS, FREESPIN).</p>
+ *
+ * <p><b>Последовательность действий для каждого типа операции:</b></p>
  * <ol>
- *   <li><b>Регистрация игрока:</b> Создается новый игрок с начальным балансом,
- *       динамически рассчитанным так, чтобы быть достаточным для совершения {@code maxGamblingCountInRedis + 1} операций
- *       (каждая на сумму {@link #operationAmount}).</li>
- *   <li><b>Создание игровой сессии:</b> Для зарегистрированного игрока инициируется новая игровая сессия.</li>
- *   <li><b>Совершение операций:</b> Последовательно через Manager API ({@code /bet})
- *       совершается количество операций (заданного типа), равное {@code maxGamblingCountInRedis + 1}.
- *       Каждая операция имеет уникальный ID транзакции и сумму {@link #operationAmount}.
- *       ID последней совершенной транзакции сохраняется.
- *       Отслеживается ожидаемый баланс игрока после каждой операции.</li>
- *   <li><b>Получение Sequence Number последней операции:</b> После совершения всех операций, тест ожидает
- *       поступление NATS-события {@code betted_from_gamble} для самой последней транзакции.
- *       Из этого события извлекается {@code sequence number}, который необходим для
- *       запроса консистентных данных из Redis.</li>
- *   <li><b>Запрос данных кошелька из Redis:</b> Используя UUID кошелька и полученный {@code sequence number}
- *       последней транзакции, запрашиваются полные агрегированные данные кошелька
- *       (например, {@code com.uplatform.wallet_tests.api.redis.model.WalletFullData}) из Redis.</li>
- *   <li><b>Проверка содержимого поля {@code Gambling} ({@link java.util.Map Map}) в Redis:</b>
- *     <ul>
- *       <li>Проверяется, что {@link java.util.Map Map} {@code Gambling} в полученных данных содержит ровно
- *           {@code maxGamblingCountInRedis} записей.</li>
- *     </ul>
- *   </li>
- *   <li><b>Дополнительные проверки Redis:</b> Проверяется, что итоговый баланс кошелька в Redis
- *       и {@code lastSeqNumber} соответствуют ожидаемым значениям.</li>
+ *   <li>Регистрация нового игрока с балансом, достаточным для совершения N+1 операций.</li>
+ *   <li>Создание игровой сессии.</li>
+ *   <li>В цикле выполняется N+1 ({@code maxGamblingCountInRedis + 1}) вызов API {@code /bet} с указанным типом операции.</li>
+ *   <li>После всех вызовов, тест ожидает NATS-событие от <b>последней</b> транзакции, чтобы получить ее {@code sequence number}
+ *       для обеспечения консистентности данных при чтении из Redis.</li>
+ *   <li>Выполняется запрос к Redis за актуальным состоянием кошелька.</li>
+ *   <li>Проверяется, что в агрегате кошелька в Redis хранится ровно N ({@code maxGamblingCountInRedis}) записей о транзакциях.</li>
  * </ol>
+ *
+ * <p><b>Ожидаемые результаты:</b></p>
+ * <ul>
+ *   <li>Количество записей в истории гэмблинг-транзакций в Redis точно равно установленному лимиту ({@code maxGamblingCountInRedis}).</li>
+ *   <li>Итоговый баланс игрока в Redis корректно отражает списание средств за все N+1 операции.</li>
+ *   <li>Поле {@code lastSeqNumber} в Redis соответствует номеру последовательности последней совершенной операции.</li>
+ * </ul>
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
@@ -73,7 +68,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("Проверка лимита агрегата Gambling транзакций в Redis для различных типов операций")
 class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
 
-    private static final BigDecimal operationAmount = new BigDecimal("1.00");
+    private static final BigDecimal OPERATION_AMOUNT = new BigDecimal("1.00");
+
+    private String casinoId;
 
     static Stream<Arguments> gamblingOperationProvider() {
         return Stream.of(
@@ -86,11 +83,11 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
     @ParameterizedTest(name = "операция = {0}")
     @MethodSource("gamblingOperationProvider")
     void testGamblingHistoryCountLimitInRedis(NatsGamblingTransactionOperation operationParam) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
         final int maxGamblingCountInRedis = 50;
 
         final int operationsToMake = maxGamblingCountInRedis + 1;
-        final BigDecimal dynamicInitialAdjustmentAmount = operationAmount
+        final BigDecimal dynamicInitialAdjustmentAmount = OPERATION_AMOUNT
                 .multiply(new BigDecimal(operationsToMake))
                 .add(new BigDecimal("10.00"));
 
@@ -105,7 +102,7 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
 
         step("Default Step: Регистрация нового пользователя", () -> {
             ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(dynamicInitialAdjustmentAmount);
-            ctx.currentBalance = ctx.registeredPlayer.getWalletData().getBalance();
+            ctx.currentBalance = ctx.registeredPlayer.walletData().balance();
 
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
@@ -124,8 +121,8 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
                 }
 
                 var betRequestBody = BetRequestBody.builder()
-                        .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
-                        .amount(operationAmount)
+                        .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
+                        .amount(OPERATION_AMOUNT)
                         .transactionId(transactionId)
                         .type(operationParam)
                         .roundId(UUID.randomUUID().toString())
@@ -141,12 +138,12 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
                             utils.createSignature(ApiEndpoints.BET, betRequestBody),
                             betRequestBody);
 
-                    ctx.currentBalance = ctx.currentBalance.subtract(operationAmount);
+                    ctx.currentBalance = ctx.currentBalance.subtract(OPERATION_AMOUNT);
 
                     assertAll(String.format("Проверка ответа API для операции %s #%d", operationParam, currentOperationNumber),
                             () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.status_code"),
-                            () -> assertEquals(currentTxId, response.getBody().getTransactionId(), "manager_api.body.transactionId"),
-                            () -> assertEquals(0, ctx.currentBalance.compareTo(response.getBody().getBalance()), "manager_api.body.balance")
+                            () -> assertEquals(currentTxId, response.getBody().transactionId(), "manager_api.body.transactionId"),
+                            () -> assertEquals(0, ctx.currentBalance.compareTo(response.getBody().balance()), "manager_api.body.balance")
                     );
                 });
             }
@@ -154,32 +151,33 @@ class BetGamblingHistoryLimitTest extends BaseParameterizedTest {
 
         step(String.format("NATS: Ожидание NATS-события betted_from_gamble для последней операции %s (ID: %s)", operationParam, ctx.lastTransactionId), () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                    ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-            BiPredicate<NatsGamblingEventPayload, String> filter = (payload, typeHeader) ->
-                    NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue().equals(typeHeader) &&
-                            ctx.lastTransactionId.equals(payload.getUuid());
+                    ctx.registeredPlayer.walletData().playerUUID(),
+                    ctx.registeredPlayer.walletData().walletUUID());
 
             ctx.lastBetEvent = natsClient.expect(NatsGamblingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.BETTED_FROM_GAMBLE.getHeaderValue())
+                    .with("uuid", ctx.lastTransactionId)
                     .fetch();
 
             assertNotNull(ctx.lastBetEvent, "nats.betted_from_gamble");
         });
 
         step(String.format("Redis(Wallet): Получение и проверка данных кошелька для операции %s", operationParam), () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.lastBetEvent.getSequence());
-            var gamblingTransactionsInRedis = aggregate.getGambling();
+            step("Redis(Wallet): Получение и проверка данных кошелька (лимит iFrame ставок)", () -> {
+                var aggregate = redisWalletClient
+                        .key(ctx.registeredPlayer.walletData().walletUUID())
+                        .withAtLeast("LastSeqNumber", (int) ctx.lastBetEvent.getSequence())
+                        .fetch();
 
-            assertAll("Проверка данных в Redis",
-                    () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
-                    () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.getBalance()), "redis.wallet.balance"),
-                    () -> assertEquals((int) ctx.lastBetEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number")
-            );
+                var gamblingTransactionsInRedis = aggregate.gambling();
+
+                assertAll("Проверка данных в Redis",
+                        () -> assertEquals(maxGamblingCountInRedis, gamblingTransactionsInRedis.size(), "redis.wallet.gambling.count"),
+                        () -> assertEquals(0, ctx.currentBalance.compareTo(aggregate.balance()), "redis.wallet.balance"),
+                        () -> assertEquals((int) ctx.lastBetEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number")
+                );
+            });
         });
     }
 }

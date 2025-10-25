@@ -1,16 +1,19 @@
 package com.uplatform.wallet_tests.tests.base;
 
 import com.uplatform.wallet_tests.allure.CustomSuiteExtension;
-import com.uplatform.wallet_tests.config.DynamicPropertiesConfigurator;
-import com.uplatform.wallet_tests.config.EnvironmentConfigurationProvider;
+import com.testing.multisource.config.DynamicPropertiesConfigurator;
+import com.testing.multisource.config.EnvironmentConfigurationProvider;
+import com.uplatform.wallet_tests.api.redis.model.WalletData;
+import com.uplatform.wallet_tests.config.WalletTestsPropertiesConfigurator;
 import com.uplatform.wallet_tests.tests.default_steps.facade.DefaultTestSteps;
 import com.uplatform.wallet_tests.tests.util.facade.TestUtils;
 import com.uplatform.wallet_tests.api.http.manager.client.ManagerClient;
 import com.uplatform.wallet_tests.api.http.cap.client.CapAdminClient;
 import com.uplatform.wallet_tests.api.http.fapi.client.FapiClient;
-import com.uplatform.wallet_tests.api.redis.client.WalletRedisClient;
-import com.uplatform.wallet_tests.api.nats.NatsClient;
-import com.uplatform.wallet_tests.api.kafka.client.KafkaClient;
+import com.testing.multisource.api.redis.GenericRedisClient;
+import com.uplatform.wallet_tests.api.redis.model.WalletFullData;
+import com.testing.multisource.api.nats.NatsClient;
+import com.testing.multisource.api.kafka.client.KafkaClient;
 import com.uplatform.wallet_tests.api.db.WalletDatabaseClient;
 import com.uplatform.wallet_tests.api.db.CoreDatabaseClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,12 +21,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ContextConfiguration;
 
+import java.util.Map;
+
 @ExtendWith(CustomSuiteExtension.class)
 @SpringBootTest
-@ContextConfiguration(initializers = DynamicPropertiesConfigurator.class)
+@ContextConfiguration(initializers = {DynamicPropertiesConfigurator.class, WalletTestsPropertiesConfigurator.class})
 @Execution(ExecutionMode.CONCURRENT)
 public abstract class BaseTest {
 
@@ -43,7 +49,12 @@ public abstract class BaseTest {
     protected ManagerClient managerClient;
 
     @Autowired
-    protected WalletRedisClient redisClient;
+    @Qualifier("redisWalletClient")
+    protected GenericRedisClient<WalletFullData> redisWalletClient;
+
+    @Autowired
+    @Qualifier("redisPlayerClient")
+    protected GenericRedisClient<Map<String, WalletData>> redisPlayerClient;
 
     @Autowired
     protected NatsClient natsClient;

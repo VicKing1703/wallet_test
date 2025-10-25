@@ -275,7 +275,7 @@ public final class StringGeneratorUtil {
     }
 
     private static String generateTelephoneNumberLV() {
-        return generateTelephoneNumber("+371", "2", 7);
+        return generateTelephoneNumber("+376", "2", 7);
     }
 
     private static String generateTelephoneNumber(String countryCode, String firstDigit, int restDigits) {

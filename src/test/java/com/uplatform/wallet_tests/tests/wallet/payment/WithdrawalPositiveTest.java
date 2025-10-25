@@ -11,7 +11,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.payment.enums.WithdrawalRedi
 import com.uplatform.wallet_tests.api.kafka.dto.PaymentTransactionMessage;
 import com.uplatform.wallet_tests.api.kafka.dto.WalletProjectionMessage;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBlockAmountEventPayload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.Collections;
-import java.util.function.BiPredicate;
 
 import static io.qameta.allure.Allure.step;
 import static org.junit.jupiter.api.Assertions.*;
@@ -88,7 +87,7 @@ class WithdrawalPositiveTest extends BaseTest {
 
             step("Пополнение баланса через CAP", () -> {
                 var request = CreateBalanceAdjustmentRequest.builder()
-                        .currency(ctx.player.getWalletData().getCurrency())
+                        .currency(ctx.player.walletData().currency())
                         .amount(ADJUSTMENT_AMOUNT)
                         .reason(ReasonType.MALFUNCTION)
                         .operationType(OperationType.CORRECTION)
@@ -97,10 +96,10 @@ class WithdrawalPositiveTest extends BaseTest {
                         .build();
 
                 var response = capAdminClient.createBalanceAdjustment(
-                        ctx.player.getWalletData().getPlayerUUID(),
+                        ctx.player.walletData().playerUUID(),
                         utils.getAuthorizationHeader(),
                         configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                        "6dfe249e-e967-477b-8a42-83efe85c7c3a", // idempotency-key
+                        "6dfe249e-e967-477b-8a42-83efe85c7c3a",
                         request);
 
                 assertEquals(HttpStatus.OK, response.getStatusCode(), "cap.create_balance_adjustment.status_code");
@@ -115,7 +114,7 @@ class WithdrawalPositiveTest extends BaseTest {
             var withdrawalRequest = WithdrawalRequestBody.builder()
                     .amount(WITHDRAWAL_AMOUNT.toPlainString())
                     .paymentMethodId(PaymentMethodId.MOCK)
-                    .currency(ctx.player.getWalletData().getCurrency())
+                    .currency(ctx.player.walletData().currency())
                     .country(configProvider.getEnvironmentConfig().getPlatform().getCountry())
                     .context(Collections.emptyMap())
                     .redirect(WithdrawalRequestBody.RedirectUrls.builder()
@@ -126,39 +125,36 @@ class WithdrawalPositiveTest extends BaseTest {
                     .build();
 
             var response = publicClient.withdrawal(
-                    ctx.player.getAuthorizationResponse().getBody().getToken(),
+                    ctx.player.authorizationResponse().getBody().getToken(),
                     withdrawalRequest);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.withdrawal.status_code");
 
             step("Получение transactionId из Kafka", () -> {
                 var paymentMessage = kafkaClient.expect(PaymentTransactionMessage.class)
-                        .with("playerId", ctx.player.getWalletData().getPlayerUUID())
+                        .with("playerId", ctx.player.walletData().playerUUID())
                         .fetch();
 
-                ctx.transactionId = paymentMessage.getTransaction().getTransactionId();
+                ctx.transactionId = paymentMessage.transaction().transactionId();
                 assertNotNull(ctx.transactionId, "kafka.payment_transaction.id_not_found");
             });
         });
 
         step("THEN: wallet-manager отправляет событие `block_amount_started` в NATS", () -> {
             var subject = natsClient.buildWalletSubject(
-                    ctx.player.getWalletData().getPlayerUUID(),
-                    ctx.player.getWalletData().getWalletUUID());
-
-            BiPredicate<NatsBlockAmountEventPayload, String> filter = (payload, type) ->
-                    NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue().equals(type)
-                            && ctx.transactionId.equals(payload.getUuid());
+                    ctx.player.walletData().playerUUID(),
+                    ctx.player.walletData().walletUUID());
 
             ctx.blockEvent = natsClient.expect(NatsBlockAmountEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.BLOCK_AMOUNT_STARTED.getHeaderValue())
+                    .with("$.uuid", ctx.transactionId)
                     .fetch();
 
             var payload = ctx.blockEvent.getPayload();
             assertAll("Проверка полей события block_amount_started в NATS",
-                    () -> assertEquals(ctx.transactionId, payload.getUuid(), "nats.payload.uuid"),
-                    () -> assertEquals(0, WITHDRAWAL_AMOUNT.negate().compareTo(payload.getAmount()), "nats.payload.amount")
+                    () -> assertEquals(ctx.transactionId, payload.uuid(), "nats.payload.uuid"),
+                    () -> assertEquals(0, WITHDRAWAL_AMOUNT.negate().compareTo(payload.amount()), "nats.payload.amount")
             );
         });
 
@@ -171,20 +167,21 @@ class WithdrawalPositiveTest extends BaseTest {
         });
 
         step("THEN: wallet_wallet_redis обновляет баланс и создает блокировку", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.player.getWalletData().getWalletUUID(),
-                    (int) ctx.blockEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.player.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.blockEvent.getSequence())
+                    .fetch();
 
-            var blockedAmountInfo = aggregate.getBlockedAmounts().stream()
-                    .filter(b -> b.getUuid().equals(ctx.transactionId))
+            var blockedAmountInfo = aggregate.blockedAmounts().stream()
+                    .filter(b -> b.uuid().equals(ctx.transactionId))
                     .findFirst().orElse(null);
 
             assertAll("Проверка агрегата кошелька в Redis после блокировки",
-                    () -> assertEquals((int) ctx.blockEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.aggregate.last_seq_number"),
-                    () -> assertEquals(0, ctx.expectedBalanceAfterBlock.compareTo(aggregate.getBalance()), "redis.aggregate.balance"),
+                    () -> assertEquals((int) ctx.blockEvent.getSequence(), aggregate.lastSeqNumber(), "redis.aggregate.last_seq_number"),
+                    () -> assertEquals(0, ctx.expectedBalanceAfterBlock.compareTo(aggregate.balance()), "redis.aggregate.balance"),
                     () -> assertNotNull(blockedAmountInfo, "redis.aggregate.blocked_amount.not_found"),
-                    () -> assertEquals(ctx.transactionId, blockedAmountInfo.getUuid(), "redis.aggregate.blocked_amount.uuid"),
-                    () -> assertEquals(0, WITHDRAWAL_AMOUNT.negate().compareTo(blockedAmountInfo.getAmount()), "redis.aggregate.blocked_amount.amount")
+                    () -> assertEquals(ctx.transactionId, blockedAmountInfo.uuid(), "redis.aggregate.blocked_amount.uuid"),
+                    () -> assertEquals(0, WITHDRAWAL_AMOUNT.negate().compareTo(blockedAmountInfo.amount()), "redis.aggregate.blocked_amount.amount")
             );
         });
     }

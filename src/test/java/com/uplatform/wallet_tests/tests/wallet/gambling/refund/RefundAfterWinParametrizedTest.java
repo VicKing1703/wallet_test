@@ -1,6 +1,6 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.refund;
-import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.GamblingError;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.RefundRequestBody;
@@ -8,10 +8,15 @@ import com.uplatform.wallet_tests.api.http.manager.dto.gambling.WinRequestBody;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.ApiEndpoints;
 import com.uplatform.wallet_tests.api.http.manager.dto.gambling.enums.GamblingErrors;
 import com.uplatform.wallet_tests.api.nats.dto.enums.NatsGamblingTransactionOperation;
+import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 import com.uplatform.wallet_tests.tests.default_steps.dto.GameLaunchData;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import feign.FeignException;
-import io.qameta.allure.*;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,86 +30,75 @@ import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.StringGeneratorUtil.generateBigDecimalAmount;
 import static io.qameta.allure.Allure.step;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Интеграционный тест, проверяющий невозможность выполнения рефанда для транзакций начисления выигрышей различных типов,
- * включая транзакции с нулевой суммой выигрыша.
+ * Проверяет отклонение рефанда для транзакций начисления выигрыша.
  *
- * <p>Данный параметризованный тест проверяет поведение системы при попытке выполнить операцию рефанда,
- * указывая в качестве {@code betTransactionId} идентификатор транзакции начисления выигрыша
- * одного из следующих типов: {@link NatsGamblingTransactionOperation#WIN WIN},
- * {@link NatsGamblingTransactionOperation#JACKPOT JACKPOT}, или {@link NatsGamblingTransactionOperation#FREESPIN FREESPIN}.
- * Тест подтверждает, что система корректно обрабатывает такие запросы, отклоняя их,
- * поскольку операция рефанда применима только к транзакциям типа "ставка" (bet).</p>
+ * <p><b>Идея теста:</b>
+ * Убедиться, что система блокирует возврат средств по операциям WIN, JACKPOT и FREESPIN,
+ * поскольку они не являются ставками и не должны рефандиться.</p>
  *
- * <p>Тест также включает сценарии с нулевой суммой выигрыша. Несмотря на то, что такие транзакции могут
- * интерпретироваться как отсутствие выигрыша или даже проигрыш (если регистрируются как win-транзакция
- * с нулевой суммой), ключевым аспектом является то, что рефанд применим исключительно
- * к транзакциям типа "ставка" (bet), а не к результатам этих ставок (выигрышам), независимо от их суммы.</p>
- *
- * <p><b>Последовательность действий для каждого набора параметров:</b></p>
- * <ol>
- *   <li>Регистрация игрока с начальным балансом.</li>
- *   <li>Создание игровой сессии.</li>
- *   <li>Совершение транзакции начисления выигрыша указанного типа ({@code win}, {@code jackpot}, {@code freespin})
- *       и суммы (включая нулевую) игроку (успешно).</li>
- *   <li>Попытка выполнения рефанда, используя {@code transactionId} транзакции выигрыша
- *       в качестве {@code betTransactionId} (ожидается ошибка).</li>
- * </ol>
- *
- * <p><b>Ожидаемые результаты для каждого набора параметров:</b></p>
+ * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
  * <ul>
- *   <li>Начисление выигрыша (в том числе с нулевой суммой) выполняется успешно (HTTP 200 OK).</li>
- *   <li>Попытка рефанда для транзакции выигрыша (любого из тестируемых типов и сумм)
- *       должна быть отклонена с кодом {@code HTTP 400 BAD REQUEST}
- *       и содержать ошибку {@link GamblingErrors#REFUND_NOT_ALLOWED} (или аналогичную ошибку,
- *       указывающую, что исходная транзакция не является ставкой, для которой возможен рефанд).</li>
+ *   <li><b>Начисление выигрыша:</b>
+ *     <p><b>Что проверяем:</b> успешное выполнение запроса {@code /win} и корректный статус ответа.</p>
+ *     <p><b>Почему это важно:</b> базовый сценарий должен выполняться без ошибок до шага рефанда.</p>
+ *   </li>
+ *   <li><b>Запрет рефанда:</b>
+ *     <p><b>Что проверяем:</b> ответ {@code /refund} с ошибкой {@link GamblingErrors#REFUND_NOT_ALLOWED}.</p>
+ *     <p><b>Почему это важно:</b> предотвращает двойное начисление средств игроку.</p>
+ *   </li>
  * </ul>
  *
- * <p><b>Тестируемые типы транзакций выигрыша ({@link NatsGamblingTransactionOperation}):</b></p>
+ * <p><b>Ожидаемые результаты:</b></p>
  * <ul>
- *   <li>{@code WIN} - Обычный выигрыш.</li>
- *   <li>{@code JACKPOT} - Выигрыш джекпота.</li>
- *   <li>{@code FREESPIN} - Выигрыш, полученный в результате бесплатных вращений.</li>
+ *   <li>Запрос {@code /win} возвращает {@code 200 OK} для всех типов операций.</li>
+ *   <li>Запрос {@code /refund} завершается ошибкой {@code 400 BAD REQUEST} с кодом {@code REFUND_NOT_ALLOWED}.</li>
+ *   <li>Тело ошибки содержит ожидаемое сообщение и код.</li>
  * </ul>
- *
- * @see NatsGamblingTransactionOperation
- * @see GamblingErrors#REFUND_NOT_ALLOWED
  */
 @Severity(SeverityLevel.CRITICAL)
 @Epic("Gambling")
 @Feature("/refund")
 @Suite("Негативные сценарии: /refund")
-@Tag("Gambling") @Tag("Wallet")
+@Tag("Gambling") @Tag("Wallet7")
 class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
 
-    private static final BigDecimal initialAdjustmentAmount = new BigDecimal("150.00");
+    private static final BigDecimal INITIAL_ADJUSTMENT_AMOUNT = new BigDecimal("150.00");
+    private String casinoId;
+
+    @BeforeEach
+    void setUp() {
+        casinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
+    }
 
     static Stream<Arguments> winLikeTransactionTypeProvider() {
         return Stream.of(
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.WIN
                 ),
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.JACKPOT
                 ),
-                arguments(
-                        generateBigDecimalAmount(initialAdjustmentAmount),
+                Arguments.of(
+                        generateBigDecimalAmount(INITIAL_ADJUSTMENT_AMOUNT),
                         NatsGamblingTransactionOperation.FREESPIN
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.WIN
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.JACKPOT
                 ),
-                arguments(
+                Arguments.of(
                         BigDecimal.ZERO,
                         NatsGamblingTransactionOperation.FREESPIN
                 )
@@ -112,17 +106,37 @@ class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
     }
 
     /**
-     * Тестирует невозможность выполнения рефанда для транзакции выигрыша.
+     * Имитирует начисление выигрыша и проверяет невозможность рефанда.
      *
-     * @param winAmountParam Сумма исходной транзакции выигрыша (может быть 0).
-     * @param winOperationTypeParam Тип операции выигрыша (WIN, JACKPOT, FREESPIN).
+     * <p><b>Идея теста:</b>
+     * Совершить выигрыш выбранного типа и убедиться, что попытка рефанда завершается ошибкой.</p>
+     *
+     * <p><b>Ключевые аспекты проверки (Что и почему):</b></p>
+     * <ul>
+     *   <li><b>HTTP API:</b>
+     *     <p><b>Что проверяем:</b> статусы и тело ошибок для вызовов {@code /win} и {@code /refund}.</p>
+     *     <p><b>Почему это важно:</b> корректная обработка исключений исключает нарушение финансовой логики.</p>
+     *   </li>
+     *   <li><b>Сообщение об ошибке:</b>
+     *     <p><b>Что проверяем:</b> код {@code REFUND_NOT_ALLOWED} и соответствующее сообщение.</p>
+     *     <p><b>Почему это важно:</b> пользователи и интеграции получают однозначную причину отказа.</p>
+     *   </li>
+     * </ul>
+     *
+     * <p><b>Ожидаемые результаты:</b></p>
+     * <ul>
+     *   <li>Выигрыш фиксируется успешно.</li>
+     *   <li>Рефанд завершается ошибкой {@code 400 BAD REQUEST}.</li>
+     *   <li>Ответ содержит код {@code REFUND_NOT_ALLOWED} и ожидаемое сообщение.</li>
+     * </ul>
+     *
+     * @param winAmountParam сумма исходной транзакции выигрыша (может быть {@code 0})
+     * @param winOperationTypeParam тип операции выигрыша ({@link NatsGamblingTransactionOperation})
      */
     @ParameterizedTest(name = "транзакция типа [{1}] суммой [{0}] должна вызвать ошибку")
     @MethodSource("winLikeTransactionTypeProvider")
     @DisplayName("Попытка рефанда:")
     void test(BigDecimal winAmountParam, NatsGamblingTransactionOperation winOperationTypeParam) {
-        final String casinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
-
         final class TestContext {
             RegisteredPlayerData registeredPlayer;
             GameLaunchData gameLaunchData;
@@ -131,7 +145,7 @@ class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
         final TestContext ctx = new TestContext();
 
         step("Default Step: Регистрация нового пользователя", () -> {
-            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(initialAdjustmentAmount);
+            ctx.registeredPlayer = defaultTestSteps.registerNewPlayer(INITIAL_ADJUSTMENT_AMOUNT);
             assertNotNull(ctx.registeredPlayer, "default_step.registration");
         });
 
@@ -142,7 +156,7 @@ class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Совершение исходной транзакции выигрыша", () -> {
             ctx.winRequestBody = WinRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .type(winOperationTypeParam)
@@ -160,7 +174,7 @@ class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
 
         step("Manager API: Попытка выполнения рефанда для транзакции выигрыша", () -> {
             var refundRequestBody = RefundRequestBody.builder()
-                    .sessionToken(ctx.gameLaunchData.getDbGameSession().getGameSessionUuid())
+                    .sessionToken(ctx.gameLaunchData.dbGameSession().getGameSessionUuid())
                     .amount(winAmountParam)
                     .transactionId(UUID.randomUUID().toString())
                     .betTransactionId(ctx.winRequestBody.getTransactionId())
@@ -183,8 +197,8 @@ class RefundAfterWinParametrizedTest extends BaseParameterizedTest {
             assertAll("manager_api.refund.after_win.error_validation",
                     () -> assertEquals(HttpStatus.BAD_REQUEST.value(), thrownException.status(), "manager_api.refund.status_code"),
                     () -> assertNotNull(error, "manager_api.refund.body"),
-                    () -> assertEquals(GamblingErrors.REFUND_NOT_ALLOWED.getCode(), error.getCode(), "manager_api.refund.error_code"),
-                    () -> assertEquals(GamblingErrors.REFUND_NOT_ALLOWED.getMessage(), error.getMessage(), "manager_api.refund.error_message")
+                    () -> assertEquals(GamblingErrors.REFUND_NOT_ALLOWED.getCode(), error.code(), "manager_api.refund.error_code"),
+                    () -> assertEquals(GamblingErrors.REFUND_NOT_ALLOWED.getMessage(), error.message(), "manager_api.refund.error_message")
             );
         });
     }

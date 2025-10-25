@@ -79,8 +79,8 @@ class RefundForNonExistingBetParameterizedTest extends BaseParameterizedTest {
         step("Manager API: Попытка зарегистрировать рефанд для несуществующей ставки", () -> {
             var refundInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.REFUND)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .summ(refundSumForRequest.toPlainString())
                     .totalCoef(refundCoefficientForRequest)
                     .couponType(couponType)
@@ -93,9 +93,9 @@ class RefundForNonExistingBetParameterizedTest extends BaseParameterizedTest {
             assertAll("Проверка статус-кода и тела ответа при попытке рефанда для несуществующей ставки",
                     () -> assertEquals(HttpStatus.OK, response.getStatusCode(), "manager_api.refund_non_existing.status_code"),
                     () -> assertNotNull(response.getBody(), "manager_api.refund_non_existing.body_is_null"),
-                    () -> assertFalse(response.getBody().isSuccess(), "manager_api.refund_non_existing.body.success"),
-                    () -> assertEquals(NOT_FOUND.getDescription(), response.getBody().getDescription(), "manager_api.refund_non_existing.body.description"),
-                    () -> assertEquals(NOT_FOUND.getCode(), response.getBody().getErrorCode(), "manager_api.refund_non_existing.body.errorCode")
+                    () -> assertFalse(response.getBody().success(), "manager_api.refund_non_existing.body.success"),
+                    () -> assertEquals(NOT_FOUND.getDescription(), response.getBody().description(), "manager_api.refund_non_existing.body.description"),
+                    () -> assertEquals(NOT_FOUND.getCode(), response.getBody().errorCode(), "manager_api.refund_non_existing.body.errorCode")
             );
         });
     }

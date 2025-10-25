@@ -1,4 +1,5 @@
 package com.uplatform.wallet_tests.tests.wallet.gambling.balance;
+import com.testing.multisource.config.modules.http.HttpServiceHelper;
 import com.uplatform.wallet_tests.tests.base.BaseParameterizedTest;
 
 import com.uplatform.wallet_tests.allure.Suite;
@@ -63,7 +64,7 @@ class GetBalanceNegativeParametrizedTest extends BaseParameterizedTest {
             Integer expectedErrorCode,
             String expectedMessageSubstring)
     {
-        final String validCasinoId = configProvider.getEnvironmentConfig().getApi().getManager().getCasinoId();
+        final String validCasinoId = HttpServiceHelper.getManagerCasinoId(configProvider.getEnvironmentConfig().getHttp());
 
         step("Manager API: Попытка получения баланса с невалидными данными - " + description, () -> {
             var queryString = (sessionTokenToTest == null) ? null : "sessionToken=" + sessionTokenToTest;
@@ -87,8 +88,8 @@ class GetBalanceNegativeParametrizedTest extends BaseParameterizedTest {
 
             assertAll(
                     () -> assertEquals(expectedStatus.value(), thrownException.status(), "manager_api.balance.status_code"),
-                    () -> assertEquals(expectedErrorCode, error.getCode(), "manager_api.balance.error_code"),
-                    () -> assertTrue(error.getMessage().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.balance.error_message")
+                    () -> assertEquals(expectedErrorCode, error.code(), "manager_api.balance.error_code"),
+                    () -> assertTrue(error.message().toLowerCase().contains(expectedMessageSubstring.toLowerCase()), "manager_api.balance.error_message")
             );
         });
     }

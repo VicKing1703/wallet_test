@@ -7,7 +7,7 @@ import com.uplatform.wallet_tests.api.http.fapi.dto.casino_loss.SetCasinoLossLim
 import com.uplatform.wallet_tests.api.http.manager.dto.betting.MakePaymentRequest;
 import com.uplatform.wallet_tests.api.nats.dto.NatsBettingEventPayload;
 import com.uplatform.wallet_tests.api.nats.dto.NatsLimitChangedV2Payload;
-import com.uplatform.wallet_tests.api.nats.dto.NatsMessage;
+import com.testing.multisource.api.nats.dto.NatsMessage;
 import com.uplatform.wallet_tests.api.nats.dto.enums.*;
 import com.uplatform.wallet_tests.tests.default_steps.dto.RegisteredPlayerData;
 import com.uplatform.wallet_tests.tests.util.utils.MakePaymentData;
@@ -20,8 +20,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
-import java.util.Objects;
-import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import static com.uplatform.wallet_tests.tests.util.utils.MakePaymentRequestGenerator.generateRequest;
@@ -100,32 +98,28 @@ class CasinoLossLimitWhenRecalculateLossToWinParameterizedTest extends BaseParam
 
         step("Public API: Установка лимита на проигрыш", () -> {
             var request = SetCasinoLossLimitRequest.builder()
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .type(periodType)
                     .amount(limitAmountBase.toString())
                     .startedAt((int) (System.currentTimeMillis() / 1000))
                     .build();
 
             var response = publicClient.setCasinoLossLimit(
-                    ctx.registeredPlayer.getAuthorizationResponse().getBody().getToken(),
+                    ctx.registeredPlayer.authorizationResponse().getBody().getToken(),
                     request);
             assertEquals(HttpStatus.CREATED, response.getStatusCode(), "fapi.set_casino_loss_limit.status_code");
 
             step("Sub-step NATS: получение события limit_changed_v2", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-                BiPredicate<NatsLimitChangedV2Payload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.LIMIT_CHANGED_V2.getHeaderValue().equals(typeHeader) &&
-                                payload.getLimits() != null && !payload.getLimits().isEmpty() &&
-                                NatsLimitType.CASINO_LOSS.getValue().equals(payload.getLimits().get(0).getLimitType()) &&
-                                periodType.getValue().equals(payload.getLimits().get(0).getIntervalType()) &&
-                                request.getCurrency().equals(payload.getLimits().get(0).getCurrencyCode());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.limitCreateEvent = natsClient.expect(NatsLimitChangedV2Payload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.LIMIT_CHANGED_V2.getHeaderValue())
+                    .with("$.limits[0].limit_type", NatsLimitType.CASINO_LOSS.getValue())
+                    .with("$.limits[0].interval_type", periodType.getValue())
+                    .with("$.limits[0].currency_code", request.currency())
                     .fetch();
                 assertNotNull(ctx.limitCreateEvent, "nats.limit_changed_v2_event");
             });
@@ -134,10 +128,10 @@ class CasinoLossLimitWhenRecalculateLossToWinParameterizedTest extends BaseParam
         step("Manager API: Совершение ставки на спорт (BET)", () -> {
             ctx.betInputData = MakePaymentData.builder()
                     .type(NatsBettingTransactionOperation.BET)
-                    .playerId(ctx.registeredPlayer.getWalletData().getPlayerUUID())
+                    .playerId(ctx.registeredPlayer.walletData().playerUUID())
                     .summ(betAmount.toPlainString())
                     .couponType(NatsBettingCouponType.SINGLE)
-                    .currency(ctx.registeredPlayer.getWalletData().getCurrency())
+                    .currency(ctx.registeredPlayer.walletData().currency())
                     .build();
 
             ctx.betRequestBody = generateRequest(ctx.betInputData);
@@ -160,46 +154,44 @@ class CasinoLossLimitWhenRecalculateLossToWinParameterizedTest extends BaseParam
 
             step("Sub-step NATS: Проверка поступления события recalculated_from_iframe", () -> {
                 var subject = natsClient.buildWalletSubject(
-                        ctx.registeredPlayer.getWalletData().getPlayerUUID(),
-                        ctx.registeredPlayer.getWalletData().getWalletUUID());
-
-                BiPredicate<NatsBettingEventPayload, String> filter = (payload, typeHeader) ->
-                        NatsEventType.RECALCULATED_FROM_IFRAME.getHeaderValue().equals(typeHeader) &&
-                                Objects.equals(ctx.betRequestBody.getBetId(), payload.getBetId());
+                        ctx.registeredPlayer.walletData().playerUUID(),
+                        ctx.registeredPlayer.walletData().walletUUID());
 
                 ctx.recalculatedEvent = natsClient.expect(NatsBettingEventPayload.class)
                     .from(subject)
-                    .matching(filter)
+                    .withType(NatsEventType.RECALCULATED_FROM_IFRAME.getHeaderValue())
+                    .with("$.bet_id", ctx.betRequestBody.getBetId())
                     .fetch();
 
                 assertAll("nats.recalculated_from_iframe_event.content_validation",
                         () -> assertNotNull(ctx.recalculatedEvent, "nats.recalculated_from_iframe_event"),
-                        () -> assertEquals(0, winAmountRecalculated.compareTo(ctx.recalculatedEvent.getPayload().getAmount()), "nats.recalculated_from_iframe_event.payload.amount"),
-                        () -> assertEquals(NatsBettingTransactionOperation.WIN, ctx.recalculatedEvent.getPayload().getType(), "nats.recalculated_from_iframe_event.payload.operation"),
-                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().getBetId(), "nats.recalculated_from_iframe_event.payload.betId")
+                        () -> assertEquals(0, winAmountRecalculated.compareTo(ctx.recalculatedEvent.getPayload().amount()), "nats.recalculated_from_iframe_event.payload.amount"),
+                        () -> assertEquals(NatsBettingTransactionOperation.WIN, ctx.recalculatedEvent.getPayload().type(), "nats.recalculated_from_iframe_event.payload.operation"),
+                        () -> assertEquals(ctx.betRequestBody.getBetId(), ctx.recalculatedEvent.getPayload().betId(), "nats.recalculated_from_iframe_event.payload.betId")
                 );
             });
         });
 
         step("Redis(Wallet): Проверка состояния лимита в агрегате после всех операций", () -> {
-            var aggregate = redisClient.getWalletDataWithSeqCheck(
-                    ctx.registeredPlayer.getWalletData().getWalletUUID(),
-                    (int) ctx.recalculatedEvent.getSequence());
+            var aggregate = redisWalletClient
+                    .key(ctx.registeredPlayer.walletData().walletUUID())
+                    .withAtLeast("LastSeqNumber", (int) ctx.recalculatedEvent.getSequence())
+                    .fetch();
 
             assertAll("redis.wallet.limit_data_validation",
-                    () -> assertEquals((int) ctx.recalculatedEvent.getSequence(), aggregate.getLastSeqNumber(), "redis.wallet.last_seq_number"),
-                    () -> assertFalse(aggregate.getLimits().isEmpty(), "redis.wallet.limits_list_not_empty"),
+                    () -> assertEquals((int) ctx.recalculatedEvent.getSequence(), aggregate.lastSeqNumber(), "redis.wallet.last_seq_number"),
+                    () -> assertFalse(aggregate.limits().isEmpty(), "redis.wallet.limits_list_not_empty"),
                     () -> {
-                        var limitOpt = aggregate.getLimits().stream()
+                        var limitOpt = aggregate.limits().stream()
                                 .filter(l -> NatsLimitType.CASINO_LOSS.getValue().equals(l.getLimitType()) &&
                                         periodType.getValue().equals(l.getIntervalType()) &&
-                                        ctx.registeredPlayer.getWalletData().getCurrency().equals(l.getCurrencyCode()))
+                                        ctx.registeredPlayer.walletData().currency().equals(l.getCurrencyCode()))
                                 .findFirst();
                         assertTrue(limitOpt.isPresent(), "redis.wallet.casino_loss_limit_present");
                         var limit = limitOpt.get();
-                        assertEquals(0, ctx.expectedRestAmountAfterOperations.compareTo(limit.getRest()), "redis.wallet.limit.rest");
-                        assertEquals(0, ctx.expectedSpentAmountAfterOperations.compareTo(limit.getSpent()), "redis.wallet.limit.spent");
-                        assertEquals(0, limitAmountBase.compareTo(limit.getAmount()), "redis.wallet.limit.amount");
+                        assertEquals(0, ctx.expectedRestAmountAfterOperations.compareTo(limit.rest()), "redis.wallet.limit.rest");
+                        assertEquals(0, ctx.expectedSpentAmountAfterOperations.compareTo(limit.spent()), "redis.wallet.limit.spent");
+                        assertEquals(0, limitAmountBase.compareTo(limit.amount()), "redis.wallet.limit.amount");
                     }
             );
         });
