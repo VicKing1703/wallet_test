@@ -99,9 +99,9 @@ class CreateCategoryV2ParameterizedTest extends BaseParameterizedTest {
                     .build();
 
             ctx.createCategoryResponseV2 = capAdminClient.createCategoryV2(
-                            utils.getAuthorizationHeader(),
-                            configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                            ctx.createCategoryRequestV2
+                    utils.getAuthorizationHeader(),
+                    configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
+                    ctx.createCategoryRequestV2
                     );
 
             assertAll("Проверка ответа создания категории",

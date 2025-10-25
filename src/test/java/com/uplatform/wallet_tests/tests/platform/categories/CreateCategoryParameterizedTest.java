@@ -97,8 +97,7 @@ class CreateCategoryParameterizedTest extends BaseParameterizedTest {
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, titleLengths)))
                     .build();
 
-            ctx.createCategoryResponse =
-                    capAdminClient.createCategory(
+            ctx.createCategoryResponse = capAdminClient.createCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
                     ctx.createCategoryRequest
