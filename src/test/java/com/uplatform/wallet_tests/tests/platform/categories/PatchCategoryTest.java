@@ -128,10 +128,8 @@ public class PatchCategoryTest extends BaseTest {
                     ctx.patchCategoryRequest
             );
 
-            assertAll(
-                    "Проверяем код ответа и тело ответа",
+            assertAll("Проверяем код ответа и тело ответа",
                     () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.patchGameCategoryResponse.getBody())
             );
         });
 

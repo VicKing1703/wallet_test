@@ -1,9 +1,10 @@
 package com.uplatform.wallet_tests.api.db;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.testing.multisource.api.attachment.AllureAttachmentService;
+import com.testing.multisource.api.db.AbstractDatabaseClient;
 import com.uplatform.wallet_tests.api.db.entity.core.*;
 import com.uplatform.wallet_tests.api.db.repository.core.*;
-import com.uplatform.wallet_tests.api.attachment.AllureAttachmentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
