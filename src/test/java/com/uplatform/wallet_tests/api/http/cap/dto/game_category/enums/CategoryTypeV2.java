@@ -1,4 +1,4 @@
-package com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.enums;
+package com.uplatform.wallet_tests.api.http.cap.dto.game_category.enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -11,10 +11,10 @@ import java.util.stream.Collectors;
 
 @Getter
 @RequiredArgsConstructor
-public enum CategoryType {
-    NAVIGATION_PANEL("navigationPanel"),
-    HORIZONTAL("horizontal"),
-    VERTICAL("vertical"),
+public enum CategoryTypeV2 {
+    CATEGORY("category"),
+    COLLECTION("collection"),
+    SUBCATEGORY("subcategory"),
     ALL_GAMES("allGames"),
     UNKNOWN("UNKNOWN"),
     EMPTY("");
@@ -22,18 +22,18 @@ public enum CategoryType {
     @JsonValue
     private final String value;
 
-    private static final Map<String, CategoryType> valueMap =
+    private static final Map<String, CategoryTypeV2> valueMap =
             Arrays.stream(values())
-                    .collect(Collectors.toMap(CategoryType::getValue, Function.identity()));
+                    .collect(Collectors.toMap(CategoryTypeV2::getValue, Function.identity()));
 
     @JsonCreator
-    public static CategoryType fromValue(String value) {
+    public static CategoryTypeV2 fromValue(String value) {
         if (value == null) {
-            throw new IllegalArgumentException("Cannot deserialize CategoryType from null JSON value");
+            throw new IllegalArgumentException("Cannot deserialize GameCategoryTypeV2 from null JSON value");
         }
-        CategoryType result = valueMap.get(value);
+        CategoryTypeV2 result = valueMap.get(value);
         if (result == null) {
-            throw new IllegalArgumentException("Unknown value for CategoryType: " + value);
+            throw new IllegalArgumentException("Unknown value for GameCategoryTypeV2: " + value);
         }
         return result;
     }

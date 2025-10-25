@@ -3,10 +3,12 @@ package com.uplatform.wallet_tests.tests.platform.categories;
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGameCategory;
 import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.*;
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.enums.CategoryType;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.enums.CategoryType;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.BindGameCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.CreateCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.CreateCategoryResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.DeleteCategoryRequest;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
-import com.uplatform.wallet_tests.tests.util.utils.RetryUtils;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Severity;
@@ -34,9 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <h3> Сценарий: Добавление игр в категорию.</h3>
  * <ol>
  *      <li><b>Предусловие. Создание новой категории.</b>
- *  {@link CreateGameCategoryParameterizedTest}</li>
+ *  {@link CreateCategoryParameterizedTest}</li>
  *      <li><b>Предусловие. Нахождение созданной категории в БД.</b>
- *  {@link CreateGameCategoryParameterizedTest}</li>
+ *  {@link CreateCategoryParameterizedTest}</li>
  *      <li><b>Получение случайных UUID игр из БД.</b>
  *  Получение случайных uuid игр из БД {@code ..._core.game}</li>
  *      <li><b>Добавление игр в категорию:</b>
@@ -46,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *  Проверяем в таблице {@code ..._core.game_categories_games},
  *  что у игры появилась категория по uuid игры и uuid категории</li>
  *      <li><b>Проверяем сообщение в Кафке.</b></li>
- *      <li><b>Постусловие. Удаление созданной категории.</b> {@link DeleteGameCategoryTest}</li>
+ *      <li><b>Постусловие. Удаление созданной категории.</b> {@link DeleteCategoryTest}</li>
  * </ol>
  */
 
@@ -56,13 +58,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Suite("Позитивный сценарий: Действия с категориями")
 @Tag("Platform") @Tag("GameCategory") @Tag("BindGameCategory")
 @Execution(ExecutionMode.SAME_THREAD)
-public class BindGameCategoryTest extends BaseTest {
+public class BindCategoryTest extends BaseTest {
 
     static final class TestContext {
-        CreateGameCategoryRequest createGameCategoryRequest;
-        ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
+        CreateCategoryRequest createCategoryRequest;
+        ResponseEntity<CreateCategoryResponse> createGameCategoryResponse;
 
-        DeleteGameCategoryRequest deleteGameCategoryRequest;
+        DeleteCategoryRequest deleteCategoryRequest;
         ResponseEntity<Void> deleteGameCategoryResponse;
 
         CoreGameCategory category;
@@ -73,13 +75,13 @@ public class BindGameCategoryTest extends BaseTest {
         public List<String> randomGameUuids;
     }
 
-    private final BindGameCategoryTest.TestContext ctx = new BindGameCategoryTest.TestContext();
+    private final BindCategoryTest.TestContext ctx = new BindCategoryTest.TestContext();
 
     @BeforeEach
     void setUp() {
 
         step("1. Предусловие. Cоздание категории", () -> {
-            ctx.createGameCategoryRequest = CreateGameCategoryRequest
+            ctx.createCategoryRequest = CreateCategoryRequest
                     .builder()
                     .alias(get(ALIAS, 5))
                     .type(CategoryType.VERTICAL)
@@ -89,10 +91,10 @@ public class BindGameCategoryTest extends BaseTest {
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 5)))
                     .build();
 
-            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createCategory(
                             utils.getAuthorizationHeader(),
                             configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                            ctx.createGameCategoryRequest
+                            ctx.createCategoryRequest
             );
 
             assertAll("Проверяем код ответа и тело ответа",
@@ -155,12 +157,12 @@ public class BindGameCategoryTest extends BaseTest {
     void tearDown() {
 
         step("7. Постусловие. Удаление категории по ID", () -> {
-            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest
+            ctx.deleteCategoryRequest = DeleteCategoryRequest
                     .builder()
                     .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteCategory(
                             ctx.createGameCategoryResponse.getBody().getId(),
                             utils.getAuthorizationHeader(),
                             configProvider.getEnvironmentConfig().getPlatform().getNodeId()

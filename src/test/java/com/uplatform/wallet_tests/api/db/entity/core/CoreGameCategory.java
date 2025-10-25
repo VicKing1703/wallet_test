@@ -38,6 +38,9 @@ public class CoreGameCategory {
 
     private Integer sort;
 
+    @Column(name = "entity_sort")
+    private Integer entitySort;
+
     @Column(name = "project_group_uuid")
     private String projectGroupUuid;
 
@@ -47,12 +50,18 @@ public class CoreGameCategory {
     @Column(name = "is_default", nullable = false)
     private Integer isDefault;
 
+    @Column(name = "parent_uuid")
+    private String parentUuid;
+
     @Convert(converter = JsonMapStringConverter.class)
     @Column(name = "localized_names", nullable = false)
     private Map<String, String> localizedNames;
 
     @Column(nullable = false)
     private String type;
+
+    @Column(name = "entity_type", nullable = false)
+    private String entityType;
 
     @Column(nullable = false)
     private Integer cms;

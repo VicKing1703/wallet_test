@@ -1,4 +1,4 @@
-package com.uplatform.wallet_tests.api.http.cap.dto.gameCategory;
+package com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,7 +7,7 @@ import java.util.Map;
 
 @Data
 @NoArgsConstructor
-public class GetGameCategoryResponse {
+public class GetCategoryResponse {
     private String id;
     private String name;
     private String alias;

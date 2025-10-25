@@ -11,6 +11,7 @@ import java.util.Arrays;
 @Getter
 @RequiredArgsConstructor
 public enum EnvironmentHost {
+    BETA_02("beta-02", "https://beta-02.b2bdev.pro"),
     BETA_09("beta-09", "https://beta-09.b2bdev.pro");
 
     private final String envName;

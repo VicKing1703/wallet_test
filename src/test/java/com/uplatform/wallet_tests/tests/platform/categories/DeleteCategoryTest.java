@@ -1,13 +1,14 @@
 package com.uplatform.wallet_tests.tests.platform.categories;
 
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.*;
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.enums.CategoryType;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.enums.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.CreateCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.CreateCategoryResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.DeleteCategoryRequest;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v3.game.GameCategoryEvent;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v3.game.enums.GameEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.tests.util.utils.RetryUtils;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,9 +32,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * <h3> Сценарий: Успешное удаление игровой категории.</h3>
  * <ol>
  *      <li><b>Предусловие. Создание новой категории.</b>
- *  {@link CreateGameCategoryParameterizedTest}</li>
+ *  {@link CreateCategoryParameterizedTest}</li>
  *      <li><b>Предусловие. Нахождение созданной категории в БД.</b>
- *  {@link CreateGameCategoryParameterizedTest}</li>
+ *  {@link CreateCategoryParameterizedTest}</li>
  *      <li><b>Удаление созданной категории.</b>
  *  Успешное удаление созданной категории по API CAP, по ручке {@code DELETE /_cap/api/v1/categories/{uuid}},
  *  по uuid из ответа на создание. В ответ получаем код 204</li>
@@ -51,13 +52,13 @@ import static org.junit.jupiter.api.Assertions.*;
 @Suite("Позитивный сценарий: Действия с категориями")
 @Tag("Platform") @Tag("GameCategory") @Tag("DeleteGameCategory")
 @Execution(ExecutionMode.SAME_THREAD)
-public class DeleteGameCategoryTest extends BaseTest{
+public class DeleteCategoryTest extends BaseTest{
 
     static final class TestContext {
-        CreateGameCategoryRequest createGameCategoryRequest;
-        ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
+        CreateCategoryRequest createCategoryRequest;
+        ResponseEntity<CreateCategoryResponse> createGameCategoryResponse;
 
-        DeleteGameCategoryRequest deleteGameCategoryRequest;
+        DeleteCategoryRequest deleteCategoryRequest;
         ResponseEntity<Void> deleteGameCategoryResponse;
 
         GameCategoryEvent gameCategoryEvent;
@@ -69,7 +70,7 @@ public class DeleteGameCategoryTest extends BaseTest{
     void setUp() {
 
         step("1. Предусловие. Создание категории", () -> {
-            ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
+            ctx.createCategoryRequest = CreateCategoryRequest.builder()
                     .alias(get(ALIAS, 5))
                     .type(CategoryType.VERTICAL)
                     .sort(77)
@@ -78,10 +79,10 @@ public class DeleteGameCategoryTest extends BaseTest{
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 5)))
                     .build();
 
-            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createGameCategoryRequest
+                    ctx.createCategoryRequest
             );
 
             assertAll("Проверяем код ответа и тело ответа",
@@ -104,11 +105,11 @@ public class DeleteGameCategoryTest extends BaseTest{
     void shouldDeleteGameCategory() {
 
         step("3. Удаление категории по ID", () -> {
-            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.builder()
+            ctx.deleteCategoryRequest = DeleteCategoryRequest.builder()
                     .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteCategory(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
@@ -145,12 +146,12 @@ public class DeleteGameCategoryTest extends BaseTest{
                     // вопрос - зачем еще раз передавать название, но нет алиаса
                     () -> assertNotNull(ctx.gameCategoryEvent.getCategory().getName()),
                     () -> assertEquals(
-                            ctx.createGameCategoryRequest.getNames(),
+                            ctx.createCategoryRequest.getNames(),
                             ctx.gameCategoryEvent.getCategory().getLocalizedNames(),
                             "Localized names в Kafka должны совпадать с запросом"
                     ),
                     () -> assertEquals(
-                            ctx.createGameCategoryRequest.getType().getValue(),
+                            ctx.createCategoryRequest.getType().getValue(),
                             ctx.gameCategoryEvent.getCategory().getType(),
                             "Тип должен быть как в запросе"
                     ),

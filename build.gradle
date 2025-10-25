@@ -98,7 +98,14 @@ tasks.named('test', Test) {
 
 	if (project.hasProperty('env')) {
 		systemProperty 'env', project.getProperty('env')
+    } else {
+        systemProperty 'env', 'beta-09'
 	}
+
+    // ✅ Показываем текущее окружение
+    doFirst {
+        println "✅ Running tests on environment: " + (project.findProperty('env') ?: 'beta-09')
+    }
 
 	systemProperty 'file.encoding', 'UTF-8'
 	if (System.getProperty('os.name').toLowerCase().contains('windows')) {

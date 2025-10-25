@@ -1,12 +1,11 @@
 package com.uplatform.wallet_tests.tests.platform.categories;
 
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGameCategory;
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.*;
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.enums.CategoryType;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.enums.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.*;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
 import com.uplatform.wallet_tests.allure.Suite;
-import com.uplatform.wallet_tests.tests.util.utils.RetryUtils;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.parallel.Execution;
@@ -24,16 +23,16 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Этот тест проверяет API CAP на получение данных игровой категории.
  *
- * <h3> Сценарий: Успешное получение информации о игровой категории.</h3>
+ * <h3> Сценарий: Успешное получение информации об игровой категории.</h3>
  * <ol>
  *      <li><b>Предусловие. Создание новой категории.</b>
- *  {@link CreateGameCategoryParameterizedTest}</li>
+ *  {@link CreateCategoryParameterizedTest}</li>
  *      <li><b>Предусловие. Нахождение созданной категории в БД.</b>
- *  {@link CreateGameCategoryParameterizedTest}</li>
+ *  {@link CreateCategoryParameterizedTest}</li>
  *      <li><b>Получение информации по категории:</b>
  *  Получение информации о категории по API CAP, по ручке {@code GET  /_cap/api/v1/categories/{uuid}}.
  *  В ответе есть все обязательные поля</li>
- *      <li><b>Постусловие. Удаление созданной категории.</b> {@link DeleteGameCategoryTest}</li>
+ *      <li><b>Постусловие. Удаление созданной категории.</b> {@link DeleteCategoryTest}</li>
  * </ol>
  */
 
@@ -43,16 +42,16 @@ import static org.junit.jupiter.api.Assertions.*;
 @Suite("Позитивный сценарий: Действия с категориями")
 @Tag("Platform") @Tag("GameCategory") @Tag("GetGameCategory")
 @Execution(ExecutionMode.SAME_THREAD)
-class GetGameCategoryTest extends BaseTest {
+class GetCategoryTest extends BaseTest {
 
     static final class TestContext {
-        CreateGameCategoryRequest createGameCategoryRequest;
-        ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
+        CreateCategoryRequest createCategoryRequest;
+        ResponseEntity<CreateCategoryResponse> createGameCategoryResponse;
 
-        GetGameCategoryRequest getGameCategoryIdRequest;
-        ResponseEntity<GetGameCategoryResponse> getGameCategoryResponse;
+        GetCategoryRequest getGameCategoryIdRequest;
+        ResponseEntity<GetCategoryResponse> getGameCategoryResponse;
 
-        DeleteGameCategoryRequest deleteGameCategoryRequest;
+        DeleteCategoryRequest deleteCategoryRequest;
         ResponseEntity<Void> deleteGameCategoryResponse;
 
         CoreGameCategory category;
@@ -64,7 +63,7 @@ class GetGameCategoryTest extends BaseTest {
     void setUp() {
 
         step("1. Предусловие. Cоздание категории", () -> {
-            ctx.createGameCategoryRequest = CreateGameCategoryRequest
+            ctx.createCategoryRequest = CreateCategoryRequest
                     .builder()
                     .alias(get(ALIAS, 5))
                     .type(CategoryType.VERTICAL)
@@ -74,10 +73,10 @@ class GetGameCategoryTest extends BaseTest {
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 5)))
                     .build();
 
-            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createGameCategoryRequest
+                    ctx.createCategoryRequest
             );
 
             assertAll("Проверяем код ответа и тело ответа",
@@ -105,12 +104,12 @@ class GetGameCategoryTest extends BaseTest {
     void shouldGetCategory() {
 
         step("3. Получение категории по ID", () -> {
-            ctx.getGameCategoryIdRequest = GetGameCategoryRequest
+            ctx.getGameCategoryIdRequest = GetCategoryRequest
                     .builder()
                     .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.getGameCategoryResponse = capAdminClient.getGameCategoryId(
+            ctx.getGameCategoryResponse = capAdminClient.getCategoryById(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
@@ -124,15 +123,15 @@ class GetGameCategoryTest extends BaseTest {
                             "uuid при создании и из получения должны быть одинаковые"),
                     () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getName(),
                             "Ожидаем имя (name) в теле"),
-                    () -> assertEquals(ctx.createGameCategoryRequest.getAlias(),
+                    () -> assertEquals(ctx.createCategoryRequest.getAlias(),
                             ctx.getGameCategoryResponse.getBody().getAlias(),
                             "alias при создании и из получения должны быть одинаковые"),
-                    () -> assertEquals(ctx.createGameCategoryRequest.getProjectId(),
+                    () -> assertEquals(ctx.createCategoryRequest.getProjectId(),
                             ctx.getGameCategoryResponse.getBody().getProjectId(),
                             "Ожидаем uuid проекта (projectId) в теле такой-же как при создании"),
                     () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getGroupId(),
                             "Ожидаем пустое значение группы проектов (groupId)"),
-                    () -> assertEquals(ctx.createGameCategoryRequest.getType().getValue(),
+                    () -> assertEquals(ctx.createCategoryRequest.getType().getValue(),
                             ctx.getGameCategoryResponse.getBody().getType(),
                             "type при создании и из получения должны быть одинаковые"),
                     () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getPassToCms(),
@@ -147,7 +146,7 @@ class GetGameCategoryTest extends BaseTest {
                             "Ожидаем Sort в теле"),
                     () -> assertNotNull(ctx.getGameCategoryResponse.getBody().getIsDefault(),
                             "Ожидаем IsDefault в теле"),
-                    () -> assertEquals(ctx.createGameCategoryRequest.getNames().get(LangEnum.RUSSIAN),
+                    () -> assertEquals(ctx.createCategoryRequest.getNames().get(LangEnum.RUSSIAN),
                             ctx.getGameCategoryResponse.getBody().getNames().get("ru"),
                             "names при создании и из получения должны быть одинаковые")
             );
@@ -158,12 +157,12 @@ class GetGameCategoryTest extends BaseTest {
     void tearDown() {
 
         step("4. Постусловие. Удаление категории по ID", () -> {
-            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest
+            ctx.deleteCategoryRequest = DeleteCategoryRequest
                     .builder()
                     .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteCategory(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()

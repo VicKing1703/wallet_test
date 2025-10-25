@@ -2,13 +2,15 @@ package com.uplatform.wallet_tests.tests.platform.categories;
 
 import com.uplatform.wallet_tests.allure.Suite;
 import com.uplatform.wallet_tests.api.db.entity.core.CoreGameCategory;
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.*;
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.enums.CategoryType;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.enums.CategoryType;
 import com.uplatform.wallet_tests.api.http.cap.dto.enums.LangEnum;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.CreateCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.CreateCategoryResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.DeleteCategoryRequest;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.PatchCategoryRequest;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v3.game.GameCategoryEvent;
 import com.uplatform.wallet_tests.api.kafka.dto.core.gambling.v3.game.enums.GameEventType;
 import com.uplatform.wallet_tests.tests.base.BaseTest;
-import com.uplatform.wallet_tests.tests.util.utils.RetryUtils;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Severity;
@@ -31,16 +33,16 @@ import static org.junit.jupiter.api.Assertions.*;
  * <h3> Сценарий: Успешное изменение игровой категории.</h3>
  * <ol>
  *      <li><b>Предусловие. Создание новой категории.</b>
- *  {@link CreateGameCategoryParameterizedTest}</li>
+ *  {@link CreateCategoryParameterizedTest}</li>
  *      <li><b>Предусловие. Нахождение созданной категории в БД.</b>
- *  {@link CreateGameCategoryParameterizedTest}</li>
+ *  {@link CreateCategoryParameterizedTest}</li>
  *      <li><b>Изменение данных категории:</b>
  *  Изменение названия, алиаса и типа категории по API CAP, по ручке {@code PATCH  /_cap/api/v1/categories/{uuid}}</li>
  *      <li><b>Проверка обновления категории в БД: </b>{@code `_core`.game_category}</li>
  *      <li><b>Поиск сообщения в Кафке о создании категории: </b>
  * Проверяем в топике {@code core.gambling.v3.Game} сообщение об изменении категории, что его uuid соответствуют,
  * тип категории, статус и имена</li>
- *      <li><b>Постусловие: удаление созданной категории.</b> {@link DeleteGameCategoryTest}</li>
+ *      <li><b>Постусловие: удаление созданной категории.</b> {@link DeleteCategoryTest}</li>
  * </ol>
  */
 
@@ -50,16 +52,16 @@ import static org.junit.jupiter.api.Assertions.*;
 @Suite("Позитивный сценарий: Действия с категориями")
 @Tag("Platform") @Tag("GameCategory") @Tag("PatchGameCategory")
 @Execution(ExecutionMode.SAME_THREAD)
-public class PatchGameCategoryTest extends BaseTest {
+public class PatchCategoryTest extends BaseTest {
 
     static final class TestContext {
-        CreateGameCategoryRequest createGameCategoryRequest;
-        ResponseEntity<CreateGameCategoryResponse> createGameCategoryResponse;
+        CreateCategoryRequest createCategoryRequest;
+        ResponseEntity<CreateCategoryResponse> createGameCategoryResponse;
 
-        PatchGameCategoryRequest patchGameCategoryRequest;
-        ResponseEntity<PatchGameCategoryResponse> patchGameCategoryResponse;
+        PatchCategoryRequest patchCategoryRequest;
+        ResponseEntity<Void> patchGameCategoryResponse;
 
-        DeleteGameCategoryRequest deleteGameCategoryRequest;
+        DeleteCategoryRequest deleteCategoryRequest;
         ResponseEntity<Void> deleteGameCategoryResponse;
 
         CoreGameCategory category;
@@ -73,7 +75,7 @@ public class PatchGameCategoryTest extends BaseTest {
     void setUp() {
 
         step("1. Предусловие. Создание категории", () -> {
-            ctx.createGameCategoryRequest = CreateGameCategoryRequest.builder()
+            ctx.createCategoryRequest = CreateCategoryRequest.builder()
                     .alias(get(ALIAS, 7))
                     .type(CategoryType.VERTICAL)
                     .sort(99)
@@ -82,10 +84,10 @@ public class PatchGameCategoryTest extends BaseTest {
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 7)))
                     .build();
 
-            ctx.createGameCategoryResponse = capAdminClient.createGameCategory(
+            ctx.createGameCategoryResponse = capAdminClient.createCategory(
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.createGameCategoryRequest
+                    ctx.createCategoryRequest
             );
 
             assertAll(
@@ -111,7 +113,7 @@ public class PatchGameCategoryTest extends BaseTest {
     void shouldPatchCategory() {
 
         step("3. Изменение категории", () -> {
-            ctx.patchGameCategoryRequest = PatchGameCategoryRequest
+            ctx.patchCategoryRequest = PatchCategoryRequest
                     .builder()
                     .alias(get(ALIAS, 11))
                     .type(CategoryType.HORIZONTAL)
@@ -119,11 +121,11 @@ public class PatchGameCategoryTest extends BaseTest {
                     .names(Map.of(LangEnum.RUSSIAN, get(TITLE, 11)))
                     .build();
 
-            ctx.patchGameCategoryResponse = capAdminClient.patchGameCategory(
+            ctx.patchGameCategoryResponse = capAdminClient.patchCategory(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId(),
-                    ctx.patchGameCategoryRequest
+                    ctx.patchCategoryRequest
             );
 
             assertAll(
@@ -139,14 +141,14 @@ public class PatchGameCategoryTest extends BaseTest {
 
             assertAll("Проверка что есть категория с uuid как у созданной",
                     () -> assertEquals(ctx.category.getUuid(), ctx.createGameCategoryResponse.getBody().getId()),
-                    () -> assertEquals(ctx.patchGameCategoryRequest.getType().getValue(),
+                    () -> assertEquals(ctx.patchCategoryRequest.getType().getValue(),
                             ctx.category.getType(),
                             "Тип категории должен измениться на " + CategoryType.HORIZONTAL
                     ),
-                    () -> assertEquals(ctx.patchGameCategoryRequest.getAlias(), ctx.category.getAlias(),
+                    () -> assertEquals(ctx.patchCategoryRequest.getAlias(), ctx.category.getAlias(),
                             "Alias в БД должен обновиться"
                     ),
-                    () -> assertEquals(ctx.patchGameCategoryRequest.getNames().get(LangEnum.RUSSIAN),
+                    () -> assertEquals(ctx.patchCategoryRequest.getNames().get(LangEnum.RUSSIAN),
                             ctx.category.getLocalizedNames().get("ru"),
                             "Localized names в БД должны обновиться"
                     ),
@@ -175,12 +177,12 @@ public class PatchGameCategoryTest extends BaseTest {
                     // вопрос - зачем еще раз передавать название, но нет алиаса
                     () -> assertNotNull(ctx.gameCategoryEvent.getCategory().getName()),
                     () -> assertEquals(
-                            ctx.patchGameCategoryRequest.getNames(),
+                            ctx.patchCategoryRequest.getNames(),
                             ctx.gameCategoryEvent.getCategory().getLocalizedNames(),
                             "Localized names в Kafka должны совпадать с запросом"
                     ),
                     () -> assertEquals(
-                            ctx.patchGameCategoryRequest.getType().getValue(),
+                            ctx.patchCategoryRequest.getType().getValue(),
                             ctx.gameCategoryEvent.getCategory().getType(),
                             "Тип должен быть как в запросе"
                     ),
@@ -197,12 +199,12 @@ public class PatchGameCategoryTest extends BaseTest {
     void teatDown() {
 
         step("6. Постусловие. Удаление категории по ID", () -> {
-            ctx.deleteGameCategoryRequest = DeleteGameCategoryRequest.
+            ctx.deleteCategoryRequest = DeleteCategoryRequest.
                     builder()
                     .id(ctx.createGameCategoryResponse.getBody().getId())
                     .build();
 
-            ctx.deleteGameCategoryResponse = capAdminClient.deleteGameCategory(
+            ctx.deleteGameCategoryResponse = capAdminClient.deleteCategory(
                     ctx.createGameCategoryResponse.getBody().getId(),
                     utils.getAuthorizationHeader(),
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()

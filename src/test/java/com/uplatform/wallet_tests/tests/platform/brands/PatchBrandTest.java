@@ -52,7 +52,7 @@ public class PatchBrandTest extends BaseTest {
         ResponseEntity<CreateBrandResponse> createBrandResponse;
 
         PatchBrandRequest patchBrandRequest;
-        ResponseEntity<PatchBrandResponse> patchBrandResponse;
+        ResponseEntity<Void> patchBrandResponse;
 
         DeleteBrandRequest deleteBrandRequest;
         ResponseEntity<Void> deleteBrandResponse;
@@ -127,8 +127,7 @@ public class PatchBrandTest extends BaseTest {
             assertAll(
                     "Проверяем ответ",
                     () -> assertEquals(HttpStatus.OK, ctx.createBrandResponse.getStatusCode(),
-                            "Ожидался код 200, но получен: " + ctx.createBrandResponse.getStatusCode()),
-                    () -> assertNotNull(ctx.patchBrandResponse.getBody())
+                            "Ожидался код 200, но получен: " + ctx.createBrandResponse.getStatusCode())
             );
         });
 

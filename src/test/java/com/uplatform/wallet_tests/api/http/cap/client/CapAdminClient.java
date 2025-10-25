@@ -2,12 +2,16 @@ package com.uplatform.wallet_tests.api.http.cap.client;
 
 import com.uplatform.wallet_tests.api.http.cap.dto.brand.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.cancel_kyc_check.CancelKycCheckRequest;
-import com.uplatform.wallet_tests.api.http.cap.dto.gameCategory.*;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.check.CapTokenCheckResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_balance_adjustment.CreateBalanceAdjustmentRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountRequest;
 import com.uplatform.wallet_tests.api.http.cap.dto.create_block_amount.CreateBlockAmountResponse;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v1.*;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v2.CreateCategoryRequestV2;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v2.CreateCategoryResponseV2;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v2.GetCategoryResponseV2;
+import com.uplatform.wallet_tests.api.http.cap.dto.game_category.v2.PatchCategoryRequestV2;
 import com.uplatform.wallet_tests.api.http.cap.dto.get_block_amount_list.BlockAmountListResponseBody;
 import com.uplatform.wallet_tests.api.http.cap.dto.get_blockers.GetBlockersResponse;
 import com.uplatform.wallet_tests.api.http.cap.dto.get_player_limits.GetPlayerLimitsResponse;
@@ -111,41 +115,82 @@ public interface CapAdminClient {
      * <h5>Categories</h5>
      * <ol>
      * <li>Create game category</li>
+     * <li>Create game category V2</li>
      * <li>Get game category by id</li>
+     * <li>Get game category by id V2</li>
      * <li>Delete game category</li>
+     * <li>Delete game category V2</li>
      * <li>Update game category</li>
+     * <li>Update game category V2</li>
      * <li>Update game category status</li>
      * <li>Bind game to game category</li>
      * </ol>
     **/
 
     @PostMapping("/_cap/api/v1/categories")
-    ResponseEntity<CreateGameCategoryResponse> createGameCategory(
+    ResponseEntity<CreateCategoryResponse> createCategory(
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
-            @RequestBody CreateGameCategoryRequest request
+            @RequestBody CreateCategoryRequest request
+    );
+
+    @PostMapping("/_cap/api/v2/categories")
+    ResponseEntity<CreateCategoryResponseV2> createCategoryV2(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody CreateCategoryRequestV2 request
     );
 
     @GetMapping ("/_cap/api/v1/categories/{categoryId}")
-    ResponseEntity<GetGameCategoryResponse> getGameCategoryId(
+    ResponseEntity<GetCategoryResponse> getCategoryById(
+            @PathVariable("categoryId") String categoryId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId
+    );
+
+    @GetMapping ("/_cap/api/v2/categories/{categoryId}")
+    ResponseEntity<GetCategoryResponseV2> getCategoryByIdV2(
             @PathVariable("categoryId") String categoryId,
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId
     );
 
     @DeleteMapping("/_cap/api/v1/categories/{categoryId}")
-    ResponseEntity<Void> deleteGameCategory(
+    ResponseEntity<Void> deleteCategory(
+            @PathVariable("categoryId") String categoryId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId
+    );
+
+    @DeleteMapping("/_cap/api/v2/categories/{categoryId}")
+    ResponseEntity<Void> deleteCategoryV2(
             @PathVariable("categoryId") String categoryId,
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId
     );
 
     @PatchMapping("/_cap/api/v1/categories/{categoryId}")
-    ResponseEntity<PatchGameCategoryResponse> patchGameCategory(
+    ResponseEntity<Void> patchCategory(
             @PathVariable("categoryId") String categoryId,
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
-            @RequestBody PatchGameCategoryRequest request
+            @RequestBody PatchCategoryRequest request
+    );
+
+    @PatchMapping("/_cap/api/v2/categories/{categoryId}")
+    ResponseEntity<Void> patchCategoryV2(
+            @PathVariable("categoryId") String categoryId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody PatchCategoryRequestV2 request
+    );
+
+    @PatchMapping("/_cap/api/v1/categories/{categoryId}/status")
+    ResponseEntity<Void> patchCategoryStatusRequest(
+            @PathVariable("categoryId") String categoryId,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestHeader("Platform-NodeID") String platformNodeId,
+            @RequestBody PatchCategoryStatusRequest request
     );
 
     @PostMapping("/_cap/api/v1/categories/{categoryId}/bind-game")
@@ -190,7 +235,7 @@ public interface CapAdminClient {
     );
 
     @PatchMapping("/_cap/api/v1/brands/{brandId}")
-    ResponseEntity<PatchBrandResponse> patchBrand(
+    ResponseEntity<Void> patchBrand(
             @PathVariable("brandId") String brandId,
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
@@ -198,7 +243,7 @@ public interface CapAdminClient {
     );
 
     @PatchMapping("_cap/api/v1/brands/{brandId}/status")
-    ResponseEntity<PatchStatusBandResponse> patchStatusBrand(
+    ResponseEntity<Void> patchStatusBrand(
             @PathVariable("brandId") String brandId,
             @RequestHeader("Authtorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
@@ -247,7 +292,7 @@ public interface CapAdminClient {
     );
 
     @PatchMapping("/_cap/api/v1/labels/{labelId}")
-    ResponseEntity<PatchLabelResponse> patchLabel(
+    ResponseEntity<Void> patchLabel(
             @PathVariable("labelId") String labelId,
             @RequestHeader("Authorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
@@ -255,7 +300,7 @@ public interface CapAdminClient {
     );
 
     @PatchMapping("_cap/api/v1/labels/{labelId}/status")
-    ResponseEntity<PatchStatusLabelResponse> patchStatusLabel(
+    ResponseEntity<Void> patchStatusLabel(
             @PathVariable("labelId") String labelId,
             @RequestHeader("Authtorization") String authorizationHeader,
             @RequestHeader("Platform-NodeID") String platformNodeId,
