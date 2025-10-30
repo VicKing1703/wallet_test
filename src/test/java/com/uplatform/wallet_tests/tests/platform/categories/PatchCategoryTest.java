@@ -129,7 +129,7 @@ public class PatchCategoryTest extends BaseTest {
             );
 
             assertAll("Проверяем код ответа и тело ответа",
-                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode()),
+                    () -> assertEquals(HttpStatus.OK, ctx.createGameCategoryResponse.getStatusCode())
             );
         });
 

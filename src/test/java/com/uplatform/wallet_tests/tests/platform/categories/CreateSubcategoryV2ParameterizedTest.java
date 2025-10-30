@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *  Создание новой категории через CAP, по ручке {@code POST /_cap/api/v2/categories}.
  *  В ответе код 200 и уникальный uuid созданной категории</li>
  *      <li><b>Создание подкатегории:</b>
- *  Создание новой подкатегории через CAP, по ручке {@code POST /_cap/api/v2/categories}, с указанием parentCategoryId.
+ *  Создание новой подкатегории через CAP, по ручке {@code POST /_cap/api/v2/categories}, с указанием {@code parentCategoryId}.
  *  В ответе код 200 и уникальный uuid созданной категории</li>
  *      <li><b>Нахождение созданной подкатегории в БД:</b>
  *  В БД {@code `_core`.game_category} есть запись с uuid из ответа на создание категории,
@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *      <li><b>Поиск сообщения в Кафке о создании подкатегории: </b>
  *  Проверяем в топике {@code core.gambling.v3.Game} сообщение о создании подкатегории, что его uuid соответствуют,
  *  тип категории, статус и имена</li>
- *      <li><b>Постусловие: удаление созданной категории.</b> {@link DeleteCategoryTest}</li>
+ *      <li><b>Постусловие: удаление созданной категории.</b> {@link DeleteCategoryV2Test}</li>
  * </ol>
  */
 
@@ -147,15 +147,15 @@ class CreateSubcategoryV2ParameterizedTest extends BaseParameterizedTest {
             assertAll("Проверка что есть категория с uuid как у созданной",
                     () -> assertEquals(ctx.createSubcategoryResponseV2.getBody().getId(),
                             category.getUuid(),
-                            "Uuid из ответа и в БД должны быть одинаковые"
+                            "Uuid в БД должны быть " + ctx.createSubcategoryResponseV2.getBody().getId()
                     ),
                     () -> assertEquals(ctx.createSubcategoryRequestV2.getType().getValue(),
                             category.getEntityType(),
-                            "Тип категории при создании и в поле entityType должны быть одинаковые"
+                            "Тип категории в поле entityType должны быть " + ctx.createSubcategoryRequestV2.getType().getValue()
                     ),
                     () -> assertEquals(ctx.createSubcategoryRequestV2.getAlias(),
                             category.getAlias(),
-                            "Алиас из запроса и в БД должны быть одинаковые"
+                            "Алиас в БД должны быть " + ctx.createSubcategoryRequestV2.getAlias()
                     ),
                     () -> assertEquals(ctx.createCategoryResponseV2.getBody().getId(),
                             category.getParentUuid(),
@@ -182,17 +182,17 @@ class CreateSubcategoryV2ParameterizedTest extends BaseParameterizedTest {
                     ),
                     () -> assertEquals(ctx.createSubcategoryResponseV2.getBody().getId(),
                             ctx.gameCategoryEvent.getCategory().getUuid(),
-                            "UUID категории в Kafka должен совпадать с UUID из ответа"
+                            "UUID категории в Kafka должен быть " + ctx.createSubcategoryResponseV2.getBody().getId()
                     ),
                     // вопрос - зачем еще раз передавать название, но нет алиаса
                     () -> assertNotNull(ctx.gameCategoryEvent.getCategory().getName()),
                     () -> assertEquals(ctx.createSubcategoryRequestV2.getNames(),
                             ctx.gameCategoryEvent.getCategory().getLocalizedNames(),
-                            "Localized names в Kafka должны совпадать с запросом"
+                            "Localized names в Kafka должн быть " + ctx.createSubcategoryRequestV2.getNames()
                     ),
                     () -> assertEquals(ctx.createSubcategoryRequestV2.getType().getValue(),
                             ctx.gameCategoryEvent.getCategory().getType(),
-                            "Тип должен быть как в запросе"
+                            "Тип должен быть " + ctx.createSubcategoryRequestV2.getType().getValue()
                     ),
                     () -> assertEquals(DISABLED.status,
                             ctx.gameCategoryEvent.getCategory().getStatus(),
@@ -213,9 +213,8 @@ class CreateSubcategoryV2ParameterizedTest extends BaseParameterizedTest {
                     configProvider.getEnvironmentConfig().getPlatform().getNodeId()
             );
 
-
             assertEquals(HttpStatus.NO_CONTENT, ctx.deleteCategoryResponseV2.getStatusCode(),
-                    "Ожидаем статус 204 No Content"
+                    "Ожидаем статус " + HttpStatus.NO_CONTENT
             );
         });
     }
